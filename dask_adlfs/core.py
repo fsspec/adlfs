@@ -10,7 +10,7 @@ from dask.base import tokenize
 logger = logging.getLogger(__name__)
 
 
-class DaskAdlFileSystem(AzureDLFileSystem, core.FileSystem):
+class DaskAdlFileSystem(AzureDLFileSystem):
     """API spec for the methods a filesystem
 
     A filesystem must provide these methods, if it is to be registered as

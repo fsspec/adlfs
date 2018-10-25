@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(name='dask-adlfs',
       version='0.0.1',
-      description='Parallel PyData with Task Scheduling',
+      description='Access Azure Datalake Storage from Dask',
       url='https://github.com/dask/dask-adlfs/',
       maintainer='Martin Durant',
       maintainer_email='martin.durant@utoronto.ca',
