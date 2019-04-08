@@ -79,6 +79,6 @@ class DaskAdlFileSystem(AzureDLFileSystem):
     def _get_pyarrow_filesystem(self):
         """Get an equivalent pyarrow filesystem"""
         import pyarrow as pa
-        return pa.filesystem.ADLFSWrapper(self)
+        return pa.filesystem.AzureDatalakeFilesystemWrapper(self)
 
 core._filesystems['adl'] = DaskAdlFileSystem
