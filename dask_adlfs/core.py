@@ -1,42 +1,64 @@
+# -*- coding: utf-8 -*-
 from __future__ import print_function, division, absolute_import
 
 import logging
+from fsspec import AbstractFileSystem
+# from fsspec import AbstractBufferedFile
 from azure.datalake.store import lib, AzureDLFileSystem
 
-from dask.bytes import core
-from dask.bytes.utils import infer_storage_options
-from dask.base import tokenize
+from fsspec.utils import infer_storage_options
+
+# from dask.bytes import core
+# from dask.base import tokenize
 
 logger = logging.getLogger(__name__)
 
 
-class DaskAdlFileSystem(AzureDLFileSystem):
-    """API spec for the methods a filesystem
-
-    A filesystem must provide these methods, if it is to be registered as
-    a backend for dask.
-
-    Implementation for Azure Data Lake store
+class AzureDatalakeFileSystem(AbstractFileSystem):
     """
-    sep = '/'
+    Access Azure Datalake Gen1 as if it were a file system.
 
-    def __init__(self, tenant_id=None, client_id=None, client_secret=None,
-                 **kwargs):
+    This exposes a filesystem-like API on top of Azure Datalake Storage
+
+    Examples
+    _________
+    >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
+                                    client_secret="xxxx", storage_name="storage_account"
+                                    )
+        adl.ls('')
+
+    Parameters
+    __________
+    tenant_id: str
+        Azure tenant, also known as the subscription id
+    client_id: str
+        The username or serivceprincipal id
+    client_secret: str
+        The access key
+    
+    """
+
+    
+    def __init__(self, tenant_id=None, client_id=None, client_secret=None, store_name=None,
+                **kwargs):
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
-        self.store_name = kwargs['host']
+        self.store_name = store_name
         self.kwargs = kwargs
-        self.kwargs['store_name'] = kwargs['host']
+        self.adl_conn = None
         logger.debug("Init with kwargs: %s", self.kwargs)
-        self.do_connect()
+        if not self.kwargs['token']:
+            self.connect()
     
-    def do_connect(self):
-        token = lib.auth(tenant_id=self.tenant_id,
-                         client_id=self.client_id,
-                         client_secret=self.client_secret)
-        self.kwargs['token'] = token
-        AzureDLFileSystem.__init__(self, **self.kwargs)
+    def connect(self):
+        if not self.kwargs['token']:
+            token = lib.auth(tenant_id=self.tenant_id,
+                            client_id=self.client_id,
+                            client_secret=self.client_secret)
+            self.adl_client = AzureDLFileSystem(token=token, store_name=self.store_name)
+        else:
+            self.adl_client = AzureDLFileSystem(token=self.token, store_name=self.store_name)
 
     def _trim_filename(self, fn):
         so = infer_storage_options(fn)
@@ -45,8 +67,11 @@ class DaskAdlFileSystem(AzureDLFileSystem):
     def glob(self, path):
         """For a template path, return matching files"""
         adl_path = self._trim_filename(path)
-        return ['adl://%s.azuredatalakestore.net/%s' % (self.store_name, s)
-                for s in AzureDLFileSystem.glob(self, adl_path)]
+        print(adl_path)
+        print(self.store_name)
+        tf = f'adl://{self.store_name}.azuredatalakestore.net{adl_path}'
+        print(tf)
+        return [self.adl_conn.glob(self, tf)]
 
     def mkdirs(self, path):
         pass  # no need to pre-make paths on ADL
@@ -76,9 +101,3 @@ class DaskAdlFileSystem(AzureDLFileSystem):
         self.__dict__.update(state)
         self.do_connect()
 
-    def _get_pyarrow_filesystem(self):
-        """Get an equivalent pyarrow filesystem"""
-        import pyarrow as pa
-        return pa.filesystem.AzureDatalakeFilesystemWrapper(self)
-
-core._filesystems['adl'] = DaskAdlFileSystem
