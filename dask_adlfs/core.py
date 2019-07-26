@@ -8,9 +8,6 @@ from azure.datalake.store import lib, AzureDLFileSystem
 
 from fsspec.utils import infer_storage_options
 
-# from dask.bytes import core
-# from dask.base import tokenize
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,37 +26,39 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     Parameters
     __________
-    tenant_id: str
+    tenant_id:  string
         Azure tenant, also known as the subscription id
-    client_id: str
+    client_id: string
         The username or serivceprincipal id
-    client_secret: str
+    client_secret: string
         The access key
-    
+    store_name: string (None)
+        The name of the datalake account being accessed
     """
 
     
     def __init__(self, tenant_id=None, client_id=None, client_secret=None, store_name=None,
                 **kwargs):
+
+        super().__init__()
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
         self.store_name = store_name
+        self.client = None
         self.kwargs = kwargs
-        self.adl_conn = None
-        logger.debug("Init with kwargs: %s", self.kwargs)
-        if not self.kwargs['token']:
-            self.connect()
+        self.adl = self.connect()
+
     
     def connect(self):
-        if not self.kwargs['token']:
-            token = lib.auth(tenant_id=self.tenant_id,
-                            client_id=self.client_id,
-                            client_secret=self.client_secret)
-            self.adl_client = AzureDLFileSystem(token=token, store_name=self.store_name)
-        else:
-            self.adl_client = AzureDLFileSystem(token=self.token, store_name=self.store_name)
+        """  Establish an ADL Connection object  """
 
+        token = lib.auth(tenant_id=self.tenant_id,
+                        client_id=self.client_id,
+                        client_secret=self.client_secret)
+        self.adl = AzureDLFileSystem(token=token, store_name=self.store_name)
+        return self.adl
+       
     def _trim_filename(self, fn):
         so = infer_storage_options(fn)
         return so['path']
@@ -71,7 +70,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         print(self.store_name)
         tf = f'adl://{self.store_name}.azuredatalakestore.net{adl_path}'
         print(tf)
-        return [self.adl_conn.glob(self, tf)]
+        return [self.adl.glob(self, tf)]
 
     def mkdirs(self, path):
         pass  # no need to pre-make paths on ADL

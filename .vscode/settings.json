@@ -1,4 +1,11 @@
 {
     "python.condaPath": "/Users/Greg/anaconda3/envs/daskadlfs/bin/python",
-    "python.pythonPath": "/Users/Greg/anaconda3/envs/daskadlfs/bin/python"
+    "python.pythonPath": "/Users/Greg/anaconda3/envs/daskadlfs/bin/python",
+    "python.testing.pytestArgs": [
+        "dask_adlfs"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "editor.parameterHints.enabled": false
 }

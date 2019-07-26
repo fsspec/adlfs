@@ -1,0 +1,4 @@
+[
+  "dask_adlfs/tests/test_trim_filename.py::test_trim_filename",
+  "dask_adlfs/tests/test_trim_filename.py::test_glob"
+]
