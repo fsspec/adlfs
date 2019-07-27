@@ -25,7 +25,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         adl.ls('')
 
     Parameters
-    __________
+    __________P
     tenant_id:  string
         Azure tenant, also known as the subscription id
     client_id: string
@@ -57,20 +57,17 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
                         client_id=self.client_id,
                         client_secret=self.client_secret)
         self.adl = AzureDLFileSystem(token=token, store_name=self.store_name)
-        return self.adl
        
     def _trim_filename(self, fn):
+        """ Determine what kind of filestore this is and return the path """
         so = infer_storage_options(fn)
         return so['path']
 
     def glob(self, path):
         """For a template path, return matching files"""
-        adl_path = self._trim_filename(path)
-        print(adl_path)
-        print(self.store_name)
-        tf = f'adl://{self.store_name}.azuredatalakestore.net{adl_path}'
-        print(tf)
-        return [self.adl.glob(self, tf)]
+        adl_paths = self._trim_filename(path)
+        filepaths = [f'adl://{self.store_name}.azuredatalakestore.net{p}' for p in self.adl.glob(adlpaths)]
+        return filepaths
 
     def mkdirs(self, path):
         pass  # no need to pre-make paths on ADL

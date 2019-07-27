@@ -1,6 +1,6 @@
 {
     "python.condaPath": "/Users/Greg/anaconda3/envs/daskadlfs/bin/python",
-    "python.pythonPath": "/Users/Greg/anaconda3/envs/daskadlfs/bin/python",
+    "python.pythonPath": "C:\\Users\\hayesgr\\AppData\\Local\\Continuum\\anaconda3\\envs\\adlfs\\python.exe",
     "python.testing.pytestArgs": [
         "dask_adlfs"
     ],

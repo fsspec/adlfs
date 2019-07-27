@@ -1,0 +1,21 @@
+{
+  "dask_adlfs/tests.py::TestAzureDatalakeFileSystem": true,
+  "dask_adlfs/tests.py::TestAzureDatalakeFileSystem::test_trim_filename": true,
+  "dask_adlfs/tests/test_azuredatalakefilesystem.py::TestAzureDatalakeFileSystem": true,
+  "dask_adlfs/tests/test_azuredatalakefilesystem.py::TestAzureDatalakeFileSystem::test_trim_filename": true,
+  "dask_adlfs/tests/tests.py::TestAzureDatalakeFileSystem::test_glob": true,
+  "dask_adlfs/tests/tests.py::TestAzureDatalakeFileSystem::test_trim_filename": true,
+  "filesystem-spec/fsspec/implementations/tests/test_http.py::test_list": true,
+  "filesystem-spec/fsspec/implementations/tests/test_http.py::test_read": true,
+  "filesystem-spec/fsspec/implementations/tests/test_local.py::test_abs_paths": true,
+  "filesystem-spec/fsspec/implementations/tests/test_local.py::test_commit_discard": true,
+  "filesystem-spec/fsspec/implementations/tests/test_local.py::test_directories": true,
+  "filesystem-spec/fsspec/implementations/tests/test_local.py::test_file_ops": true,
+  "filesystem-spec/fsspec/implementations/tests/test_local.py::test_urlpath_inference_strips_protocol": true,
+  "filesystem-spec/fsspec/tests/test_api.py::test_get_put": true,
+  "tests.py::TestAzureDatalakeFileSystem::test_connect": true,
+  "tests.py::TestAzureDatalakeFileSystem::test_glob": true,
+  "tests.py::TestAzureDatalakeFileSystem::test_trim_filename": true,
+  "tests/test_azuredatalakefilesystem.py": true,
+  "tests/test_azuredatalakefilesystem.py::TestAzureDatalakeFileSystem::test_trim_filename": true
+}
