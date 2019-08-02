@@ -3,15 +3,15 @@
 from os.path import exists
 from setuptools import setup
 
-setup(name='dask-adlfs',
+setup(name='adlfs',
       version='0.0.1',
-      description='Access Azure Datalake Storage from Dask',
-      url='https://github.com/dask/dask-adlfs/',
-      maintainer='Martin Durant',
-      maintainer_email='martin.durant@utoronto.ca',
+      description='Access Azure Datalake Gen1 with fsspec and dask',
+      url='https://github.com/hayesgb/adlfs/',
+      maintainer='Greg Hayes',
+      maintainer_email='hayesgb@gmail.com',
       license='BSD',
       keywords=['file-system', 'dask', 'azure'],
-      packages=['dask_adlfs'],
+      packages=['adlfs'],
       long_description=open('README.rst').read() if exists('README.rst') else '',
       install_requires=['azure-datalake-store', 'dask'],
       zip_safe=False)
