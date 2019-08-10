@@ -2,16 +2,18 @@
 from __future__ import print_function, division, absolute_import
 
 import logging
+
 from fsspec import AbstractFileSystem
 # from fsspec import AbstractBufferedFile
 from azure.datalake.store import lib, AzureDLFileSystem
+from azure.datalake.store.core import AzureDLPath, AzureDLFile
 
 from fsspec.utils import infer_storage_options
 
 logger = logging.getLogger(__name__)
 
 
-class AzureDLFileSystem(AbstractFileSystem):
+class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     """
     Access Azure Datalake Gen1 as if it were a file system.
 
@@ -36,48 +38,39 @@ class AzureDLFileSystem(AbstractFileSystem):
         The name of the datalake account being accessed
     """
 
-    # def __init__(self, tenant_id=None, client_id=None, client_secret=None, store_name=None,
-    #             **kwargs):
-    #     super().__init__()
-    #     self.tenant_id = tenant_id
-    #     self.client_id = client_id
-    #     self.client_secret = client_secret
-    #     self.store_name = store_name
-    #     self.kwargs = kwargs
-    #     self.session = None
-    #     self.connect()
+    def __init__(self, tenant_id, client_id, client_secret, store_name, token=None, per_call_timeout_seconds=60):
+        super(AzureDLFileSystem, self).__init__(token, per_call_timeout_seconds, tenant_id, client_id, client_secret, store_name)
+        self.tenant_id = tenant_id
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.store_name = store_name
+        self.token = token
+        self.per_call_timeout_seconds = per_call_timeout_seconds
+        self.connect()
+        self.dirs = {}
+        self._emptyDirs = []
 
-    # def connect(self):
-    #     """  Establish an ADL Connection object  """
-    #     token = lib.auth(tenant_id=self.tenant_id, client_id=self.client_id, 
-    #         client_secret=self.client_secret)
-    #     self.session = AzureDLFileSystem(token = token, store_name = self.store_name)
-    #     print('connection made ...')
-       
-    # def _trim_filename(self, fn):
-    #     """ Determine what kind of filestore this is and return the path """
-    #     so = infer_storage_options(fn)
-    #     files = so['path'].split("/")[1:][0]
-    #     filepaths = f"{self.store_name}/{files}"
-    #     print(f'trimmed filename:  {filepaths}')
-    #     return filepaths
+    def connect(self):
+        """Establish connection object."""
 
-    # # def isdir(self, path):
-    # #     """Is this entry directory-like?"""
-    # #     try:
-    # #         path = self._trim_filename(fn=path)
-    # #         print(f'isdir path:  {path}')
-    # #         return self.info(path)['type'] == 'directory'
-    # #     except FileNotFoundError:
-    # #         return False
+        token = lib.auth(tenant_id=self.tenant_id, client_id=self.client_id, client_secret=self.client_secret)
+        self.azure = lib.DatalakeRESTInterface(token=token, req_timeout_s=self.per_call_timeout_seconds,store_name=self.store_name)
+        self.token = self.azure.token
+        print('connection made ...')
 
-    # def glob(self, path):
-    #     """For a template path, return matching files"""
-    #     print(f"adlpaths:  {path}")
-    #     # allfiles = [f'{p}' for p in self.adlfs.glob(adlpaths)]
-    #     print(f"fullpath:  {allfiles}")
-    #     # filepaths = [f'adl://{self.store_name}.azuredatalakestore.net{p}' for p in self.adl.glob(adlpaths)]
-    #     return allfiles
+    def _trim_filename(self, fn):
+        """ Determine what kind of filestore this is and return the path """
+        so = infer_storage_options(fn)
+        files = so['path'].split("/")[1:][0]
+        filepaths = f"{self.store_name}/{files}"
+        return filepaths
+
+    def glob(self, path):
+        """For a template path, return matching files"""
+        adlpaths = self._trim_filename(path)
+        print(f"adlpaths:  {adlpaths}")
+        filepaths = [f'adl://{self.store_name}.azuredatalakestore.net{p}' for p in self.glob(adlpaths)]
+        return filepaths
 
     # def ls(self, path):
     #     """List all objects in this directory"""
@@ -144,23 +137,3 @@ class AzureDLFileSystem(AbstractFileSystem):
         # logger.debug("De-serialize with state: %s", state)
         # self.__dict__.update(state)
         # self.do_connect()
-
-class AzureDatalakeFileSystem(AzureDLFileSystem):
-
-    def __init__(self, tenant_id=None, client_id=None, client_secret=None, store_name=None,
-            **kwargs):
-        super().__init__()
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.store_name = store_name
-        self.kwargs = kwargs
-        self.connect()
-
-    def connect(self):
-        """  Establish an ADL Connection object  """
-        token = lib.auth(tenant_id=self.tenant_id, client_id=self.client_id, 
-            client_secret=self.client_secret)
-        self.session = AzureDLFileSystem(token = token, store_name = self.store_name)
-        print('connection made ...')
-        print(dir(cls))
