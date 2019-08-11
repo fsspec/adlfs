@@ -3,11 +3,8 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 
-from fsspec import AbstractFileSystem
-# from fsspec import AbstractBufferedFile
 from azure.datalake.store import lib, AzureDLFileSystem
-from azure.datalake.store.core import AzureDLPath, AzureDLFile
-
+from fsspec import AbstractFileSystem
 from fsspec.utils import infer_storage_options
 
 logger = logging.getLogger(__name__)
@@ -25,6 +22,13 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
                                     client_secret="xxxx", store_name="storage_account"
                                     )
         adl.ls('')
+        
+        When used with Dask's read method, pass credentials as follows:
+        
+        dd.read_parquet("adl://folder/filename.xyz", storage_options={
+            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 
+            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME,
+        })
 
     Parameters
     __________P
