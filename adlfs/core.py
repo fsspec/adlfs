@@ -2,16 +2,18 @@
 from __future__ import print_function, division, absolute_import
 
 import logging
+
 from fsspec import AbstractFileSystem
 # from fsspec import AbstractBufferedFile
 from azure.datalake.store import lib, AzureDLFileSystem
+from azure.datalake.store.core import AzureDLPath, AzureDLFile
 
 from fsspec.utils import infer_storage_options
 
 logger = logging.getLogger(__name__)
 
 
-class AzureDatalakeFileSystem(AbstractFileSystem):
+class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     """
     Access Azure Datalake Gen1 as if it were a file system.
 
@@ -20,7 +22,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     Examples
     _________
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
-                                    client_secret="xxxx", storage_name="storage_account"
+                                    client_secret="xxxx", store_name="storage_account"
                                     )
         adl.ls('')
 
@@ -36,41 +38,34 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         The name of the datalake account being accessed
     """
 
-    
-    def __init__(self, tenant_id=None, client_id=None, client_secret=None, store_name=None,
-                **kwargs):
-
-        super().__init__()
+    def __init__(self, tenant_id, client_id, client_secret, store_name):
+        AbstractFileSystem.__init__(self)
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
         self.store_name = store_name
-        self.client = None
-        self.kwargs = kwargs
-        self.adl = self.connect()
+        self.do_connect()
 
-    
-    def connect(self):
-        """  Establish an ADL Connection object  """
-
+    def do_connect(self):
+        """Establish connection object."""
         token = lib.auth(tenant_id=self.tenant_id,
                         client_id=self.client_id,
-                        client_secret=self.client_secret)
-        self.adl = AzureDLFileSystem(token=token, store_name=self.store_name)
-       
+                        client_secret=self.client_secret,
+                        )
+        AzureDLFileSystem.__init__(self, token=token,
+                                   store_name=self.store_name)
+
     def _trim_filename(self, fn):
         """ Determine what kind of filestore this is and return the path """
         so = infer_storage_options(fn)
-        return so['path']
+        fileparts = so['path']
+        return fileparts
 
     def glob(self, path):
         """For a template path, return matching files"""
-        adl_paths = self._trim_filename(path)
-        filepaths = [f'adl://{self.store_name}.azuredatalakestore.net{p}' for p in self.adl.glob(adlpaths)]
+        adlpaths = self._trim_filename(path)
+        filepaths = AzureDLFileSystem.glob(self, adlpaths)
         return filepaths
-
-    def mkdirs(self, path):
-        pass  # no need to pre-make paths on ADL
 
     def open(self, path, mode='rb'):
         adl_path = self._trim_filename(path)
@@ -96,4 +91,3 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
         self.do_connect()
-

@@ -1,0 +1,11 @@
+README.rst
+setup.py
+adlfs/__init__.py
+adlfs/core.py
+adlfs/tests.py
+adlfs.egg-info/PKG-INFO
+adlfs.egg-info/SOURCES.txt
+adlfs.egg-info/dependency_links.txt
+adlfs.egg-info/not-zip-safe
+adlfs.egg-info/requires.txt
+adlfs.egg-info/top_level.txt
