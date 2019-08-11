@@ -3,3 +3,4 @@
 .vscode/**
 .pytest_cache/**
 **.egg-info
+dist/*
