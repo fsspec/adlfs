@@ -1,2 +1,5 @@
 **/*.ipynb
 .ipynb_checkpoints/**
+.vscode/**
+.pytest_cache/**
+**.egg-info
