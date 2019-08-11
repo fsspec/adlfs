@@ -22,7 +22,7 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     Examples
     _________
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
-                                    client_secret="xxxx", storage_name="storage_account"
+                                    client_secret="xxxx", store_name="storage_account"
                                     )
         adl.ls('')
 
@@ -48,18 +48,16 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
 
     def do_connect(self):
         """Establish connection object."""
-
-        token = lib.auth(tenant_id=self.tenant_id, 
-                         client_id=self.client_id, 
-                         client_secret=self.client_secret
-                         )
-        AzureDLFileSystem.__init__(self, token=token, store_name=self.store_name)
-        print('connection made ...')
+        token = lib.auth(tenant_id=self.tenant_id,
+                        client_id=self.client_id,
+                        client_secret=self.client_secret,
+                        )
+        AzureDLFileSystem.__init__(self, token=token,
+                                   store_name=self.store_name)
 
     def _trim_filename(self, fn):
         """ Determine what kind of filestore this is and return the path """
         so = infer_storage_options(fn)
-        print('_trim filename:  fileparts & files')
         fileparts = so['path']
         return fileparts
 
@@ -69,13 +67,8 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
         filepaths = AzureDLFileSystem.glob(self, adlpaths)
         return filepaths
 
-    def mkdirs(self, path):
-        pass  # no need to pre-make paths on ADL
-
     def open(self, path, mode='rb'):
-        print('open function call...')
         adl_path = self._trim_filename(path)
-        print(adl_path)
         f = AzureDLFileSystem.open(self, adl_path, mode=mode)
         return f
 
