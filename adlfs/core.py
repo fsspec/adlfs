@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
+    
+    
     """
     Access Azure Datalake Gen1 as if it were a file system.
 
@@ -92,6 +94,28 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
         return dic
 
     def __setstate__(self, state):
+        
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
         self.do_connect()
+        
+
+class AzureBlobFileSystem(AbstractFileSystem):
+    
+    """
+    abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
+
+    file_system  = A container on the datalake
+    account_name = The name of the storage account
+    path         =  A forward slash representation of the directory structure
+    file_name    = The name of an individual file in the directory
+    
+    """
+    
+    def __init__(self, client_id, client_secret, token=None):
+        
+        super().__init__()
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.token = token
+        
