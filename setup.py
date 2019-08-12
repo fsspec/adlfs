@@ -13,5 +13,5 @@ setup(name='adlfs',
       keywords=['file-system', 'dask', 'azure'],
       packages=['adlfs'],
       long_description=open('README.rst').read() if exists('README.rst') else '',
-      install_requires=['azure-datalake-store', 'azure-storage-blog', 'dask', 'fsspec'],
+      install_requires=['azure-datalake-store', 'azure-storage-blob', 'dask', 'fsspec'],
       zip_safe=False)
