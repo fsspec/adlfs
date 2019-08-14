@@ -36,7 +36,7 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
         })
 
     Parameters
-    __________P
+    __________
     tenant_id:  string
         Azure tenant, also known as the subscription id
     client_id: string
@@ -149,23 +149,57 @@ class AzureBlobFileSystem(AbstractFileSystem):
                    }
         return headers
     
-    def _make_base_url(self, filesystem):
+    def _parse_path(self, path: str):
+        """ Extracts the name of the filesystem and the directory from the path """
+        fparts = path.split('/')
+        print(fparts)
+        if len(fparts) == 1:
+            return fparts[0], None
+        else:
+            return fparts[0], "/".join(fparts[1:])
+    
+    def _make_url(self, filesystem):
         return f"https://{self.storage_account}{self.dns_suffix}/{filesystem}"
+    
+    def isdir(self, path):
+        """ Checks to see if the given path is a directory or a file """
         
-    def ls(self, filesystem: str, resource: str = 'filesystem', recursive: bool = False):
-        """ These are the parameters to be passed via the API call """
-        # We will start by creating the first of each of the verbs
+    
+    def ls(self, path: str, resource: str = 'filesystem', recursive: bool = False):
+        """ This will return all of the files and folders in a single directory
         
-        url = self._make_base_url(filesystem=filesystem)
+        Parameters
+        __________
+        path - string
+            The Azure Datalake Gen2 filesystem name, followed by subdirectories and files
+        resource - string
+
+        recursive - boolean
+            Determines if the files should be listed recursively nor not.
+        
+        """
+        
+        filesystem, directory = self._parse_path(path)
+        url = self._make_url(filesystem=filesystem)
         headers = self._make_headers()
-        
         payload = {'resource': resource,
                    'recursive': recursive}
-        
+        if directory is not None:
+            payload['directory'] = directory
         response = requests.get(url=url, headers=headers, params=payload)
-        print(url)
-        print(response.url)
-        print(response.json()) 
+        # print(response.url)
+        response = response.json()
+        print(response)
+        files = []
+        dirs = []
+        for key, pathlist in response.items():
+            if key == 'paths':
+                for path_ in pathlist:
+                    if ('isDirectory' in path_.keys()) and (path_['isDirectory']=='true'):
+                        dirs.append(path_['name'])
+                    else:
+                        files.append(path_['name'])            
+        return files, dirs
 
     def make_request(self, url, headers, payload):
         r = requests.get(url=url, headers=headers, params=payload)
