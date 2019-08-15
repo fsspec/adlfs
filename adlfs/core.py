@@ -3,7 +3,7 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 import requests
-from datetime import datetime
+import re
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
@@ -115,17 +115,20 @@ class AzureBlobFileSystem(AbstractFileSystem):
     """
     
     
-    def __init__(self, tenant_id, client_id, client_secret, storage_account, token=None):
+    def __init__(self, tenant_id, client_id, client_secret, storage_account, 
+                 filesystem, token=None):
 
         super().__init__()
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
         self.storage_account = storage_account
+        self.filesystem = filesystem
         self.token = token
         self.token_type = None
         self.connect()
         self.dns_suffix = '.dfs.core.windows.net'
+        root_marker = self.filesystem
 
     def connect(self):
         """ Fetch an OAUTh token using a ServicePrincipal """
@@ -160,46 +163,82 @@ class AzureBlobFileSystem(AbstractFileSystem):
     
     def _make_url(self, filesystem):
         return f"https://{self.storage_account}{self.dns_suffix}/{filesystem}"
-    
-    def isdir(self, path):
-        """ Checks to see if the given path is a directory or a file """
         
     
-    def ls(self, path: str, resource: str = 'filesystem', recursive: bool = False):
-        """ This will return all of the files and folders in a single directory
+    def ls(self, path: str, detail: bool = False, resource: str = 'filesystem', recursive: bool = False):
+        """ List a single filesystem directory, with or without details
         
         Parameters
         __________
         path - string
             The Azure Datalake Gen2 filesystem name, followed by subdirectories and files
+        detail - boolean
+            Specified by the AbstractFileSystem.  
+            If false, return a list of strings (without protocol) that detail the full path of 
         resource - string
 
         recursive - boolean
             Determines if the files should be listed recursively nor not.
         
         """
+        try:
+            path = self._strip_protocol(path)
+            filesystem, directory = self._parse_path(path)
+            url = self._make_url(filesystem=filesystem)
+            headers = self._make_headers()
+            payload = {'resource': resource,
+                    'recursive': recursive}
+            if directory is not None:
+                payload['directory'] = directory
+            response = requests.get(url=url, headers=headers, params=payload)
+            # print(response.url)
+            response = response.json()
+            print(response)
+            if response['paths']:
+                pathlist = response['paths']
+                if detail:
+                    for path_ in pathlist:
+                        if 'isDirectory' in path_.keys() and path_['isDirectory']=='true':
+                            path_['type'] = 'directory'
+                            del path_['isDirectory']
+                        else:
+                            path_['type'] = 'file'
+                    return pathlist
+                else:
+                    files = []
+                    for path_ in pathlist:
+                        files.append(path_['name'])          
+                    return files
+            else:
+                return []
+        except KeyError:
+            if 'error' in response.keys():
+                if response['error']['code'] == 'PathNotFound':
+                    return []
+            else:
+                raise KeyError(f'{response}')
+
+    def info(self, path):
+        """ Give details of entry at path
         
-        filesystem, directory = self._parse_path(path)
-        url = self._make_url(filesystem=filesystem)
-        headers = self._make_headers()
-        payload = {'resource': resource,
-                   'recursive': recursive}
-        if directory is not None:
-            payload['directory'] = directory
-        response = requests.get(url=url, headers=headers, params=payload)
-        # print(response.url)
-        response = response.json()
-        print(response)
-        files = []
-        dirs = []
-        for key, pathlist in response.items():
-            if key == 'paths':
-                for path_ in pathlist:
-                    if ('isDirectory' in path_.keys()) and (path_['isDirectory']=='true'):
-                        dirs.append(path_['name'])
-                    else:
-                        files.append(path_['name'])            
-        return files, dirs
+        """
+        path = self.ls(path, detail=True)
+        return path
+    
+    def glob(sefl, path):
+        """ Find files by glob matching """
+        
+        ends = path.endswith("/")
+        path = self._strip_protocol(path)
+        indstar = path.find("*") if path.find("*") >= 0 else len(path)
+        indques = path.find("?") if path.find("?") >= 0 else len(path)
+        ind = min(indstar, indques)
+        if "*" not in path and "?" not in path:
+            if ends:
+                # self.
+                return None
+        files = self.ls(path)
+        
 
     def make_request(self, url, headers, payload):
         r = requests.get(url=url, headers=headers, params=payload)
