@@ -128,7 +128,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.token_type = None
         self.connect()
         self.dns_suffix = '.dfs.core.windows.net'
-        root_marker = self.filesystem
+        # root_marker = self.filesystem
 
     def connect(self):
         """ Fetch an OAUTh token using a ServicePrincipal """
@@ -155,7 +155,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def _parse_path(self, path: str):
         """ Extracts the name of the filesystem and the directory from the path """
         fparts = path.split('/')
-        print(fparts)
+        # print(fparts)
         if len(fparts) == 1:
             return fparts[0], None
         else:
@@ -193,7 +193,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             response = requests.get(url=url, headers=headers, params=payload)
             # print(response.url)
             response = response.json()
-            print(response)
+            # print(response)
             if response['paths']:
                 pathlist = response['paths']
                 if detail:
@@ -219,26 +219,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 raise KeyError(f'{response}')
 
     def info(self, path):
-        """ Give details of entry at path
-        
-        """
+        """ Give details of entry at path"""
         path = self.ls(path, detail=True)
         return path
-    
-    def glob(sefl, path):
-        """ Find files by glob matching """
-        
-        ends = path.endswith("/")
-        path = self._strip_protocol(path)
-        indstar = path.find("*") if path.find("*") >= 0 else len(path)
-        indques = path.find("?") if path.find("?") >= 0 else len(path)
-        ind = min(indstar, indques)
-        if "*" not in path and "?" not in path:
-            if ends:
-                # self.
-                return None
-        files = self.ls(path)
-        
 
     def make_request(self, url, headers, payload):
         r = requests.get(url=url, headers=headers, params=payload)
