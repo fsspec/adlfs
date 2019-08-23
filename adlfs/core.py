@@ -199,7 +199,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
             headers['Range'] = str(range)
         return headers
 
-    
     def _parse_path(self, path: str):
         """ Extracts the directory, subdirectories, and files from the path """
         fparts = path.split('/')
@@ -297,6 +296,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
        """ Return a file-like object from the ADL Gen2 in raw bytes-mode """
+       
        return AzureBlobFile(self, path, mode)
    
 
@@ -309,28 +309,56 @@ class AzureBlobFile(AbstractBufferedFile):
                     cache_type=cache_type, autocommit=autocommit)
         self.fs = fs
         self.path = path
-
-
-    # def read(self, path):
-    #     """ Constructs an Api request and reads the given file """
-    #     url = f'{self._make_url()}/{path}'
-    #     headers = self._make_headers()
-    #     response = requests.get(url=url, headers=headers)
-    #     print(response)
-    #     print(response.json)
-    
-    def _fetch_range(self, start, end):
-        """ Gets the specified byte range from Azure Datalake Gen2
+        self.cache = b''
+        self.closed = False
+        
+    def read(self, length=-1):
+        """Read bytes from file
         
         """
+        print('Read AzureBlobFile...')
+        print(f'length is:  {length}, {type(length)}')
+        print(f'self.size:  {self.size}, {type(self.size)}')
+        print(f'self.loc:  {0}, {type(self.loc)}')
+        if (
+            (length < 0 and self.loc == 0) or
+            (length > (self.size or length)) or
+            (self.size and self.size < self.block_size)
+        ):
+            print(f'Fetch_all...')
+            self._fetch_all()
+        if self.size is None:
+            if length < 0:
+                self._fetch_all()
+        else:
+            length = min(self.size - self.loc, length)
+            return super().read(length)
+
+    def _fetch_all(self):
+        """Read the whole file in one show.  Without caching"""
         
-        headers = self.fs._make_headers(range=self.size)
+        headers = self.fs._make_headers(range=(0, self.size))
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
-        print(response)
-        print(response.json)
-        raise ValueError('end at fetch_range!')
+        data = response.content
+        self.cache = AllBytes(data)
+        self.size = len(data)
     
+    def _fetch_range(self, start=None, end=None):
+        """ Gets the specified byte range from Azure Datalake Gen2 """
+        print(f'_fetch_range:  {start}, {end}')
+        if start is not None or end is not None:
+            start = start or 0
+            end - end or 0
+            headers = self.fs._make_headers(range=(start, end-1))
+        else:
+            headers = self.fs._make_headers(range=None)
+        
+        headers = self.fs._make_headers(range=(start, end))
+        url = f'{self.fs._make_url()}/{self.path}'
+        response = requests.get(url=url, headers=headers)
+        data = response.content
+        return data
         
     def _initiate_upload():
         pass
@@ -338,3 +366,11 @@ class AzureBlobFile(AbstractBufferedFile):
     def _upload_chunk():
         pass
         
+        
+class AllBytes:
+    """ Cache the entire contents of a remote file """
+    def __init__(self, data):
+        self.data = data
+        
+    def _fetch(self, start, end):
+        return self.data[start:end]
