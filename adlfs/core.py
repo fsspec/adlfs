@@ -117,6 +117,7 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
         self.__dict__.update(state)
         self.do_connect()
 
+
 class AzureBlobFileSystem(AbstractFileSystem):
     """
     abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
@@ -245,11 +246,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 payload['directory'] = directory
             response = requests.get(url=url, headers=headers, params=payload)
             response = response.json()
-            print(f'ls_response:  {response}')
             if response['paths']:
                 pathlist = response['paths']
                 if detail:
-                    print(f'get detail...')
                     for path_ in pathlist:
                         if 'isDirectory' in path_.keys() and path_['isDirectory']=='true':
                             # fsspec expects the api call to include a key named "type", 
@@ -270,7 +269,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     else:
                         return pathlist
                 else:
-                    print(f'just file list')
                     files = []
                     for path_ in pathlist:
                         files.append(path_['name'])          
@@ -286,23 +284,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def info(self, path, detail=True):
         """ Give details of entry at path"""
-        print(f'info_path1:  {path}')
         path = self._strip_protocol(path)
-        print(f'stripped_path:  {path}')
         path = self.ls(path, detail=detail)
-        print(f'newpath:  {path}')
-        print(type(path))
         return path
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
        """ Return a file-like object from the ADL Gen2 in raw bytes-mode """
        
        return AzureBlobFile(self, path, mode)
-   
+
 
 class AzureBlobFile(AbstractBufferedFile):
     """ Buffered Azure Datalake Gen2 File Object """
-    
+ 
     def __init__(self, fs, path, mode='rb', block_size='default',
                  cache_type='bytes', autocommit=True):
         super().__init__(fs, path, mode, block_size=block_size,
@@ -311,21 +305,17 @@ class AzureBlobFile(AbstractBufferedFile):
         self.path = path
         self.cache = b''
         self.closed = False
-        
+
     def read(self, length=-1):
         """Read bytes from file
         
         """
-        print('Read AzureBlobFile...')
-        print(f'length is:  {length}, {type(length)}')
-        print(f'self.size:  {self.size}, {type(self.size)}')
-        print(f'self.loc:  {0}, {type(self.loc)}')
+
         if (
             (length < 0 and self.loc == 0) or
             (length > (self.size or length)) or
             (self.size and self.size < self.block_size)
         ):
-            print(f'Fetch_all...')
             self._fetch_all()
         if self.size is None:
             if length < 0:
@@ -343,10 +333,9 @@ class AzureBlobFile(AbstractBufferedFile):
         data = response.content
         self.cache = AllBytes(data)
         self.size = len(data)
-    
+
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
-        print(f'_fetch_range:  {start}, {end}')
         if start is not None or end is not None:
             start = start or 0
             end - end or 0
@@ -359,14 +348,15 @@ class AzureBlobFile(AbstractBufferedFile):
         response = requests.get(url=url, headers=headers)
         data = response.content
         return data
-        
-    def _initiate_upload():
+
+    def _initiate_upload(self):
         pass
-        
-    def _upload_chunk():
-        pass
-        
-        
+
+    def _upload_chunk(self, final: bool = False):
+        """ Writes part of a multi-block file to Azure Datalake """
+        self.fs.
+
+
 class AllBytes:
     """ Cache the entire contents of a remote file """
     def __init__(self, data):
