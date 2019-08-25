@@ -4,7 +4,7 @@ from os.path import exists
 from setuptools import setup
 
 setup(name='adlfs',
-      version='0.0.3',
+      version='0.0.4',
       description='Access Azure Datalake Gen1 with fsspec and dask',
       url='https://github.com/hayesgb/adlfs/',
       maintainer='Greg Hayes',
@@ -13,5 +13,7 @@ setup(name='adlfs',
       keywords=['file-system', 'dask', 'azure'],
       packages=['adlfs'],
       long_description=open('README.rst').read() if exists('README.rst') else '',
-      install_requires=['azure-datalake-store', 'azure-storage-blob', 'dask', 'fsspec'],
+      install_requires=['azure-datalake-store',
+                        'fsspec>=0.4.0<1.0',
+                        'requests>=2.22.0<3.0.0'],
       zip_safe=False)
