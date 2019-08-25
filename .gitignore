@@ -4,3 +4,6 @@
 .pytest_cache/**
 **.egg-info
 dist/*
+tests/dummyfiles/*
+.vscode
+.pytest_cache/**
