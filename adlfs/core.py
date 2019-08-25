@@ -125,7 +125,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     protocol = 'abfs'
 
-
     def __init__(self, tenant_id, client_id, client_secret, storage_account, 
                  filesystem, token=None):
         
@@ -150,7 +149,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.token_type = None
         self.connect()
         self.dns_suffix = '.dfs.core.windows.net'
-        
 
     @classmethod
     def _strip_protocol(cls, path):
@@ -184,13 +182,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
         ext_expires_in=response['ext_expires_in']
         self.token=response['access_token']
         
-    def _make_headers(self, range: str = None):
+    def _make_headers(self, range: str = None, encoding: str = None):
         """ Creates the headers for an API request to Azure Datalake Gen2
         
         parameters
         ----------
-        token: An authorization token acquired from Azure
         range: String that specifies the byte ranges.  Used by the buffered file
+        encoding: String that specifies content-encoding applied to file.  Maps
+            to API request header "Content-Encoding"
         """
         headers = {'Content-Type': 'application/x-www-form-urlencoded',
                    'x-ms-version': '2019-02-02',
@@ -208,13 +207,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return "/".join(fparts)
     
-    def _make_url(self):
-        """ Creates a url for making a request to the Azure Datalake Gen2 API
-        
-        Parameters
-        ----------
-        filesystem: The bucket.  Defined by Azure Datalake Gen2 docs
-        """
+    def _make_url(self, resource: str = None):
+        """ Creates a url for making a request to the Azure Datalake Gen2 API """
         return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
     
     def ls(self, path: str, detail: bool = False, resource: str = 'filesystem',
@@ -245,6 +239,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
             if directory is not None:
                 payload['directory'] = directory
             response = requests.get(url=url, headers=headers, params=payload)
+            if not response.status_code == requests.codes.ok:
+                response.raise_for_status()
             response = response.json()
             if response['paths']:
                 pathlist = response['paths']
@@ -349,12 +345,17 @@ class AzureBlobFile(AbstractBufferedFile):
         data = response.content
         return data
 
-    def _initiate_upload(self):
-        pass
-
-    def _upload_chunk(self, final: bool = False):
+    def _upload_chunk(self, final: bool = False, resource: str = None):
         """ Writes part of a multi-block file to Azure Datalake """
-        self.fs.
+        headers = self.fs._make_headers()
+        headers['Content-Length'] = '0'
+        url = self.fs._make_url()
+        url = f'{url}/{self.path}'
+        params = {'resource': 'file'}
+        response = requests.put(url, headers=headers, data=self.buffer, params=params)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+                        
 
 
 class AllBytes:
