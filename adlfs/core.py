@@ -125,9 +125,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     protocol = 'abfs'
 
-    def __init__(self, tenant_id, client_id, client_secret, storage_account, 
-                 filesystem, token=None):
-        
+    def __init__(self, tenant_id: str, client_id: str, client_secret: str,
+                 storage_account: str, filesystem: str, token=None):
+
         """
         Parameters
         ----------
@@ -177,11 +177,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 "scope": "https://storage.azure.com/.default",
                 "grant_type": "client_credentials"}
         response = requests.post(url=url, headers=header, data=data).json()
-        self.token_type=response['token_type']
-        expires_in=response['expires_in']
-        ext_expires_in=response['ext_expires_in']
-        self.token=response['access_token']
-        
+        self.token_type = response['token_type']
+        expires_in = response['expires_in']
+        ext_expires_in = response['ext_expires_in']
+        self.token = response['access_token']
+
     def _make_headers(self, range: str = None, encoding: str = None):
         """ Creates the headers for an API request to Azure Datalake Gen2
         
@@ -206,28 +206,23 @@ class AzureBlobFileSystem(AbstractFileSystem):
             return []
         else:
             return "/".join(fparts)
-    
-    def _make_url(self, resource: str = None):
+
+    def _make_url(self):
         """ Creates a url for making a request to the Azure Datalake Gen2 API """
         return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
-    
+
     def ls(self, path: str, detail: bool = False, resource: str = 'filesystem',
            recursive: bool = False):
         """ List a single filesystem directory, with or without details
         
         Parameters
         __________
-        path - string
-            The Azure Datalake Gen2 filesystem name, followed by subdirectories and files
-        detail - boolean
-            Specified by the AbstractFileSystem.  
-            If false, return a list of strings (without protocol) that detail the full path of 
-        resource - string
-
-        recursive - boolean
-            Determines if the files should be listed recursively nor not.
-        
+        path: The Azure Datalake Gen2 filesystem name, followed by subdirectories and files
+        detail: Specified by the AbstractFileSystem.  If false, return a list of strings (without protocol) that detail the full path of 
+        resource: Variable to be passed to the Microsoft API
+        recursive:  Determines if the files should be listed recursively nor not.
         """
+        
         try:
             path = self._strip_protocol(path)
             directory = self._parse_path(path)
@@ -292,7 +287,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
 class AzureBlobFile(AbstractBufferedFile):
     """ Buffered Azure Datalake Gen2 File Object """
- 
+
     def __init__(self, fs, path, mode='rb', block_size='default',
                  cache_type='bytes', autocommit=True):
         super().__init__(fs, path, mode, block_size=block_size,
@@ -302,33 +297,31 @@ class AzureBlobFile(AbstractBufferedFile):
         self.cache = b''
         self.closed = False
 
-    def read(self, length=-1):
-        """Read bytes from file
-        
-        """
+    # def read(self, length=-1):
+    #     """Read bytes from file"""
 
-        if (
-            (length < 0 and self.loc == 0) or
-            (length > (self.size or length)) or
-            (self.size and self.size < self.block_size)
-        ):
-            self._fetch_all()
-        if self.size is None:
-            if length < 0:
-                self._fetch_all()
-        else:
-            length = min(self.size - self.loc, length)
-            return super().read(length)
+    #     if (
+    #         (length < 0 and self.loc == 0) or
+    #         (length > (self.size or length)) or
+    #         (self.size and self.size < self.block_size)
+    #     ):
+    #         self._fetch_all()
+    #     if self.size is None:
+    #         if length < 0:
+    #             self._fetch_all()
+    #     else:
+    #         length = min(self.size - self.loc, length)
+    #         return super().read(length)
 
-    def _fetch_all(self):
-        """Read the whole file in one show.  Without caching"""
+    # def _fetch_all(self):
+    #     """Read the whole file in one show.  Without caching"""
         
-        headers = self.fs._make_headers(range=(0, self.size))
-        url = f'{self.fs._make_url()}/{self.path}'
-        response = requests.get(url=url, headers=headers)
-        data = response.content
-        self.cache = AllBytes(data)
-        self.size = len(data)
+    #     headers = self.fs._make_headers(range=(0, self.size))
+    #     url = f'{self.fs._make_url()}/{self.path}'
+    #     response = requests.get(url=url, headers=headers)
+    #     data = response.content
+    #     self.cache = AllBytes(data)
+    #     self.size = len(data)
 
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
@@ -338,7 +331,7 @@ class AzureBlobFile(AbstractBufferedFile):
             headers = self.fs._make_headers(range=(start, end-1))
         else:
             headers = self.fs._make_headers(range=None)
-        
+
         headers = self.fs._make_headers(range=(start, end))
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
@@ -355,13 +348,12 @@ class AzureBlobFile(AbstractBufferedFile):
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
-                        
 
 
 class AllBytes:
     """ Cache the entire contents of a remote file """
     def __init__(self, data):
         self.data = data
-        
+
     def _fetch(self, start, end):
         return self.data[start:end]
