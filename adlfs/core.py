@@ -207,9 +207,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return "/".join(fparts)
 
-    def _make_url(self):
+    def _make_url(self, path: str =None):
         """ Creates a url for making a request to the Azure Datalake Gen2 API """
-        return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
+        if not path:
+            return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
+        else: return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}/{path}"
 
     def ls(self, path: str, detail: bool = False, resource: str = 'filesystem',
            recursive: bool = False):
@@ -254,10 +256,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         # Finally, fsspec expects the API response to return a key 'size'
                         # that specifies the size of the file in bytes, but the Azure DL
                         # Gen2 API returns the key 'contentLength'.  We update this below.
-                        path_['size'] = int(path_.pop('contentLength'))
+                        if 'contentLength' in path_.keys():
+                            path_['size'] = int(path_.pop('contentLength'))
+                        else: path_['size'] = int(0)
                     if len(pathlist) == 1:
                         return pathlist[0]
                     else:
+                        print(pathlist)
                         return pathlist
                 else:
                     files = []
@@ -273,69 +278,65 @@ class AzureBlobFileSystem(AbstractFileSystem):
             else:
                 raise KeyError(f'{response}')
 
-    def info(self, path, detail=True):
+    def info(self, path: str = '', detail=True):
         """ Give details of entry at path"""
         path = self._strip_protocol(path)
-        path = self.ls(path, detail=detail)
-        return path
+        print('info..')
+        print(path)
+        url = self._make_url(path=path)
+        print(url)
+        headers = self._make_headers()
+        payload = {'action': 'getStatus'}
+        response = requests.head(url=url, headers=headers, params=payload)
+        print(response.url)
+        if not response.status_code == requests.codes.ok:
+            try:
+                detail = self.ls(path, detail=False)
+                return detail
+            except:
+                response.raise_for_status()
+        h = response.headers
+        detail = {'name': path,
+                'size': int(h['Content-Length']),
+                'type': h['x-ms-resource-type']
+                }
+        return detail
+
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
        """ Return a file-like object from the ADL Gen2 in raw bytes-mode """
        
        return AzureBlobFile(self, path, mode)
 
+    # def glob(self, path):
+    #     raise NotImplementedError
 
 class AzureBlobFile(AbstractBufferedFile):
     """ Buffered Azure Datalake Gen2 File Object """
 
-    def __init__(self, fs, path, mode='rb', block_size='default',
+    def __init__(self, fs, path, mode='rb', blocksize='default',
                  cache_type='bytes', autocommit=True):
-        super().__init__(fs, path, mode, block_size=block_size,
+        super().__init__(fs, path, mode, blocksize=blocksize,
                     cache_type=cache_type, autocommit=autocommit)
         self.fs = fs
         self.path = path
-        self.cache = b''
-        self.closed = False
-
-    # def read(self, length=-1):
-    #     """Read bytes from file"""
-
-    #     if (
-    #         (length < 0 and self.loc == 0) or
-    #         (length > (self.size or length)) or
-    #         (self.size and self.size < self.block_size)
-    #     ):
-    #         self._fetch_all()
-    #     if self.size is None:
-    #         if length < 0:
-    #             self._fetch_all()
-    #     else:
-    #         length = min(self.size - self.loc, length)
-    #         return super().read(length)
-
-    # def _fetch_all(self):
-    #     """Read the whole file in one show.  Without caching"""
-        
-    #     headers = self.fs._make_headers(range=(0, self.size))
-    #     url = f'{self.fs._make_url()}/{self.path}'
-    #     response = requests.get(url=url, headers=headers)
-    #     data = response.content
-    #     self.cache = AllBytes(data)
-    #     self.size = len(data)
 
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
+        print('?????? _fetch_range ??????')
+        print(start, end)
         if start is not None or end is not None:
             start = start or 0
-            end - end or 0
+            end = end or 0
+            print(f'start is:  {start}, end is:  {end}')
             headers = self.fs._make_headers(range=(start, end-1))
         else:
-            headers = self.fs._make_headers(range=None)
+            headers = self.fs._make_headers(range=(None))
 
-        headers = self.fs._make_headers(range=(start, end))
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
         data = response.content
+        print(f'This is data from _fetch_range:  {data}')
         return data
 
     def _upload_chunk(self, final: bool = False, resource: str = None):
@@ -350,10 +351,5 @@ class AzureBlobFile(AbstractBufferedFile):
             response.raise_for_status()
 
 
-class AllBytes:
-    """ Cache the entire contents of a remote file """
-    def __init__(self, data):
-        self.data = data
 
-    def _fetch(self, start, end):
-        return self.data[start:end]
+   
