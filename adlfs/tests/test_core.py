@@ -108,8 +108,6 @@ def test_info(test_mock_abfs):
             )
     mock_abfs = test_mock_abfs
     mock_details = mock_abfs.info("testfile.csv")
-    print('mock_details...')
-    print(mock_details)
     assert mock_details == {'name': 'testfile.csv', 'size': 10, 'type': 'file'}
 
 @responses.activate
@@ -164,20 +162,19 @@ def test_read(test_mock_abfs, pointer_location):
     out = mock_abf.read()
     assert out==b',test\n0,0\n1,1\n2,2\n'
 
-# @responses.activate
-# def test_fetch_range(test_mock_abfs):
-#     """ Test _fetch_range method, to verify that the start and end locations when cacheing files are passed properlly """
+@responses.activate
+def test_fetch_range(test_mock_abfs):
+    """ Test _fetch_range method, to verify that the start and end locations when cacheing files are passed properlly """
     
-#     # Set up the mocked API calls
-#     responses.add(responses.GET, 
-#                   'https://test_storage_account.dfs.core.windows.net/test_filesystem?resource=filesystem&recursive=False&directory=testfile.csv',
-#                   json={'paths': [
-#             {'name': 'testfile.csv', 'contentLength': '10'},
-#             ]
-#         })
-#     responses.add(responses.GET,
-#                   'https://test_storage_account.dfs.core.windows.net/test_filesystem/testfile.csv',
-#                   body=b',test\n0,0\n1,1\n2,2\n')
-#     mock_abfs = test_mock_abfs
-#     mock_abf = AzureBlobFile(fs=mock_abfs, path='testfile.csv')
+    # Set up the mocked API calls
+    responses.add(responses.HEAD, 'https://test_storage_account.dfs.core.windows.net/test_filesystem/testfile.csv?action=getStatus',
+                  headers={'Content-Length': '18',
+                        'name': 'testfile.csv', 
+                        'x-ms-resource-type': 'file'},
+            )
+    responses.add(responses.GET,
+                  'https://test_storage_account.dfs.core.windows.net/test_filesystem/testfile.csv',
+                  body=b',test\n0,0\n1,1\n2,2\n')
+    mock_abfs = test_mock_abfs
+    mock_abf = AzureBlobFile(fs=mock_abfs, path='testfile.csv')
     
