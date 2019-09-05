@@ -297,14 +297,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 }
         return detail
 
-
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
        """ Return a file-like object from the ADL Gen2 in raw bytes-mode """
        
        return AzureBlobFile(self, path, mode)
 
-    # def glob(self, path):
-    #     raise NotImplementedError
 
 class AzureBlobFile(AbstractBufferedFile):
     """ Buffered Azure Datalake Gen2 File Object """
@@ -332,10 +329,10 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _upload_chunk(self, final: bool = False, resource: str = None):
         """ Writes part of a multi-block file to Azure Datalake """
+        print('write chunk')
         headers = self.fs._make_headers()
-        headers['Content-Length'] = '0'
-        url = self.fs._make_url()
-        url = f'{url}/{self.path}'
+        headers['Content-Length'] = '10'
+        url = self.fs._make_url(path=self.path)
         params = {'resource': 'file'}
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
         if not response.status_code == requests.codes.ok:
