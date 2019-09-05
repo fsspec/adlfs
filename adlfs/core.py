@@ -349,7 +349,3 @@ class AzureBlobFile(AbstractBufferedFile):
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
-
-
-
-   
