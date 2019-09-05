@@ -262,7 +262,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     if len(pathlist) == 1:
                         return pathlist[0]
                     else:
-                        print(pathlist)
                         return pathlist
                 else:
                     files = []
@@ -281,14 +280,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def info(self, path: str = '', detail=True):
         """ Give details of entry at path"""
         path = self._strip_protocol(path)
-        print('info..')
-        print(path)
         url = self._make_url(path=path)
-        print(url)
         headers = self._make_headers()
         payload = {'action': 'getStatus'}
         response = requests.head(url=url, headers=headers, params=payload)
-        print(response.url)
         if not response.status_code == requests.codes.ok:
             try:
                 detail = self.ls(path, detail=False)
@@ -323,12 +318,9 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
-        print('?????? _fetch_range ??????')
-        print(start, end)
         if start is not None or end is not None:
             start = start or 0
             end = end or 0
-            print(f'start is:  {start}, end is:  {end}')
             headers = self.fs._make_headers(range=(start, end-1))
         else:
             headers = self.fs._make_headers(range=(None))
@@ -336,7 +328,6 @@ class AzureBlobFile(AbstractBufferedFile):
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
         data = response.content
-        print(f'This is data from _fetch_range:  {data}')
         return data
 
     def _upload_chunk(self, final: bool = False, resource: str = None):
