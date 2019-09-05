@@ -8,3 +8,4 @@ tests/dummyfiles/*
 .vscode
 .pytest_cache/**
 **/*.code-workspace
+*.csv

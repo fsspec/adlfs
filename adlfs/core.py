@@ -207,17 +207,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return "/".join(fparts)
 
-<<<<<<< Updated upstream
     def _make_url(self, path: str =None):
         """ Creates a url for making a request to the Azure Datalake Gen2 API """
         if not path:
             return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
         else: return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}/{path}"
-=======
-    def _make_url(self, resource: str = None):
-        """ Creates a url for making a request to the Azure Datalake Gen2 API """
-        return f"https://{self.storage_account}{self.dns_suffix}/{self.filesystem}"
->>>>>>> Stashed changes
 
     def ls(self, path: str, detail: bool = False, resource: str = 'filesystem',
            recursive: bool = False):
@@ -320,47 +314,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """ Buffered Azure Datalake Gen2 File Object """
 
-<<<<<<< Updated upstream
     def __init__(self, fs, path, mode='rb', blocksize='default',
-=======
-    def __init__(self, fs, path, mode='rb', block_size='default',
->>>>>>> Stashed changes
                  cache_type='bytes', autocommit=True):
         super().__init__(fs, path, mode, blocksize=blocksize,
                     cache_type=cache_type, autocommit=autocommit)
         self.fs = fs
         self.path = path
-<<<<<<< Updated upstream
-=======
-        self.cache = b''
-        self.closed = False
-
-    # def read(self, length=-1):
-    #     """Read bytes from file"""
-
-    #     if (
-    #         (length < 0 and self.loc == 0) or
-    #         (length > (self.size or length)) or
-    #         (self.size and self.size < self.block_size)
-    #     ):
-    #         self._fetch_all()
-    #     if self.size is None:
-    #         if length < 0:
-    #             self._fetch_all()
-    #     else:
-    #         length = min(self.size - self.loc, length)
-    #         return super().read(length)
-
-    def _fetch_all(self):
-        """Read the whole file in one show.  Without caching"""
-        
-        headers = self.fs._make_headers(range=(0, self.size))
-        url = f'{self.fs._make_url()}/{self.path}'
-        response = requests.get(url=url, headers=headers)
-        data = response.content
-        self.cache = AllBytes(data)
-        self.size = len(data)
->>>>>>> Stashed changes
 
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
@@ -372,14 +331,8 @@ class AzureBlobFile(AbstractBufferedFile):
             print(f'start is:  {start}, end is:  {end}')
             headers = self.fs._make_headers(range=(start, end-1))
         else:
-<<<<<<< Updated upstream
             headers = self.fs._make_headers(range=(None))
 
-=======
-            headers = self.fs._make_headers(range=None)
-
-        headers = self.fs._make_headers(range=(start, end))
->>>>>>> Stashed changes
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
         data = response.content
@@ -396,17 +349,3 @@ class AzureBlobFile(AbstractBufferedFile):
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
-
-
-<<<<<<< Updated upstream
-
-   
-=======
-class AllBytes:
-    """ Cache the entire contents of a remote file """
-    def __init__(self, data):
-        self.data = data
-
-    def _fetch(self, start, end):
-        return self.data[start:end]
->>>>>>> Stashed changes
