@@ -13,6 +13,7 @@ from fsspec.utils import infer_storage_options, stringify_path
 
 logger = logging.getLogger(__name__)
 
+ADLS_GEN2_MAXIMUM_BLOCK_SIZE = 2 ** 20
 
 class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     
@@ -327,11 +328,66 @@ class AzureBlobFile(AbstractBufferedFile):
         data = response.content
         return data
 
+    def _initiate_upload(self):
+        """ Creates a file that can be written """
+        headers = self.fs._make_headers()
+        headers['Content-Length'] = '0'
+        url = self.fs._make_url(path=self.path)
+        params = {'resource': 'file'}
+        response = requests.put(url, headers=headers, data=self.buffer, params=params)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+
+    def _get_size(self):
+        print(self.fs.info(path=self.path))
+        content_length = self.fs.info(path=self.path)['size']
+        return str(content_length)
+
+    def _set_size(self, current_size, appended_size):
+        headers = self.fs._make_headers()
+        new_size = int(current_size) + int(appended_size)
+        headers['Content-Length'] = str(new_size)
+        url = self.fs._make_url(path=self.path)
+        params = {'action': 'setProperties'}
+        response = requests.patch(url=url, headers=headers,
+                                  params=params)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+
     def _upload_chunk(self, final: bool = False, resource: str = None):
         """ Writes part of a multi-block file to Azure Datalake """
-        print('write chunk')
+        print('***********  write chunk   ****************')
+        print(f'The offset is:  {self.offset}')
+        self.buffer.seek(0)
+        data = self.buffer.getvalue()
+        l = len(data)
+        print(f'Length of file chunk is:  {l}')
+        ## Need to get the size of the existing file
+        current_size = self._get_size()
+        print(f'Current filesize is:  {current_size}')
+        
+        # Append current buffer to the existing file
         headers = self.fs._make_headers()
-        headers['Content-Length'] = '10'
+        headers['Content-Length'] = str(l)
+        url = self.fs._make_url(path=self.path)
+        # Set the parameters for the query.  
+        # Can be one of "append", "flush".
+        # Other allowed values for PATCH on ADLGen2 are
+        # "setProperties" and "setAccessControl"
+        params = {'action': 'append',
+                  'position': str(l)}
+        response = requests.patch(url, headers=headers, data=data, params=params)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+            
+        # Then set the new file Content-Length on ADLS Gen2
+        self._set_size(current_size=current_size, appended_size=l)
+            
+    def upload_single_shot(self, final: bool = False):
+        """ Writes an entire file to Azure Datalake """
+        print('write file')
+        headers = self.fs._make_headers()
+        headers['Content-Length'] = '0'
         url = self.fs._make_url(path=self.path)
         params = {'resource': 'file'}
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
