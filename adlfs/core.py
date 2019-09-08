@@ -10,6 +10,7 @@ from azure.datalake.store import lib, AzureDLFileSystem
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -183,21 +184,38 @@ class AzureBlobFileSystem(AbstractFileSystem):
         ext_expires_in = response['ext_expires_in']
         self.token = response['access_token']
 
-    def _make_headers(self, range: str = None, encoding: str = None):
+    def _make_headers(self, content_length=None, content_type: str = None, media_type: str = None, range: str = None, 
+                      encoding: str = None, **kwargs):
         """ Creates the headers for an API request to Azure Datalake Gen2
         
         parameters
         ----------
+        content_type: String
+        media_type: String that specified media type to be uploaded
         range: String that specifies the byte ranges.  Used by the buffered file
         encoding: String that specifies content-encoding applied to file.  Maps
             to API request header "Content-Encoding"
+        content_length: Can be bassed as one of string of int64
         """
-        headers = {'Content-Type': 'application/x-www-form-urlencoded',
-                   'x-ms-version': '2019-02-02',
-                   'Authorization': f'Bearer {self.token}'
-                   }
+        headers = {
+            # 'Content-Type': 'application/x-www-form-urlencoded',
+            'x-ms-version': '2019-02-02',
+            'Authorization': f'Bearer {self.token}'
+                }
+        if content_type:
+            print('adding content_type')
+            headers['Content-Type'] = content_type
+        if media_type:
+            headers['Media-Type'] = media_type
         if range:
             headers['Range'] = str(range)
+        if content_length is not None:
+            print(type(content_length))
+            headers['Content-Length'] = content_length
+        for k, v in kwargs.items():
+            headers[k] = v
+        print('returning headers...')
+        print(headers)
         return headers
 
     def _parse_path(self, path: str):
@@ -230,7 +248,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             path = self._strip_protocol(path)
             directory = self._parse_path(path)
             url = self._make_url()
-            headers = self._make_headers()
+            headers = self._make_headers(content_type='application/x-www-form-urlencoded')
             payload = {'resource': resource,
                        'recursive': recursive
                        }
@@ -282,7 +300,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         """ Give details of entry at path"""
         path = self._strip_protocol(path)
         url = self._make_url(path=path)
-        headers = self._make_headers()
+        headers = self._make_headers(content_type='application/x-www-form-urlencoded')
         payload = {'action': 'getStatus'}
         response = requests.head(url=url, headers=headers, params=payload)
         if not response.status_code == requests.codes.ok:
@@ -319,9 +337,13 @@ class AzureBlobFile(AbstractBufferedFile):
         if start is not None or end is not None:
             start = start or 0
             end = end or 0
-            headers = self.fs._make_headers(range=(start, end-1))
+            headers = self.fs._make_headers(content_type=
+                                            'application/x-www-form-urlencoded',
+                                            range=(start, end-1))
         else:
-            headers = self.fs._make_headers(range=(None))
+            headers = self.fs._make_headers(content_type=
+                                            'application/x-www-form-urlencoded',
+                                            range=(None))
 
         url = f'{self.fs._make_url()}/{self.path}'
         response = requests.get(url=url, headers=headers)
@@ -330,8 +352,12 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _initiate_upload(self):
         """ Creates a file that can be written """
-        headers = self.fs._make_headers()
-        headers['Content-Length'] = '0'
+        print('**** Initiate upload *****')
+        headers = self.fs._make_headers(media_type='application/octet-stream', 
+                                        content_length='0',
+                                        content_type='application/x-www-form-urlencoded',
+                                        )
+        print(headers)
         url = self.fs._make_url(path=self.path)
         params = {'resource': 'file'}
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
@@ -339,20 +365,24 @@ class AzureBlobFile(AbstractBufferedFile):
             response.raise_for_status()
 
     def _get_size(self):
+        print('Getting size...')
         print(self.fs.info(path=self.path))
         content_length = self.fs.info(path=self.path)['size']
-        return str(content_length)
+        print(f'Current size on datalake:  {content_length}')
+        return content_length
 
-    def _set_size(self, current_size, appended_size):
-        headers = self.fs._make_headers()
-        new_size = int(current_size) + int(appended_size)
-        headers['Content-Length'] = str(new_size)
-        url = self.fs._make_url(path=self.path)
-        params = {'action': 'setProperties'}
-        response = requests.patch(url=url, headers=headers,
-                                  params=params)
-        if not response.status_code == requests.codes.ok:
-            response.raise_for_status()
+    # def _set_size(self, current_size, appended_size):
+    #     print('Setting size...')
+    #     headers = self.fs._make_headers(content_length=appended_size)
+    #     new_size = int(current_size) + int(appended_size)
+    #     headers['Content-Length'] = str(new_size)
+    #     url = self.fs._make_url(path=self.path)
+    #     params = {'action': 'setProperties'}
+    #     response = requests.patch(url=url, headers=headers,
+    #                               params=params)
+    #     if not response.status_code == requests.codes.ok:
+    #         response.raise_for_status()
+    #     print(f'New filesize is: {self._get_size()}')
 
     def _upload_chunk(self, final: bool = False, resource: str = None):
         """ Writes part of a multi-block file to Azure Datalake """
@@ -362,26 +392,43 @@ class AzureBlobFile(AbstractBufferedFile):
         data = self.buffer.getvalue()
         l = len(data)
         print(f'Length of file chunk is:  {l}')
-        ## Need to get the size of the existing file
+        
+        # Get the size of the existing file
         current_size = self._get_size()
         print(f'Current filesize is:  {current_size}')
         
         # Append current buffer to the existing file
-        headers = self.fs._make_headers()
-        headers['Content-Length'] = str(l)
+        headers = self.fs._make_headers(content_length=l)
+        print(f'headers:  {headers}')
         url = self.fs._make_url(path=self.path)
         # Set the parameters for the query.  
         # Can be one of "append", "flush".
         # Other allowed values for PATCH on ADLGen2 are
         # "setProperties" and "setAccessControl"
         params = {'action': 'append',
-                  'position': str(l)}
+                  'position': 0}
+        print(f'params:  {params}')
         response = requests.patch(url, headers=headers, data=data, params=params)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+        print('Appended file...')
+        print(response.headers)
+        # print(response.json())
+        print(response.text)
+        print('Flush file...')
+        params = {'action': 'flush',
+                  'position': l}
+        print('make headers...')
+        headers = self.fs._make_headers(media_type='application/octet-stream',
+                                        content_length=0)
+        print('output headers...')
+        print(headers)
+        response = requests.patch(url, headers=headers, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
             
         # Then set the new file Content-Length on ADLS Gen2
-        self._set_size(current_size=current_size, appended_size=l)
+        # self._set_size(current_size=current_size, appended_size=l)
             
     def upload_single_shot(self, final: bool = False):
         """ Writes an entire file to Azure Datalake """
