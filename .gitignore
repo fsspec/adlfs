@@ -9,3 +9,4 @@ tests/dummyfiles/*
 .pytest_cache/**
 **/*.code-workspace
 *.csv
+**/*__pycache__/**
