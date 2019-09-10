@@ -14,7 +14,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-ADLS_GEN2_MAXIMUM_BLOCK_SIZE = 2 ** 20
 
 class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     
@@ -401,28 +400,27 @@ class AzureBlobFile(AbstractBufferedFile):
         headers = self.fs._make_headers(content_length=l)
         print(f'headers:  {headers}')
         url = self.fs._make_url(path=self.path)
-        # Set the parameters for the query.  
+        # Set the parameters for the API query.  
         # Can be one of "append", "flush".
         # Other allowed values for PATCH on ADLGen2 are
         # "setProperties" and "setAccessControl"
+        # For append, "position" must be the position where the data is to be appended
         params = {'action': 'append',
                   'position': 0}
-        print(f'params:  {params}')
         response = requests.patch(url, headers=headers, data=data, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
-        print('Appended file...')
-        print(response.headers)
-        # print(response.json())
-        print(response.text)
-        print('Flush file...')
+        
+        # This is the flush operation
+        # To flush, the previously uploaded data must be contiguous, the position
+        # parameter must be specified, and equal to the length of the file after
+        # all data has been written, and there can be no request entity body
+        # in the request.
+        # To flush, must set header content-length == 0.
         params = {'action': 'flush',
                   'position': l}
-        print('make headers...')
         headers = self.fs._make_headers(media_type='application/octet-stream',
                                         content_length=0)
-        print('output headers...')
-        print(headers)
         response = requests.patch(url, headers=headers, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
