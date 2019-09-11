@@ -7,9 +7,10 @@ import re
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
+from azure.datalake.store.core import AzureDLPath
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import infer_storage_options, stringify_path
+from fsspec.utils import infer_storage_options, stringify_path, tokenize
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -30,11 +31,28 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
                                     )
         adl.ls('')
         
-        When used with Dask's read method, pass credentials as follows:
+        Sharded Parquet & csv files can be read as:
+        ----------------------------
+        ddf = dd.read_parquet('adl://folder/filename.parquet', storage_options={
+            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+        })
+
+        ddf = dd.read_csv('adl://folder/*.csv', storage_options={
+            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+        })
+
+        Sharded Parquet and csv files can be written as:
+        ------------------------------------------------
+        dd.to_parquet(ddf, 'adl://folder/filename.parquet, storage_options={
+            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+        })
         
-        dd.read_parquet("adl://folder/filename.xyz", storage_options={
-            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 
-            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME,
+        ddf.to_csv('adl://folder/*.csv', storage_options={
+            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
         })
 
     Parameters
@@ -71,7 +89,9 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
                           invalidate_cache=invalidate_cache)
     
     def info(self, path, invalidate_cache=True):
-        return self.fs.info(path=path, invalidate_cache=invalidate_cache)
+        info = self.fs.info(path=path, invalidate_cache=invalidate_cache)
+        info['size'] = info['length']
+        return info
 
     def _trim_filename(self, fn):
         """ Determine what kind of filestore this is and return the path """
@@ -100,16 +120,13 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             return False
 
     def open(self, path, mode='rb'):
-        adl_path = self._trim_filename(path)
-        f = self.fs.open(adl_path, mode=mode)
+        f = self.fs.open(path, mode=mode)
         return f
 
     def ukey(self, path):
-        adl_path = self._trim_filename(path)
-        return tokenize(self.info(adl_path)['modificationTime'])
+        return tokenize(self.info(path)['modificationTime'])
 
     def size(self, path):
-        adl_path = self._trim_filename(path)
         return self.info(adl_path)['length']
 
     def __getstate__(self):
@@ -209,19 +226,15 @@ class AzureBlobFileSystem(AbstractFileSystem):
             'Authorization': f'Bearer {self.token}'
                 }
         if content_type:
-            print('adding content_type')
             headers['Content-Type'] = content_type
         if media_type:
             headers['Media-Type'] = media_type
         if range:
             headers['Range'] = str(range)
         if content_length is not None:
-            print(type(content_length))
             headers['Content-Length'] = content_length
         for k, v in kwargs.items():
             headers[k] = v
-        print('returning headers...')
-        print(headers)
         return headers
 
     def _parse_path(self, path: str):
@@ -358,12 +371,10 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _initiate_upload(self):
         """ Creates a file that can be written """
-        print('**** Initiate upload *****')
         headers = self.fs._make_headers(media_type='application/octet-stream', 
                                         content_length='0',
                                         content_type='application/x-www-form-urlencoded',
                                         )
-        print(headers)
         url = self.fs._make_url(path=self.path)
         params = {'resource': 'file'}
         response = requests.put(url, headers=headers, data=self.buffer, params=params)
@@ -371,10 +382,7 @@ class AzureBlobFile(AbstractBufferedFile):
             response.raise_for_status()
 
     def _get_size(self):
-        print('Getting size...')
-        print(self.fs.info(path=self.path))
         content_length = self.fs.info(path=self.path)['size']
-        print(f'Current size on datalake:  {content_length}')
         return content_length
 
     # def _set_size(self, current_size, appended_size):
@@ -392,20 +400,16 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _upload_chunk(self, final: bool = False, resource: str = None):
         """ Writes part of a multi-block file to Azure Datalake """
-        print('***********  write chunk   ****************')
-        print(f'The offset is:  {self.offset}')
+
         self.buffer.seek(0)
         data = self.buffer.getvalue()
         l = len(data)
-        print(f'Length of file chunk is:  {l}')
         
         # Get the size of the existing file
         current_size = self._get_size()
-        print(f'Current filesize is:  {current_size}')
         
         # Append current buffer to the existing file
         headers = self.fs._make_headers(content_length=l)
-        print(f'headers:  {headers}')
         url = self.fs._make_url(path=self.path)
         # Set the parameters for the API query.  
         # Can be one of "append", "flush".
@@ -437,7 +441,6 @@ class AzureBlobFile(AbstractBufferedFile):
             
     def upload_single_shot(self, final: bool = False):
         """ Writes an entire file to Azure Datalake """
-        print('write file')
         headers = self.fs._make_headers()
         headers['Content-Length'] = '0'
         url = self.fs._make_url(path=self.path)
