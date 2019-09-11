@@ -10,3 +10,6 @@ tests/dummyfiles/*
 **/*.code-workspace
 *.csv
 **/*__pycache__/**
+*azurepipelines.yml
+*mydask.png
+*writefile.csv
