@@ -13,3 +13,4 @@ tests/dummyfiles/*
 *azure-pipelines.yml
 *mydask.png
 *writefile.csv
+*build/**

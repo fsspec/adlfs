@@ -4,7 +4,7 @@ from os.path import exists
 from setuptools import setup
 
 setup(name='adlfs',
-      version='0.0.4',
+      version='0.0.5',
       description='Access Azure Datalake Gen1 with fsspec and dask',
       url='https://github.com/hayesgb/adlfs/',
       maintainer='Greg Hayes',
