@@ -15,7 +15,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
+class AzureDatalakeFileSystem(AbstractFileSystem):
     
     
     """
@@ -63,8 +63,15 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
                         client_id=self.client_id,
                         client_secret=self.client_secret,
                         )
-        AzureDLFileSystem.__init__(self, token=token,
+        self.fs = AzureDLFileSystem(token=token,
                                    store_name=self.store_name)
+        
+    def ls(self, path, detail=False, invalidate_cache=True):
+        return self.fs.ls(path=path, detail=detail,
+                          invalidate_cache=invalidate_cache)
+    
+    def info(self, path, invalidate_cache=True):
+        return self.fs.info(path=path, invalidate_cache=invalidate_cache)
 
     def _trim_filename(self, fn):
         """ Determine what kind of filestore this is and return the path """
@@ -75,7 +82,7 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     def glob(self, path):
         """For a template path, return matching files"""
         adlpaths = self._trim_filename(path)
-        filepaths = AzureDLFileSystem.glob(self, adlpaths)
+        filepaths = self.fs.glob(adlpaths)
         return filepaths
     
     def isdir(self, path):
@@ -88,13 +95,13 @@ class AzureDatalakeFileSystem(AzureDLFileSystem, AbstractFileSystem):
     def isfile(self, path):
         """Is this entry file-like?"""
         try:
-            return self.info(path)['type'].lower() == 'file'
+            return self.fs.info(path)['type'].lower() == 'file'
         except:
             return False
 
     def open(self, path, mode='rb'):
         adl_path = self._trim_filename(path)
-        f = AzureDLFileSystem.open(self, adl_path, mode=mode)
+        f = self.fs.open(adl_path, mode=mode)
         return f
 
     def ukey(self, path):
