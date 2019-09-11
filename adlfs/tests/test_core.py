@@ -6,23 +6,6 @@ from dask.bytes.core import read_bytes
 
 from adlfs.core import AzureBlobFileSystem, AzureBlobFile
 
-        
-# class MockResponseSingleFile:
-#     def __init__(self):
-#         self.status_code = 200
-        
-#     def json(self):
-#         return {'paths': [
-#             {'name': 'testfile.csv', 'contentLength': '10'},
-#         ]}
-
-# class MockResponseReadFile:
-#     def __init__():
-#         self.status_code = 200
-        
-#     def content(self):
-#         return b',test\n0,0\n1,1\n2,2\n'
-
 
 @pytest.fixture()
 def test_mock_abfs(monkeypatch):
