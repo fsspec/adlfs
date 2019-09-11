@@ -19,14 +19,15 @@ To use the Gen2 filesystem:
     known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
 
 This allows operations such as:
-    import dask.dataframe as dd
-    storage_options={'tenant_id': TENANT_ID,
-                    'client_id': CLIENT_ID,
-                    'client_secret': CLIENT_SECRET,
-                    'storage_account': STORAGE_ACCOUNT,
-                    'filesystem': FILESYSTEM,
-                    }
-    dd.read_csv('abfs://folder/file.csv', storage_options=STORAGE_OPTIONS}
+import dask.dataframe as dd
+storage_options={
+'tenant_id': TENANT_ID,
+'client_id': CLIENT_ID,
+'client_secret': CLIENT_SECRET,
+'storage_account': STORAGE_ACCOUNT,
+'filesystem': FILESYSTEM,
+}
+dd.read_csv('abfs://folder/file.csv', storage_options=STORAGE_OPTIONS}
 
 Details
 -------
@@ -48,7 +49,7 @@ using the requests library.
 
 An Azure Datalake Gen2 url takes the following form, which is replicated in 
 the adlfs library, for the sake of consistency:
-    'abfs[s]://{storage_account}/{filesystem}/{folder}/{file}'
+'abfs[s]://{storage_account}/{filesystem}/{folder}/{file}'
 
 Currently, when using either the 'adl://' or 'abfs://' protocols in a dask operation, 
 it is required to explicitly declare the storage_options, as described in the Dask documentation.
