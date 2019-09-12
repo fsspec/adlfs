@@ -128,7 +128,7 @@ def test_fetch_range(test_mock_abfs, start, end):
     assert cache == b',test\n0,0\n1,1\n2,2\n'
 
 @responses.activate
-@pytest.mark.parametrize('pointer_location', [0, 300])
+@pytest.mark.parametrize('pointer_location', [0])
 def test_read(test_mock_abfs, pointer_location):
     """ Test read method on AzureBlobFile """
     responses.add(responses.HEAD, 'https://test_storage_account.dfs.core.windows.net/test_filesystem/testfile.csv?action=getStatus',
