@@ -27,32 +27,32 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     Examples
     _________
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
-                                    client_secret="xxxx", store_name="storage_account"
+                                    client_secret="xxxx"
                                     )
         adl.ls('')
         
         Sharded Parquet & csv files can be read as:
         ----------------------------
-        ddf = dd.read_parquet('adl://folder/filename.parquet', storage_options={
+        ddf = dd.read_parquet('adl://store_name/folder/filename.parquet', storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+            'client_secret': CLIENT_SECRET
         })
 
-        ddf = dd.read_csv('adl://folder/*.csv', storage_options={
+        ddf = dd.read_csv('adl://store_name/folder/*.csv', storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+            'client_secret': CLIENT_SECRET
         })
 
         Sharded Parquet and csv files can be written as:
         ------------------------------------------------
-        dd.to_parquet(ddf, 'adl://folder/filename.parquet, storage_options={
+        dd.to_parquet(ddf, 'adl://store_name/folder/filename.parquet, storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+            'client_secret': CLIENT_SECRET
         })
         
-        ddf.to_csv('adl://folder/*.csv', storage_options={
+        ddf.to_csv('adl://store_name/folder/*.csv', storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET, 'store_name': STORE_NAME
+            'client_secret': CLIENT_SECRET
         })
 
     Parameters
@@ -64,7 +64,8 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     client_secret: string
         The access key
     store_name: string (None)
-        The name of the datalake account being accessed
+        The name of the datalake account being accessed.  Should be inferred from the urlpath
+        if using with Dask read_xxx and to_xxx methods.
     """
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
@@ -75,6 +76,20 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         self.store_name = store_name
         self.do_connect()
 
+    @staticmethod
+    def _get_kwargs_from_urls(paths):
+        """ Get the store_name from the urlpath and pass to storage_options """
+        ops = infer_storage_options(paths)
+        out = {}
+        if ops.get('host', None):
+            out['store_name'] = ops['host']
+        return out
+
+    @classmethod
+    def _strip_protocol(cls, path):
+        ops = infer_storage_options(path)
+        return ops['path']
+    
     def do_connect(self):
         """Establish connection object."""
         token = lib.auth(tenant_id=self.tenant_id,
