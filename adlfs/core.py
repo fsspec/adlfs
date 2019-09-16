@@ -437,29 +437,24 @@ class AzureBlobFile(AbstractBufferedFile):
         
         if final and l == 0:
             status_code = self._flush_file(position=end_position)
-            if status_code==202:
-                print(f'Final flush {self.path} with length {l} at position {end_position} ')
+            if status_code!=202:
+                raise Exception(f'Flush to Azure Datalake failed with status code={status_code} on file {self.path}')
         
         elif final and l > 0:
         # Append current buffer to the existing file
             status_code = self._append_file(position=self.offset, content_length=l, data=data)
             if status_code==202:
-                print(f'Final append {self.path} with length {l} at position {self.offset}')
                 status_code = self._flush_file(position=end_position)
-                if status_code == 200:
-                    print(f'Final flush {self.path} with length {l} at position {end_position} ')
-                else:
-                    raise Exception(f'status code={status_code} on file {self.path}')
-            else:
-                raise Exception(f'status code = {status_code}')
+                if status_code != 200:
+                    raise Exception(f'Flush to Azure Datalake failed with status code={status_code} on file {self.path}')
                 
         elif not final and l > 0:
             status_code = self._append_file(position=self.offset, content_length=l, data=data)
-            if status_code == 202:
-                print(f'Not final, append only {self.path} with length {l} at position {self.offset}')
+            if status_code != 202:
+                raise Exception(f'Write to Azure Datalake failed with status code={status_code} on file {self.path}')
                 
         else:
-            raise Exception(f'Unexpected condition,  l={l}, final={final}, end_position={end_position}, path={self.path}')
+            raise Exception(f'Unexpected condition during _upload_chunk for l={l}, final={final}, end_position={end_position}, path={self.path}')
             
 
     def upload_single_shot(self, final: bool = False):
