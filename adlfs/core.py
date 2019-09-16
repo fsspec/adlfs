@@ -313,7 +313,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
                             path_['size'] = int(path_.pop('contentLength'))
                         else: path_['size'] = int(0)
                     if len(pathlist) == 1:
-                        return pathlist[0]
+                        return pathlist
+                        # return pathlist[0]
                     else:
                         return pathlist
                 else:
@@ -365,7 +366,7 @@ class AzureBlobFile(AbstractBufferedFile):
                     cache_type=cache_type, autocommit=autocommit)
         self.fs = fs
         self.path = path
-
+        
     def _fetch_range(self, start=None, end=None):
         """ Gets the specified byte range from Azure Datalake Gen2 """
         if start is not None or end is not None:
@@ -400,60 +401,62 @@ class AzureBlobFile(AbstractBufferedFile):
         content_length = self.fs.info(path=self.path)['size']
         return content_length
 
-    # def _set_size(self, current_size, appended_size):
-    #     print('Setting size...')
-    #     headers = self.fs._make_headers(content_length=appended_size)
-    #     new_size = int(current_size) + int(appended_size)
-    #     headers['Content-Length'] = str(new_size)
-    #     url = self.fs._make_url(path=self.path)
-    #     params = {'action': 'setProperties'}
-    #     response = requests.patch(url=url, headers=headers,
-    #                               params=params)
-    #     if not response.status_code == requests.codes.ok:
-    #         response.raise_for_status()
-    #     print(f'New filesize is: {self._get_size()}')
-
-    def _upload_chunk(self, final: bool = False, resource: str = None):
-        """ Writes part of a multi-block file to Azure Datalake """
-
-        self.buffer.seek(0)
-        data = self.buffer.getvalue()
-        l = len(data)
-        
-        # Get the size of the existing file
-        current_size = self._get_size()
-        
-        # Append current buffer to the existing file
-        headers = self.fs._make_headers(content_length=l)
+    def _flush_file(self, position):
         url = self.fs._make_url(path=self.path)
-        # Set the parameters for the API query.  
-        # Can be one of "append", "flush".
-        # Other allowed values for PATCH on ADLGen2 are
-        # "setProperties" and "setAccessControl"
-        # For append, "position" must be the position where the data is to be appended
-        params = {'action': 'append',
-                  'position': 0}
-        response = requests.patch(url, headers=headers, data=data, params=params)
-        if not response.status_code == requests.codes.ok:
-            response.raise_for_status()
-        
-        # This is the flush operation
-        # To flush, the previously uploaded data must be contiguous, the position
-        # parameter must be specified, and equal to the length of the file after
-        # all data has been written, and there can be no request entity body
-        # in the request.
-        # To flush, must set header content-length == 0.
         params = {'action': 'flush',
-                  'position': l}
-        headers = self.fs._make_headers(media_type='application/octet-stream',
-                                        content_length=0)
+                  'position': position
+                  }
+        headers = self.fs._make_headers(media_type='text/plain',
+                                            content_length=0
+                                            )
         response = requests.patch(url, headers=headers, params=params)
         if not response.status_code == requests.codes.ok:
             response.raise_for_status()
+        return response.status_code
+        
+    def _append_file(self, position, content_length, data):
+        url = self.fs._make_url(path=self.path)
+        headers = self.fs._make_headers(media_type='text/plain',
+                                   content_length=content_length,
+                                   )
+        params = {'action': 'append',
+                'position': self.offset
+                }
+        response = requests.patch(url, headers=headers, params=params,
+                                  data=data)
+        if not response.status_code == requests.codes.ok:
+            response.raise_for_status()
+        return response.status_code
+
+    def _upload_chunk(self, final: bool = False, resource: str = None):
+        """ Writes part of a multi-block file to Azure Datalake """
+        self.buffer.seek(0)
+        data = self.buffer.getvalue()
+        l = len(data)
+        end_position = self.offset + l
+        
+        if final and l == 0:
+            status_code = self._flush_file(position=end_position)
+            if status_code!=202:
+                raise Exception(f'Flush to Azure Datalake failed with status code={status_code} on file {self.path}')
+        
+        elif final and l > 0:
+        # Append current buffer to the existing file
+            status_code = self._append_file(position=self.offset, content_length=l, data=data)
+            if status_code==202:
+                status_code = self._flush_file(position=end_position)
+                if status_code != 200:
+                    raise Exception(f'Flush to Azure Datalake failed with status code={status_code} on file {self.path}')
+                
+        elif not final and l > 0:
+            status_code = self._append_file(position=self.offset, content_length=l, data=data)
+            if status_code != 202:
+                raise Exception(f'Write to Azure Datalake failed with status code={status_code} on file {self.path}')
+                
+        else:
+            raise Exception(f'Unexpected condition during _upload_chunk for l={l}, final={final}, end_position={end_position}, path={self.path}')
             
-        # Then set the new file Content-Length on ADLS Gen2
-        # self._set_size(current_size=current_size, appended_size=l)
-            
+
     def upload_single_shot(self, final: bool = False):
         """ Writes an entire file to Azure Datalake """
         headers = self.fs._make_headers()

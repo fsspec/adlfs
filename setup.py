@@ -17,5 +17,6 @@ setup(name='adlfs',
       long_description=open('README.rst').read() if exists('README.rst') else '',
       install_requires=['azure-datalake-store',
                         'fsspec>=0.4.0<1.0',
-                        'requests>=2.22.0<3.0.0'],
+                        'requests>=2.11',    # After requests 2.11, ints are not allowed in headers, but the ADLSGen2 API expects position to be an int
+                        ],
       zip_safe=False)
