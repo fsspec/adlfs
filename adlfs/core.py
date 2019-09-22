@@ -7,7 +7,7 @@ import re
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
-from azure.datalake.store.core import AzureDLPath
+from azure.datalake.store.core import AzureDLPath, AzureDLFile
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
@@ -96,15 +96,15 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
                         client_id=self.client_id,
                         client_secret=self.client_secret,
                         )
-        self.fs = AzureDLFileSystem(token=token,
+        self.azure_fs = AzureDLFileSystem(token=token,
                                    store_name=self.store_name)
         
     def ls(self, path, detail=False, invalidate_cache=True):
-        return self.fs.ls(path=path, detail=detail,
+        return self.azure_fs.ls(path=path, detail=detail,
                           invalidate_cache=invalidate_cache)
     
-    def info(self, path, invalidate_cache=True):
-        info = self.fs.info(path=path, invalidate_cache=invalidate_cache)
+    def info(self, path, invalidate_cache=True, expected_error_code=404):
+        info = self.azure_fs.info(path=path, invalidate_cache=invalidate_cache, expected_error_code=expected_error_code)
         info['size'] = info['length']
         return info
 
@@ -114,10 +114,10 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         fileparts = so['path']
         return fileparts
 
-    def glob(self, path):
+    def glob(self, path, details=False, invalidate_cache=True):
         """For a template path, return matching files"""
         adlpaths = self._trim_filename(path)
-        filepaths = self.fs.glob(adlpaths)
+        filepaths = self.azure_fs.glob(adlpaths, details=details, invalidate_cache=invalidate_cache)
         return filepaths
     
     def isdir(self, path):
@@ -130,21 +130,26 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     def isfile(self, path):
         """Is this entry file-like?"""
         try:
-            return self.fs.info(path)['type'].lower() == 'file'
+            return self.azure_fs.info(path)['type'].lower() == 'file'
         except:
             return False
 
-    def open(self, path, mode='rb'):
-        f = self.fs.open(path, mode=mode)
-        return f
-
+    def _open(self, path, mode='rb', block_size=None, autocommit=True):
+        print(f'open:  {path}')
+        return AzureDatalakeFile(self, path, mode)
+    
+    def read_block(self, fn, offset, length, delimiter=None):
+        return self.azure_fs.read_block(fn, offset, length, delimiter)
+        
     def ukey(self, path):
         return tokenize(self.info(path)['modificationTime'])
 
     def size(self, path):
-        return self.info(adl_path)['length']
+        print(f'get size...')
+        return self.info(path)['length']
 
     def __getstate__(self):
+        print(f'...get state...')
         dic = self.__dict__.copy()
         del dic['token']
         del dic['azure']
@@ -152,12 +157,38 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return dic
 
     def __setstate__(self, state):
-        
+        print(f' set state...')
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
         self.do_connect()
 
 
+class AzureDatalakeFile(AzureDLFile):
+    def __init__(self, fs, path, mode='rb'):
+        super().__init__(azure=fs.azure_fs, path=path, mode=mode)
+        self.fs = fs
+        self.path = AzureDLPath(path)
+        # self.make_azure_dl_file(azure = self.fs.azure_fs, path=self.path, mode=self.mode)
+        
+    # def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
+    #     self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
+    
+    # # def _fetch_range(self, start, end):
+    # #     self.azurefile._fetch(start, end)
+        
+    # def read(self, length=-1):
+    #     out = self.azurefile.read(length=length)
+    #     return out
+    
+    # def write(self, data):
+    #     self.azurefile.write(data)
+        
+    # def flush(self, force=False):
+    #     self.azurefile.flush(force=force)
+    
+    # def seek(self, loc, whence=0):
+    #     return self.azurefile.seek(loc=loc, whence=whence)
+    
 class AzureBlobFileSystem(AbstractFileSystem):
     """
     abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
@@ -353,7 +384,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
        """ Return a file-like object from the ADL Gen2 in raw bytes-mode """
-       
        return AzureBlobFile(self, path, mode)
 
 
@@ -456,7 +486,6 @@ class AzureBlobFile(AbstractBufferedFile):
         else:
             raise Exception(f'Unexpected condition during _upload_chunk for l={l}, final={final}, end_position={end_position}, path={self.path}')
             
-
     def upload_single_shot(self, final: bool = False):
         """ Writes an entire file to Azure Datalake """
         headers = self.fs._make_headers()
