@@ -163,15 +163,18 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         self.do_connect()
 
 
-class AzureDatalakeFile(AzureDLFile):
+class AzureDatalakeFile(AbstractBufferedFile):
     def __init__(self, fs, path, mode='rb'):
-        super().__init__(azure=fs.azure_fs, path=path, mode=mode)
         self.fs = fs
         self.path = AzureDLPath(path)
-        # self.make_azure_dl_file(azure = self.fs.azure_fs, path=self.path, mode=self.mode)
+        self.mode = mode
+        self.loc = 0
+        self.closed = False
+        self._closed = None
+        self.make_azure_dl_file(azure = self.fs.azure_fs, path=self.path, mode=self.mode)
         
-    # def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
-    #     self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
+    def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
+        self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
     
     # # def _fetch_range(self, start, end):
     # #     self.azurefile._fetch(start, end)
@@ -180,11 +183,14 @@ class AzureDatalakeFile(AzureDLFile):
     #     out = self.azurefile.read(length=length)
     #     return out
     
-    # def write(self, data):
-    #     self.azurefile.write(data)
+    def write(self, data):
+        return self.azurefile.write(data)
         
-    # def flush(self, force=False):
-    #     self.azurefile.flush(force=force)
+    def flush(self, force=False):
+        return self.azurefile.flush(force=force)
+    
+    def close(self):
+        return self.azurefile.close()
     
     # def seek(self, loc, whence=0):
     #     return self.azurefile.seek(loc=loc, whence=whence)
