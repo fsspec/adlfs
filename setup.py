@@ -6,7 +6,7 @@ from os import path
 
 
 setup(name='adlfs',
-      version='0.0.6',
+      version='0.0.7',
       description='Access Azure Datalake Gen1 with fsspec and dask',
       url='https://github.com/hayesgb/adlfs/',
       maintainer='Greg Hayes',
