@@ -136,7 +136,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             return False
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
-        print(f'open:  {path}')
         return AzureDatalakeFile(self, path, mode=mode)
     
     def read_block(self, fn, offset, length, delimiter=None):
@@ -149,7 +148,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return self.info(path)['length']
 
     def __getstate__(self):
-        print(f'...get state...')
         dic = self.__dict__.copy()
         del dic['token']
         del dic['azure']
@@ -157,7 +155,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return dic
 
     def __setstate__(self, state):
-        print(f' set state...')
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
         self.do_connect()
@@ -165,48 +162,11 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
 class AzureDatalakeFile(AzureDLFile):
     def __init__(self, fs, path, mode='rb', blocksize=2**25, delimiter=None):
-        super().__init__(azure = fs.azure_fs, path=AzureDLPath(path), mode='rb', 
+        super().__init__(azure=fs.azure_fs, path=AzureDLPath(path), mode=mode, 
                          blocksize=blocksize, delimiter=delimiter)
         self.fs = fs
         self.path = AzureDLPath(path)
         self.mode = mode
-        print(f'mode is:  {mode}')
-        try:
-            file_data = self.azure.info(path, invalidate_cache=True, expected_error_code=404)
-            print('file_data...')
-            print(file_data)
-            exists = True
-        except FileNotFoundError:
-            exists = False
-
-        # cannot create a new file object out of a directory
-        if exists and file_data['type'] == 'DIRECTORY':
-            raise IOError(
-                'path: {} is a directory, not a file, and cannot be opened for reading or writing'.format(path))
-
-        if mode == 'ab' or mode == 'wb':
-            self.blocksize = min(2 ** 22, blocksize)
-
-        if mode == 'ab' and exists:
-            self.loc = file_data['length']
-        elif (mode == 'ab' and not exists) or (mode == 'wb'):
-            # Create the file
-            _put_data_with_retry(
-                rest=self.azure.azure,
-                op='CREATE',
-                path=self.path.as_posix(),
-                data=None,
-                overwrite='true',
-                write='true',
-                syncFlag='DATA',
-                leaseid=self.leaseid,
-                filesessionid=self.filesessionid)
-            logger.debug('Created file %s ' % self.path)
-        else:  # mode == 'rb':
-            if not exists:
-                raise FileNotFoundError(path.as_posix())
-            self.size = file_data['length']
-        print(f'size:  {self.size}')
     
     def seek(self, loc, whence=0):
         """ Set current file location
@@ -233,29 +193,8 @@ class AzureDatalakeFile(AzureDLFile):
             raise ValueError("Seek before start of file")
         self.loc = nloc
         return self.loc
-        
-    # def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
-    #     self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
-    
-    # # def _fetch_range(self, start, end):
-    # #     self.azurefile._fetch(start, end)
-        
-    # def read(self, length=-1):
-    #     out = self.azurefile.read(length=length)
-    #     return out
-    
-    # def write(self, data):
-    #     return self.azurefile.write(data)
-        
-    # def flush(self, force=False):
-    #     return self.azurefile.flush(force=force)
-    
-    # def close(self):
-    #     return self.azurefile.close()
-    
-    # def seek(self, loc, whence=0):
-    #     return self.azurefile.seek(loc=loc, whence=whence)
-    
+
+
 class AzureBlobFileSystem(AbstractFileSystem):
     """
     abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
