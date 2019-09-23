@@ -8,6 +8,7 @@ import re
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
+from azure.datalake.store.core import _put_data_with_retry
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
@@ -136,7 +137,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
         print(f'open:  {path}')
-        return AzureDatalakeFile(self, path, mode)
+        return AzureDatalakeFile(self, path, mode=mode)
     
     def read_block(self, fn, offset, length, delimiter=None):
         return self.azure_fs.read_block(fn, offset, length, delimiter)
@@ -145,7 +146,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return tokenize(self.info(path)['modificationTime'])
 
     def size(self, path):
-        print(f'get size...')
         return self.info(path)['length']
 
     def __getstate__(self):
@@ -163,18 +163,79 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         self.do_connect()
 
 
-class AzureDatalakeFile(AbstractBufferedFile):
-    def __init__(self, fs, path, mode='rb'):
+class AzureDatalakeFile(AzureDLFile):
+    def __init__(self, fs, path, mode='rb', blocksize=2**25, delimiter=None):
+        super().__init__(azure = fs.azure_fs, path=AzureDLPath(path), mode='rb', 
+                         blocksize=blocksize, delimiter=delimiter)
         self.fs = fs
         self.path = AzureDLPath(path)
         self.mode = mode
-        self.loc = 0
-        self.closed = False
-        self._closed = None
-        self.make_azure_dl_file(azure = self.fs.azure_fs, path=self.path, mode=self.mode)
+        print(f'mode is:  {mode}')
+        try:
+            file_data = self.azure.info(path, invalidate_cache=True, expected_error_code=404)
+            print('file_data...')
+            print(file_data)
+            exists = True
+        except FileNotFoundError:
+            exists = False
+
+        # cannot create a new file object out of a directory
+        if exists and file_data['type'] == 'DIRECTORY':
+            raise IOError(
+                'path: {} is a directory, not a file, and cannot be opened for reading or writing'.format(path))
+
+        if mode == 'ab' or mode == 'wb':
+            self.blocksize = min(2 ** 22, blocksize)
+
+        if mode == 'ab' and exists:
+            self.loc = file_data['length']
+        elif (mode == 'ab' and not exists) or (mode == 'wb'):
+            # Create the file
+            _put_data_with_retry(
+                rest=self.azure.azure,
+                op='CREATE',
+                path=self.path.as_posix(),
+                data=None,
+                overwrite='true',
+                write='true',
+                syncFlag='DATA',
+                leaseid=self.leaseid,
+                filesessionid=self.filesessionid)
+            logger.debug('Created file %s ' % self.path)
+        else:  # mode == 'rb':
+            if not exists:
+                raise FileNotFoundError(path.as_posix())
+            self.size = file_data['length']
+        print(f'size:  {self.size}')
+    
+    def seek(self, loc, whence=0):
+        """ Set current file location
+
+        Parameters
+        ----------
+        loc: int
+            byte location
+        whence: {0, 1, 2}
+            from start of file, current location or end of file, resp.
+        """
+        loc = int(loc)
+        if not self.mode == "rb":
+            raise ValueError("Seek only available in read mode")
+        if whence == 0:
+            nloc = loc
+        elif whence == 1:
+            nloc = self.loc + loc
+        elif whence == 2:
+            nloc = self.size + loc
+        else:
+            raise ValueError("invalid whence (%s, should be 0, 1 or 2)" % whence)
+        if nloc < 0:
+            raise ValueError("Seek before start of file")
+        self.loc = nloc
+        return self.loc
         
-    def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
-        self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
+    # def make_azure_dl_file(self, azure, path, mode, blocksize=2**25, delimiter=None):
+    #     self.azurefile = AzureDLFile(azure=azure, path=AzureDLPath(path), mode=mode, blocksize=blocksize, delimiter=delimiter)
     
     # # def _fetch_range(self, start, end):
     # #     self.azurefile._fetch(start, end)
@@ -183,14 +244,14 @@ class AzureDatalakeFile(AbstractBufferedFile):
     #     out = self.azurefile.read(length=length)
     #     return out
     
-    def write(self, data):
-        return self.azurefile.write(data)
+    # def write(self, data):
+    #     return self.azurefile.write(data)
         
-    def flush(self, force=False):
-        return self.azurefile.flush(force=force)
+    # def flush(self, force=False):
+    #     return self.azurefile.flush(force=force)
     
-    def close(self):
-        return self.azurefile.close()
+    # def close(self):
+    #     return self.azurefile.close()
     
     # def seek(self, loc, whence=0):
     #     return self.azurefile.seek(loc=loc, whence=whence)
