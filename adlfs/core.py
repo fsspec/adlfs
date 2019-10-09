@@ -148,16 +148,20 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return self.info(path)['length']
 
     def __getstate__(self):
-        dic = self.__dict__.copy()
-        del dic['token']
-        del dic['azure']
-        logger.debug("Serialize with state: %s", dic)
-        return dic
+        try:
+            dic = self.__dict__.copy()
+            # Need to determine what information can be deleted
+            # before passing to the Dask workers
+            # del dic['token']
+            # del dic['azure']
+            logger.debug("Serialize with state: %s", dic)
+            return dic
 
     def __setstate__(self, state):
-        logger.debug("De-serialize with state: %s", state)
-        self.__dict__.update(state)
-        self.do_connect()
+        try:
+            logger.debug("De-serialize with state: %s", state)
+            self.__dict__.update(state)
+            self.do_connect()
 
 
 class AzureDatalakeFile(AzureDLFile):
