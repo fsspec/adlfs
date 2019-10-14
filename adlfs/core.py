@@ -308,6 +308,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def put(self, path):
         raise NotImplementedError
 
+    def __setstate__(self, state):
+        logger.debug("De-serialize with state: %s", state)
+        self.__dict__.update(state)
+        self.do_connect()
 
 class AzureBlobFile(AbstractBufferedFile):
     ''' File-like operations on Azure Blobs '''
