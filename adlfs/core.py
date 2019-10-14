@@ -9,11 +9,12 @@ import os
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService
+from azure.storage.blob import BlockBlobService, AppendBlobService
 from azure.datalake.store.core import _put_data_with_retry
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
+from fsspec.core import caches
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +206,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     protocol = 'abfs'
 
-    def __init__(self, account_name: str, account_key: str):
+    def __init__(self, account_name: str, container_name: str, account_key: str):
         
         """ Access Azure Datalake Gen2 and Azure Storage using Multiprotocol Access
         
@@ -217,32 +218,102 @@ class AzureBlobFileSystem(AbstractFileSystem):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
+        self.container_name = container_name
         self.do_connect()
-        
+    
+    @staticmethod
+    def _get_kwargs_from_urls(paths):
+        """ Get the store_name from the urlpath and pass to storage_options """
+        ops = infer_storage_options(paths)
+        out = {}
+        if ops.get('host', None):
+            out['container_name'] = ops['host']
+        return out
+    
+    @classmethod
+    def _strip_protocol(cls, path):
+        ops = infer_storage_options(path)
+        return ops['path']
+    
     def do_connect(self):
-        self.fs = BlockBlobService(account_name=self.account_name, account_key=self.account_key)
+        self.blob_fs = BlockBlobService(account_name=self.account_name, account_key=self.account_key)
         
-    def ls(self, path=None, detail=False, invalidate_cache=True):
+    def ls(self, path, detail=False, invalidate_cache=True):
         path = stringify_path(path)
-        parsed_path = path.split('/')
-        container_name = parsed_path[0]
-        prefix = "/".join(p for p in parsed_path[1:])
-        files = self.fs.list_blobs(container_name=container_name, prefix=prefix)
+        blobs = self.blob_fs.list_blobs(container_name=self.container_name, prefix=path)
         if detail is False:
-            pathlist = [f.name for f in files]
+            pathlist = [blob.name for blob in blobs]
             return pathlist
-        # for file in files:
-        #     print(file.name, file.metadata, file.properties.blob_type, file.properties.content_length, file.properties.content_settings.content_type)
         else:
             pathlist = []
-            for file in files:
+            for blob in blobs:
                 data = {}
-                data['name'] = file.name
-                data['size'] = file.properties.content_length
-                if file.properties.content_settings.content_type is not None:
+                data['name'] = blob.name
+                data['size'] = blob.properties.content_length
+                data['container_name'] = self.container_name
+                if blob.properties.content_settings.content_type is not None:
                     data['type'] = 'file'
                 else: 
                     data['type'] = 'directory'
                 pathlist.append(data)
             return pathlist
             
+    def info(self, path):
+        blob = self.blob_fs.get_blob_properties(container_name=self.container_name,
+                                                      blob_name=path)
+        info={}
+        info['name'] = path
+        info['size'] = blob.properties.content_length
+        info['container_name'] = self.container_name
+        if blob.properties.content_settings.content_type is not None:
+            info['type'] = 'file'
+        else:
+            info['type'] = 'directory'
+        return info
+    
+    def isdir(self, path):
+        """Is this entry directory-like?"""
+        try:
+            return self.info(path)['type'].lower() == 'directory'
+        except FileNotFoundError:
+            return False
+        
+    def isfile(self, path):
+        """Is this entry file-like?"""
+        try:
+            return self.info(path)['type'].lower() == 'file'
+        except:
+            return False
+        
+    def _open(self, path, mode='rb', block_size=None, autocommit=True):
+        """ Open a file on the datalake, or a block blob """
+        return AzureBlobFile(fs=self, path=path, mode=mode)
+    
+    def touch(self, path):
+        raise NotImplementedError
+    
+    def put(self, path):
+        raise NotImplementedError
+
+
+class AzureBlobFile(AbstractBufferedFile):
+    ''' File-like operations on Azure Blobs '''
+    
+    def __init__(self, fs, path, mode='rb', autocommit=True, block_size="default", cache_type="bytes"):
+        super().__init__(fs=fs, path=path, mode=mode, block_size=block_size,
+                         autocommit=autocommit, cache_type=cache_type)
+        self.fs = fs
+        self.path = path
+        self.mode = mode
+        self.container_name = fs.container_name
+        self.autocommit = autocommit
+    
+    def _fetch_range(self, start, end):
+        blob = self.fs.blob_fs.get_blob_to_bytes(container_name=self.container_name, blob_name=self.path, 
+                                         start_range=start, end_range=end)
+        return blob.content
+    
+    def _upload_chunk(self, final=False):
+        data = self.buffer.getvalue()
+        self.fs.blob_fs.create_blob_from_bytes(container_name=self.container_name, blob_name=self.path, 
+                                  blob=data)
