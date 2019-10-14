@@ -201,7 +201,20 @@ class AzureDatalakeFile(AzureDLFile):
 
 class AzureBlobFileSystem(AbstractFileSystem):
     """
-    abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
+    Access Azure Datalake Gen2 as if it were a file system.
+
+    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage
+
+    Examples
+    _________
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
+        adl.ls('')
+        
+        Sharded Parquet & csv files can be read as:
+        ----------------------------
+        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+            'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,
+        })
     """
 
     protocol = 'abfs'
