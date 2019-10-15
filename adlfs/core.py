@@ -251,7 +251,15 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def do_connect(self):
         self.blob_fs = BlockBlobService(account_name=self.account_name, account_key=self.account_key)
         
-    def ls(self, path, detail=False, invalidate_cache=True):
+    def ls(self, path: str, detail: bool = False, invalidate_cache: bool = True):
+        """ Create a list of blob names from a blob container
+        
+        Parameters
+        ----------
+        path:  Path to an Azure Blob directory
+        detail:  If False, return a list of blob names, else a list of dictionaries with blob details
+        invalidate_cache:  Boolean
+        """
         path = stringify_path(path)
         blobs = self.blob_fs.list_blobs(container_name=self.container_name, prefix=path)
         if detail is False:
@@ -271,7 +279,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 pathlist.append(data)
             return pathlist
             
-    def info(self, path):
+    def info(self, path: str):
+        """ Create a dictionary of path attributes 
+        
+        Parameters
+        ----------
+        path:  An Azure Blob
+        """
         blob = self.blob_fs.get_blob_properties(container_name=self.container_name,
                                                       blob_name=path)
         info={}
@@ -283,6 +297,69 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             info['type'] = 'directory'
         return info
+    
+    def walk(self, path, maxdepth=None, **kwargs):
+        """ Return all files belows path
+        
+        List all files, recursing into subdirectories; output is iterator-style,
+        like ``os.walk()``. For a simple list of files, ``find()`` is available.
+        Note that the "files" outputted will include anything that is not
+        a directory, such as links.  Used by pyarrow during making of the manifest 
+        of a ParquetDataset
+        
+        Parameters
+        ----------
+        path: str
+            Root to recurse into
+        maxdepth: int
+            Maximum recursion depth. None means limitless, but not recommended
+            on link-based file-systems.
+        kwargs: passed to ``ls``
+        """
+        
+        logging.debug("Walking the filepath structure")
+        path = self._strip_protocol(path)
+        full_dirs = []
+        dirs = []
+        files = []
+
+        try:
+            listing = self.ls(path, True, **kwargs)
+        except (FileNotFoundError, IOError):
+            return [], [], []
+
+        for info in listing:
+            # each info name must be at least [path]/part , but here
+            # we check also for names like [path]/part/
+            name = info["name"].rstrip("/")
+            logging.debug(f"Test path with name:  {name}")
+            if info["type"] == "directory" and name != path:
+                # do not include "self" path
+                full_dirs.append(name)
+                # Need to add this line to handle an oddity in how
+                # Azure Storage returns blob paths from list operations.
+                # Without it, the ParquetDataset operation by pyarrow fails
+                logging.debug(f"Path name:  {name} is a directory.  Evaluate against {path}")
+                if path.lstrip('/') != name:
+                    logging.debug(f"Appended {name} to dirs.")
+                    dirs.append(name.rsplit("/", 1)[-1])
+            elif name == path:
+                # file-like with same name as give path
+                files.append("")
+            else:
+                files.append(name.rsplit("/", 1)[-1])
+            
+        logging.debug(dirs)    
+        yield path, dirs, files
+
+        for d in full_dirs:
+            if maxdepth is None or maxdepth > 1:
+                for res in self.walk(
+                    d,
+                    maxdepth=(maxdepth - 1) if maxdepth is not None else None,
+                    **kwargs
+                ):
+                    yield res
     
     def isdir(self, path):
         """Is this entry directory-like?"""
@@ -300,14 +377,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
         
     def _open(self, path, mode='rb', block_size=None, autocommit=True):
         """ Open a file on the datalake, or a block blob """
+        logging.debug(f"_open:  {path}")
         return AzureBlobFile(fs=self, path=path, mode=mode)
     
-    def touch(self, path):
-        raise NotImplementedError
-    
-    def put(self, path):
-        raise NotImplementedError
-
 
 class AzureBlobFile(AbstractBufferedFile):
     ''' File-like operations on Azure Blobs '''

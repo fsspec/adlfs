@@ -6,7 +6,7 @@ from os import path
 
 
 setup(name='adlfs',
-      version='0.0.10post2',
+      version='0.0.11',
       description='Access Azure Datalake Gen1 with fsspec and dask',
       url='https://github.com/hayesgb/adlfs/',
       maintainer='Greg Hayes',
@@ -17,7 +17,6 @@ setup(name='adlfs',
       long_description=open('README.rst').read() if exists('README.rst') else '',
       install_requires=['azure-datalake-store',
                         'fsspec>=0.4.0<1.0',
-                        'requests>=2.11',    # After requests 2.11, ints are not allowed in headers, but the ADLSGen2 API expects position to be an int
-                        'azure-storage-blob==1.5'
+                        'azure-storage-blob==2.1.0'
                         ],
       zip_safe=False)
