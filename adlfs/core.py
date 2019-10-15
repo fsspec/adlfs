@@ -233,8 +233,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.account_key = account_key
         self.container_name = container_name
         self.do_connect()
-        self.pathset = ''
-
     
     @staticmethod
     def _get_kwargs_from_urls(paths):
