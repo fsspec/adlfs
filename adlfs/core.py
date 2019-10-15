@@ -233,6 +233,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.account_key = account_key
         self.container_name = container_name
         self.do_connect()
+        self.pathset = ''
+
     
     @staticmethod
     def _get_kwargs_from_urls(paths):
@@ -283,6 +285,61 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             info['type'] = 'directory'
         return info
+    
+    def walk(self, path, maxdepth=None, **kwargs):
+        """ Return all files belows path
+        List all files, recursing into subdirectories; output is iterator-style,
+        like ``os.walk()``. For a simple list of files, ``find()`` is available.
+        Note that the "files" outputted will include anything that is not
+        a directory, such as links.
+        Parameters
+        ----------
+        path: str
+            Root to recurse into
+        maxdepth: int
+            Maximum recursion depth. None means limitless, but not recommended
+            on link-based file-systems.
+        kwargs: passed to ``ls``
+        """
+        path = self._strip_protocol(path)
+        full_dirs = []
+        dirs = []
+        files = []
+
+        try:
+            listing = self.ls(path, True, **kwargs)
+        except (FileNotFoundError, IOError):
+            return [], [], []
+
+        for info in listing:
+            # each info name must be at least [path]/part , but here
+            # we check also for names like [path]/part/
+            name = info["name"].rstrip("/")
+            if info["type"] == "directory" and name != path:
+                # do not include "self" path
+                full_dirs.append(name)
+                
+                # Need to add this line to handle an oddity in how
+                # Azure Storage returns blob paths from list operations.
+                # Without it, the ParquetDataset operation by pyarrow fails
+                if path.lstrip('/') != name:
+                    dirs.append(name.rsplit("/", 1)[-1])
+            elif name == path:
+                # file-like with same name as give path
+                files.append("")
+            else:
+                files.append(name.rsplit("/", 1)[-1])
+                
+        yield path, dirs, files
+
+        for d in full_dirs:
+            if maxdepth is None or maxdepth > 1:
+                for res in self.walk(
+                    d,
+                    maxdepth=(maxdepth - 1) if maxdepth is not None else None,
+                    **kwargs
+                ):
+                    yield res
     
     def isdir(self, path):
         """Is this entry directory-like?"""
