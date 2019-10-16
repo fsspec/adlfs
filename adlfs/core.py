@@ -203,7 +203,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
     """
     Access Azure Datalake Gen2 as if it were a file system.
 
-    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage
+    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage.
+    
+    Note:  dask.dataframe.read_parquet() method currently only works with "engine=pyarrow"
 
     Examples
     _________
@@ -241,11 +243,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
         out = {}
         if ops.get('host', None):
             out['container_name'] = ops['host']
+        logging.debug(f'_get_kwargs_from_urls:  {out}')
         return out
     
     @classmethod
     def _strip_protocol(cls, path):
         ops = infer_storage_options(path)
+        ops['path'] = ops['path'].strip('/')
+        logging.debug(f'_strip_protocol:  {ops}')
         return ops['path']
     
     def do_connect(self):
@@ -260,10 +265,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
+        logging.debug("Running abfs.ls() method")
         path = stringify_path(path)
+        logging.debug(f'Stringified path:  {path}')
         blobs = self.blob_fs.list_blobs(container_name=self.container_name, prefix=path)
         if detail is False:
             pathlist = [blob.name for blob in blobs]
+            logging.debug(f'Detail is False.  Returning {pathlist}')
             return pathlist
         else:
             pathlist = []
@@ -277,6 +285,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 else: 
                     data['type'] = 'directory'
                 pathlist.append(data)
+            logging.debug(f'Detail is True:  Returning {pathlist}')
             return pathlist
             
     def info(self, path: str):
@@ -332,21 +341,24 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # each info name must be at least [path]/part , but here
             # we check also for names like [path]/part/
             name = info["name"].rstrip("/")
-            logging.debug(f"Test path with name:  {name}")
+            logging.debug(f"Test path with name:  {name}, {path}, {info['type']}")
             if info["type"] == "directory" and name != path:
+                logging.debug(f'{name} is a directory')
                 # do not include "self" path
                 full_dirs.append(name)
                 # Need to add this line to handle an oddity in how
                 # Azure Storage returns blob paths from list operations.
                 # Without it, the ParquetDataset operation by pyarrow fails
                 logging.debug(f"Path name:  {name} is a directory.  Evaluate against {path}")
-                if path.lstrip('/') != name:
-                    logging.debug(f"Appended {name} to dirs.")
-                    dirs.append(name.rsplit("/", 1)[-1])
+                # if path.lstrip('/') != name:
+                #     logging.debug(f"Appended {name} to dirs.")
+                dirs.append(name.rsplit("/", 1)[-1])
             elif name == path:
+                logging.debug(f'name == path')
                 # file-like with same name as give path
                 files.append("")
             else:
+                logging.debug(f'this is a file')
                 files.append(name.rsplit("/", 1)[-1])
             
         logging.debug(dirs)    
