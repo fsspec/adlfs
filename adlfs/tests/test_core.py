@@ -6,7 +6,15 @@ from dask.bytes.core import read_bytes
 
 from adlfs.core import AzureBlobFileSystem, AzureBlobFile
 
+## Tests against AzureBlobFileSystem
+        
+class MockBlockBlobService:
+    @staticmethod
+    def get_blob_properties(container_name, blob_name):
+        blob = TestBlob()
+        return blob
 
+# Fixture that sets up the AzureBlobFileSystem for calls
 @pytest.fixture()
 def test_mock_abfs(monkeypatch):
     tenant_id = 'test_tenant'
@@ -14,17 +22,27 @@ def test_mock_abfs(monkeypatch):
     client_secret = 'client_secret'
     storage_account = 'test_storage_account'
     filesystem = 'test_filesystem'
+    account_name = 'test_account'
+    account_key = 'test_key'
+    container_name = 'test_container'
     
-    def mock_connect(conn):
-        return "None"
+    def mock_
     
-    monkeypatch.setattr(AzureBlobFileSystem, "connect", mock_connect)
+    def mock_do_connect(conn):
+        conn.blob_fs = MockBlockBlobService()
+        return conn
     
-    mock_fs = AzureBlobFileSystem(tenant_id=tenant_id, client_id=client_id,
-                                client_secret=client_secret, 
-                                storage_account=storage_account, filesystem=filesystem,
+    monkeypatch.setattr(AzureBlobFileSystem, "do_connect", mock_do_connect)
+    
+    mock_fs = AzureBlobFileSystem(account_name=account_name, account_key=account_key,
+                                  container_name=container_name
                                 )
     return mock_fs
+
+
+def test__strip_protocol(test_mock_abfs):
+    fs = test_mock_abfs
+    path
 
 def test_make_url(test_mock_abfs):
     fs = test_mock_abfs
@@ -90,7 +108,7 @@ def test_info(test_mock_abfs):
                         'x-ms-resource-type': 'file'},
             )
     mock_abfs = test_mock_abfs
-    mock_details = mock_abfs.info("testfile.csv")
+    mock_details = mock_abfs.blob_fs.info("testfile.csv")
     assert mock_details == {'name': 'testfile.csv', 'size': 10, 'type': 'file'}
 
 @responses.activate
