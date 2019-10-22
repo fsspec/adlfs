@@ -203,7 +203,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
     """
     Access Azure Datalake Gen2 as if it were a file system.
 
-    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage
+    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage.
+    
 
     Examples
     _________
@@ -213,6 +214,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
         Sharded Parquet & csv files can be read as:
         ----------------------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+            'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,
+        })
+        
+        ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
             'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,
         })
     """
@@ -237,15 +242,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
     @staticmethod
     def _get_kwargs_from_urls(paths):
         """ Get the store_name from the urlpath and pass to storage_options """
+        logging.debug('Getting kwargs from urls...')
         ops = infer_storage_options(paths)
         out = {}
         if ops.get('host', None):
             out['container_name'] = ops['host']
+        logging.debug(f'kwargs are:  {out}')
         return out
     
     @classmethod
     def _strip_protocol(cls, path):
         ops = infer_storage_options(path)
+        ops['path'] = ops['path'].lstrip('/')
+        logging.debug(f'_strip_protocol:  {ops}')
         return ops['path']
     
     def do_connect(self):
@@ -260,10 +269,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
+        logging.debug("Running abfs.ls() method")
         path = stringify_path(path)
         blobs = self.blob_fs.list_blobs(container_name=self.container_name, prefix=path)
         if detail is False:
             pathlist = [blob.name for blob in blobs]
+            logging.debug(f'Detail is False.  Returning {pathlist}')
             return pathlist
         else:
             pathlist = []
@@ -277,6 +288,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 else: 
                     data['type'] = 'directory'
                 pathlist.append(data)
+            logging.debug(f'Detail is True:  Returning {pathlist}')
             return pathlist
             
     def info(self, path: str):
@@ -317,7 +329,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         kwargs: passed to ``ls``
         """
         
-        logging.debug("Walking the filepath structure")
+        logging.debug(f"abfs.walk() for {path}")
         path = self._strip_protocol(path)
         full_dirs = []
         dirs = []
@@ -332,24 +344,32 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # each info name must be at least [path]/part , but here
             # we check also for names like [path]/part/
             name = info["name"].rstrip("/")
-            logging.debug(f"Test path with name:  {name}")
-            if info["type"] == "directory" and name != path:
+            logging.debug(f"Test path with name, path, type, size:  {name}, {path}, {info['type']}, {info['size']}")
+            if info["type"] == "directory" and name != path and info['size'] == 0:
+                logging.debug(f'{name} is a directory')
+                logging.debug(f'compare name and path: {name}, {path}')
                 # do not include "self" path
                 full_dirs.append(name)
                 # Need to add this line to handle an oddity in how
                 # Azure Storage returns blob paths from list operations.
                 # Without it, the ParquetDataset operation by pyarrow fails
                 logging.debug(f"Path name:  {name} is a directory.  Evaluate against {path}")
-                if path.lstrip('/') != name:
-                    logging.debug(f"Appended {name} to dirs.")
-                    dirs.append(name.rsplit("/", 1)[-1])
-            elif name == path:
+                dirs.append(name.rsplit("/", 1)[-1])
+            elif info['type'] == 'directory' and name == path and info['size'] == 0:
+                logging.debug(f'Skipping {name}.  It is the current directory')
+                # The Azure Blob Storage SDK returns the path from a list_blobs()
+                # method call.  This creates an inconsistency across dasks's read methods 
+                # Specifically (read_csv(fpath/fname.csv/*.csv), and the fastparquet vs pyarrow 
+                # read_parquet(fpath/fname.parquet) implement a glob call.  Adding
+                # this line reconciles those differences
+                continue
+            elif name == path and info['type'] == 'file':
+                logging.debug(f'name == path')
                 # file-like with same name as give path
                 files.append("")
             else:
+                logging.debug(f'{name} is a file')
                 files.append(name.rsplit("/", 1)[-1])
-            
-        logging.debug(dirs)    
         yield path, dirs, files
 
         for d in full_dirs:

@@ -6,7 +6,7 @@ from os import path
 
 
 setup(name='adlfs',
-      version='0.0.11',
+      version='0.1.0',
       description='Access Azure Datalake Gen1 with fsspec and dask',
       url='https://github.com/hayesgb/adlfs/',
       maintainer='Greg Hayes',
@@ -17,6 +17,7 @@ setup(name='adlfs',
       long_description=open('README.rst').read() if exists('README.rst') else '',
       install_requires=['azure-datalake-store',
                         'fsspec>=0.4.0<1.0',
-                        'azure-storage-blob==2.1.0'
+                        'azure-storage-blob==2.1.0',
+                        'pyarrow>=0.15.0',
                         ],
       zip_safe=False)
