@@ -29,8 +29,7 @@ STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
 ddf = dd.read_csv('abfs://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS}
 ```
-import dask.dataframe as 
-```
+
 Details
 -------
 The package includes pythonic filesystem implementations for both 
