@@ -7,51 +7,39 @@ Quickstart
 ----------
 This package is on PyPi and can be installed using:
 
-pip install adlfs
-
-In your code, call:
-    from fsspec.registry import known_implementations
+`pip install adlfs`
 
 To use the Gen1 filesystem:
-    known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
+```
+import dask.dataframe as dd
+from fsspec.registry import known_implementations
+known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
+STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
+
+dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
+```
 
 To use the Gen2 filesystem:
-    known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
-
-This allows operations such as:
+```
 import dask.dataframe as dd
-storage_options={
-'tenant_id': TENANT_ID,
-'client_id': CLIENT_ID,
-'client_secret': CLIENT_SECRET,
-'storage_account': STORAGE_ACCOUNT,
-'filesystem': FILESYSTEM,
-}
-dd.read_csv('abfs://folder/file.csv', storage_options=STORAGE_OPTIONS}
+from fsspec.registry import known_implementations
+known_implementations['abfs'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
+STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 
+ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
+ddf = dd.read_csv('abfs://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS}
+```
+import dask.dataframe as 
+```
 Details
 -------
 The package includes pythonic filesystem implementations for both 
 Azure Datalake Gen1 and Azure Datalake Gen2, that facilitate 
-interactions with both Azure Datalake implementations with Dask, using the 
-intake/filesystem_spec base class.
+interactions between both Azure Datalake implementations and Dask.  This is done leveraging the 
+[intake/filesystem_spec](https://github.com/intake/filesystem_spec/tree/master/fsspec) base class and Azure Python SDKs.
 
-Operations against both Gen1 and Gen2 datalakes currently require an Azure ServicePrincipal
+Operations against both Gen1 Datalake currently only work with an Azure ServicePrincipal
 with suitable credentials to perform operations on the resources of choice.
 
-Operations on the Azure Gen1 Datalake are implemented by leveraging multiple inheritance from both
-the fsspec.AbstractFileSystem and the Azure Python Gen1 Filesystem library, while
-operations against the Azure Gen2 Datalake are implemented by using subclassing the 
-fsspec.AbstractFileSystem and leveraging the Azure Datalake Gen2 API.  Note that the Azure 
-Datalake Gen2 API allows calls to using either the 'http://' or 'https://' protocols, designated
-by an 'abfs[s]://' protocol.  Under the hood in adlfs, this will always happen using 'https://'
-using the requests library.
-
-An Azure Datalake Gen2 url takes the following form, which is replicated in 
-the adlfs library, for the sake of consistency:
-'abfs[s]://{storage_account}/{filesystem}/{folder}/{file}'
-
-Currently, when using either the 'adl://' or 'abfs://' protocols in a dask operation, 
-it is required to explicitly declare the storage_options, as described in the Dask documentation.
-The intent is to eliminate this requirement for (at at minimum) Gen2 operations, by having 
-the adlfs library parse the filesystem name
+Operations against the Gen2 Datalake are implemented by leveraging [multi-protocol access](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-multi-protocol-access),
+using the Azure Blob Storage Python SDK.  Authentication is currently implemented only by the ACCOUNT_NAME and an ACCOUNT_KEY.
