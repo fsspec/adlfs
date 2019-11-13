@@ -71,7 +71,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     """
 
-    protocol = "abfs"
+    protocol = "adl"
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
         AbstractFileSystem.__init__(self)
