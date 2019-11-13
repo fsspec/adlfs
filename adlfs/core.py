@@ -25,15 +25,27 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     Access Azure Datalake Gen1 as if it were a file system.
 
     This exposes a filesystem-like API on top of Azure Datalake Storage
+    
+    Parameters
+    -----------
+    tenant_id:  string
+        Azure tenant, also known as the subscription id
+    client_id: string
+        The username or serivceprincipal id
+    client_secret: string
+        The access key
+    store_name: string (optional)
+        The name of the datalake account being accessed.  Should be inferred from the urlpath
+        if using with Dask read_xxx and to_xxx methods.
 
     Examples
     --------
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
-                                    client_secret="xxxx"
-                                    )
-        adl.ls('')
+    ...                                client_secret="xxxx")
+    
+    >>>    adl.ls('')
         
-        Sharded Parquet & csv files can be read as:
+    **  Sharded Parquet & csv files can be read as: **
         ----------------------------
         ddf = dd.read_parquet('adl://store_name/folder/filename.parquet', storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
@@ -45,7 +57,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             'client_secret': CLIENT_SECRET
         })
 
-        Sharded Parquet and csv files can be written as:
+    **  Sharded Parquet and csv files can be written as: **
         ------------------------------------------------
         dd.to_parquet(ddf, 'adl://store_name/folder/filename.parquet, storage_options={
             'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
@@ -57,18 +69,9 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             'client_secret': CLIENT_SECRET
         })
 
-    Parameters
-    __________
-    tenant_id:  string
-        Azure tenant, also known as the subscription id
-    client_id: string
-        The username or serivceprincipal id
-    client_secret: string
-        The access key
-    store_name: string (None)
-        The name of the datalake account being accessed.  Should be inferred from the urlpath
-        if using with Dask read_xxx and to_xxx methods.
     """
+
+    protocol = "abfs"
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
         AbstractFileSystem.__init__(self)
@@ -212,38 +215,31 @@ class AzureDatalakeFile(AzureDLFile):
 
 class AzureBlobFileSystem(AbstractFileSystem):
     """
-    Access Azure Datalake Gen2 as if it were a file system.
-
-    This exposes a filesystem-like API on top of Azure Datalake Gen2 and Azure Storage.
+    Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access 
     
+    Parameters
+    ----------
+    storage_account:  Name of the Azure Storage Account
+    account_key:  Access key for the Azure Storage account
+    container_name:  Name of the container or filesystem to be accessed (optional) 
 
     Examples
     --------
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
-        adl.ls('')
+    >>> adl.ls('')
         
-        Sharded Parquet & csv files can be read as:
-        ----------------------------
+    **  Sharded Parquet & csv files can be read as: **
+        ------------------------------------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
-            'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,
-        })
+        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
         
         ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
-            'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,
-        })
+        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
     protocol = "abfs"
 
     def __init__(self, account_name: str, container_name: str, account_key: str):
-
-        """ Access Azure Datalake Gen2 and Azure Storage using Multiprotocol Access
-        
-        Parameters
-        ----------
-        storage_account:  Name of the Azure Storage Account
-        account_key:  Access keys for the Azure Storage account
-        """
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
