@@ -48,26 +48,22 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     **  Sharded Parquet & csv files can be read as: **
         ----------------------------
         ddf = dd.read_parquet('adl://store_name/folder/filename.parquet', storage_options={
-            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET
-        })
+        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+        ...    'client_secret': CLIENT_SECRET})
 
         ddf = dd.read_csv('adl://store_name/folder/*.csv', storage_options={
-            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET
-        })
+        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+        ...    'client_secret': CLIENT_SECRET})
 
     **  Sharded Parquet and csv files can be written as: **
         ------------------------------------------------
         dd.to_parquet(ddf, 'adl://store_name/folder/filename.parquet, storage_options={
-            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET
-        })
+        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+        ...    'client_secret': CLIENT_SECRET})
         
         ddf.to_csv('adl://store_name/folder/*.csv', storage_options={
-            'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET
-        })
+        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+        ...    'client_secret': CLIENT_SECRET})
 
     """
 
