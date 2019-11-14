@@ -100,12 +100,12 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         )
         self.azure_fs = AzureDLFileSystem(token=token, store_name=self.store_name)
 
-    def ls(self, path, detail=False, invalidate_cache=True):
+    def ls(self, path, detail=False, invalidate_cache=True, **kwargs):
         return self.azure_fs.ls(
             path=path, detail=detail, invalidate_cache=invalidate_cache
         )
 
-    def info(self, path, invalidate_cache=True, expected_error_code=404):
+    def info(self, path, invalidate_cache=True, expected_error_code=404, **kwargs):
         info = self.azure_fs.info(
             path=path,
             invalidate_cache=invalidate_cache,
@@ -114,13 +114,13 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         info["size"] = info["length"]
         return info
 
-    def _trim_filename(self, fn):
+    def _trim_filename(self, fn, **kwargs):
         """ Determine what kind of filestore this is and return the path """
         so = infer_storage_options(fn)
         fileparts = so["path"]
         return fileparts
 
-    def glob(self, path, details=False, invalidate_cache=True):
+    def glob(self, path, details=False, invalidate_cache=True, **kwargs):
         """For a template path, return matching files"""
         adlpaths = self._trim_filename(path)
         filepaths = self.azure_fs.glob(
@@ -128,14 +128,14 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         )
         return filepaths
 
-    def isdir(self, path):
+    def isdir(self, path, **kwargs):
         """Is this entry directory-like?"""
         try:
             return self.info(path)["type"].lower() == "directory"
         except FileNotFoundError:
             return False
 
-    def isfile(self, path):
+    def isfile(self, path, **kwargs):
         """Is this entry file-like?"""
         try:
             return self.azure_fs.info(path)["type"].lower() == "file"
@@ -145,7 +145,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     def _open(self, path, mode="rb", block_size=None, autocommit=True, **kwargs):
         return AzureDatalakeFile(self, path, mode=mode)
 
-    def read_block(self, fn, offset, length, delimiter=None):
+    def read_block(self, fn, offset, length, delimiter=None, **kwargs):
         return self.azure_fs.read_block(fn, offset, length, delimiter)
 
     def ukey(self, path):
@@ -182,7 +182,7 @@ class AzureDatalakeFile(AzureDLFile):
         self.path = AzureDLPath(path)
         self.mode = mode
 
-    def seek(self, loc, whence=0):
+    def seek(self, loc, whence=0, **kwargs):
         """ Set current file location
 
         Parameters
@@ -265,7 +265,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             account_name=self.account_name, account_key=self.account_key
         )
 
-    def ls(self, path: str, detail: bool = False, invalidate_cache: bool = True):
+    def ls(self, path: str, detail: bool = False, invalidate_cache: bool = True, **kwargs):
         """ Create a list of blob names from a blob container
         
         Parameters
@@ -296,7 +296,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             logging.debug(f"Detail is True:  Returning {pathlist}")
             return pathlist
 
-    def info(self, path: str):
+    def info(self, path: str, **kwargs):
         """ Create a dictionary of path attributes 
         
         Parameters
@@ -391,21 +391,21 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 ):
                     yield res
 
-    def isdir(self, path):
+    def isdir(self, path, **kwargs):
         """Is this entry directory-like?"""
         try:
             return self.info(path)["type"].lower() == "directory"
         except FileNotFoundError:
             return False
 
-    def isfile(self, path):
+    def isfile(self, path, **kwargs):
         """Is this entry file-like?"""
         try:
             return self.info(path)["type"].lower() == "file"
         except:
             return False
 
-    def _open(self, path, mode="rb", block_size=None, autocommit=True):
+    def _open(self, path, mode="rb", block_size=None, autocommit=True, **kwargs):
         """ Open a file on the datalake, or a block blob """
         logging.debug(f"_open:  {path}")
         return AzureBlobFile(fs=self, path=path, mode=mode)
@@ -437,7 +437,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = fs.container_name
         self.autocommit = autocommit
 
-    def _fetch_range(self, start, end):
+    def _fetch_range(self, start, end, **kwargs):
         blob = self.fs.blob_fs.get_blob_to_bytes(
             container_name=self.container_name,
             blob_name=self.path,
@@ -446,7 +446,7 @@ class AzureBlobFile(AbstractBufferedFile):
         )
         return blob.content
 
-    def _upload_chunk(self, final=False):
+    def _upload_chunk(self, final=False, **kwargs):
         data = self.buffer.getvalue()
         self.fs.blob_fs.create_blob_from_bytes(
             container_name=self.container_name, blob_name=self.path, blob=data

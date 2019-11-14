@@ -18,7 +18,7 @@ setup(
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
         "azure-datalake-store",
-        "fsspec>=0.4.0<1.0",
+        "fsspec>=0.4.0<0.6",
         "azure-storage-blob==2.1.0",
         "pyarrow>=0.15.0",
     ],
