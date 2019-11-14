@@ -142,7 +142,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         except:
             return False
 
-    def _open(self, path, mode="rb", block_size=None, autocommit=True):
+    def _open(self, path, mode="rb", block_size=None, autocommit=True, **kwargs):
         return AzureDatalakeFile(self, path, mode=mode)
 
     def read_block(self, fn, offset, length, delimiter=None):
