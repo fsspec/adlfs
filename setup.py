@@ -15,6 +15,7 @@ setup(
     license="BSD",
     keywords=["file-system", "dask", "azure"],
     packages=["adlfs"],
+    long_description_content_type='text/markdown',
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
         "azure-datalake-store",
