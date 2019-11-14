@@ -1,3 +1,0 @@
-[submodule "filesystem-spec"]
-	path = filesystem-spec
-	url = https://github.com/hayesgb/filesystem-spec.git
