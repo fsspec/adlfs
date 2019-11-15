@@ -19,6 +19,6 @@ def storage():
     bbs = BlockBlobService(is_emulated=True)
     bbs.create_container('data', timeout=1)
 
-    bbs.create_blob_from_bytes("data", "a/file.txt", data)
-    bbs.create_blob_from_bytes("data", "b/file.txt", data)
+    bbs.create_blob_from_bytes("data", "/root/a/file.txt", data)
+    bbs.create_blob_from_bytes("data", "/root/b/file.txt", data)
     yield bbs
