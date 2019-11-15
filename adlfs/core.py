@@ -68,7 +68,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         self.client_id = client_id
         self.client_secret = client_secret
         self.store_name = store_name
-        self._do_connect()
+        self.do_connect()
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
@@ -84,7 +84,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         ops = infer_storage_options(path)
         return ops["path"]
 
-    def _do_connect(self):
+    def do_connect(self):
         """Establish connection object."""
         token = lib.auth(
             tenant_id=self.tenant_id,
@@ -167,7 +167,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     def __setstate__(self, state):
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
-        self._do_connect()
+        self.do_connect()
 
 
 class AzureDatalakeFile(AzureDLFile):
@@ -244,7 +244,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.account_key = account_key
         self.container_name = container_name
         self.is_emulated = is_emulated
-        self._do_connect()
+        self.do_connect()
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
@@ -264,7 +264,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol:  {ops}")
         return ops["path"]
 
-    def _do_connect(self):
+    def do_connect(self):
         self.blob_fs = BlockBlobService(
             account_name=self.account_name, account_key=self.account_key,
             is_emulated=self.is_emulated,
