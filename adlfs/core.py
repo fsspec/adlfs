@@ -2,19 +2,14 @@
 from __future__ import print_function, division, absolute_import
 
 import logging
-import requests
-import re
-import os
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService, AppendBlobService
-from azure.datalake.store.core import _put_data_with_retry
+from azure.storage.blob import BlockBlobService
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
-from fsspec.core import caches
 
 logger = logging.getLogger(__name__)
 
@@ -41,41 +36,39 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     Examples
     --------
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
-    ...                                client_secret="xxxx")
+    ...                               client_secret="xxxx")
     
-    >>>    adl.ls('')
-        
-    **  Sharded Parquet & csv files can be read as: **
-        ----------------------------
-        ddf = dd.read_parquet('adl://store_name/folder/filename.parquet', storage_options={
-        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-        ...    'client_secret': CLIENT_SECRET})
+    >>> adl.ls('')
 
-        ddf = dd.read_csv('adl://store_name/folder/*.csv', storage_options={
-        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-        ...    'client_secret': CLIENT_SECRET})
+    Sharded Parquet & CSV files can be read as
 
-    **  Sharded Parquet and csv files can be written as: **
-        ------------------------------------------------
-        dd.to_parquet(ddf, 'adl://store_name/folder/filename.parquet, storage_options={
-        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-        ...    'client_secret': CLIENT_SECRET})
-        
-        ddf.to_csv('adl://store_name/folder/*.csv', storage_options={
-        ...    'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-        ...    'client_secret': CLIENT_SECRET})
+    >>> storage_options = dict(tennant_id=TENNANT_ID, client_id=CLIENT_ID,
+    ...                        client_secret=CLIENT_SECRET)  # doctest: +SKIP
+    >>> ddf = dd.read_parquet('adl://store_name/folder/filename.parquet',
+    ...                       storage_options=storage_options)  # doctest: +SKIP
 
+    >>> ddf = dd.read_csv('adl://store_name/folder/*.csv'
+    ...                   storage_options=storage_options)  # doctest: +SKIP
+
+
+    Sharded Parquet and CSV files can be written as
+
+    >>> ddf.to_parquet("adl://store_name/folder/filename.parquet",
+    ...                storage_options=storage_options)  # doctest: +SKIP
+
+    >>> ddf.to_csv('adl://store_name/folder/*.csv'
+    ...            storage_options=storage_options)  # doctest: +SKIP
     """
 
     protocol = "adl"
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
-        AbstractFileSystem.__init__(self)
+        super().__init__()
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
         self.store_name = store_name
-        self.do_connect()
+        self._do_connect()
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
@@ -91,7 +84,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         ops = infer_storage_options(path)
         return ops["path"]
 
-    def do_connect(self):
+    def _do_connect(self):
         """Establish connection object."""
         token = lib.auth(
             tenant_id=self.tenant_id,
@@ -142,7 +135,15 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         except:
             return False
 
-    def _open(self, path, mode="rb", block_size=None, autocommit=True, **kwargs):
+    def _open(
+        self,
+        path,
+        mode="rb",
+        block_size=None,
+        autocommit=True,
+        cache_options=None,
+        **kwargs,
+    ):
         return AzureDatalakeFile(self, path, mode=mode)
 
     def read_block(self, fn, offset, length, delimiter=None, **kwargs):
@@ -166,16 +167,18 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     def __setstate__(self, state):
         logger.debug("De-serialize with state: %s", state)
         self.__dict__.update(state)
-        self.do_connect()
+        self._do_connect()
 
 
 class AzureDatalakeFile(AzureDLFile):
-    def __init__(self, fs, path, mode="rb", blocksize=2 ** 25, delimiter=None):
+    # TODO: refoctor this. I suspect we actually want to compose an
+    # AbstractBufferedFile with an AzureDLFile.
+    def __init__(self, fs, path, mode="rb", block_size=2 ** 25, delimiter=None):
         super().__init__(
             azure=fs.azure_fs,
             path=AzureDLPath(path),
             mode=mode,
-            blocksize=blocksize,
+            blocksize=block_size,
             delimiter=delimiter,
         )
         self.fs = fs
@@ -235,12 +238,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     protocol = "abfs"
 
-    def __init__(self, account_name: str, container_name: str, account_key: str):
+    def __init__(self, account_name: str, container_name: str, account_key: str, is_emulated: bool=False):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
         self.container_name = container_name
-        self.do_connect()
+        self.is_emulated = is_emulated
+        self._do_connect()
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
@@ -260,12 +264,15 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol:  {ops}")
         return ops["path"]
 
-    def do_connect(self):
+    def _do_connect(self):
         self.blob_fs = BlockBlobService(
-            account_name=self.account_name, account_key=self.account_key
+            account_name=self.account_name, account_key=self.account_key,
+            is_emulated=self.is_emulated,
         )
 
-    def ls(self, path: str, detail: bool = False, invalidate_cache: bool = True, **kwargs):
+    def ls(
+        self, path: str, detail: bool = False, invalidate_cache: bool = True, **kwargs
+    ):
         """ Create a list of blob names from a blob container
         
         Parameters
@@ -405,10 +412,26 @@ class AzureBlobFileSystem(AbstractFileSystem):
         except:
             return False
 
-    def _open(self, path, mode="rb", block_size=None, autocommit=True, **kwargs):
+    def _open(
+        self,
+        path,
+        mode="rb",
+        block_size=None,
+        autocommit=True,
+        cache_options=None,
+        **kwargs,
+    ):
         """ Open a file on the datalake, or a block blob """
         logging.debug(f"_open:  {path}")
-        return AzureBlobFile(fs=self, path=path, mode=mode)
+        return AzureBlobFile(
+            fs=self,
+            path=path,
+            mode=mode,
+            block_size=block_size,
+            autocommit=autocommit,
+            cache_options=cache_options,
+            **kwargs,
+        )
 
 
 class AzureBlobFile(AbstractBufferedFile):
@@ -422,6 +445,7 @@ class AzureBlobFile(AbstractBufferedFile):
         autocommit=True,
         block_size="default",
         cache_type="bytes",
+        **kwargs
     ):
         super().__init__(
             fs=fs,
@@ -430,12 +454,9 @@ class AzureBlobFile(AbstractBufferedFile):
             block_size=block_size,
             autocommit=autocommit,
             cache_type=cache_type,
+            **kwargs
         )
-        self.fs = fs
-        self.path = path
-        self.mode = mode
         self.container_name = fs.container_name
-        self.autocommit = autocommit
 
     def _fetch_range(self, start, end, **kwargs):
         blob = self.fs.blob_fs.get_blob_to_bytes(
