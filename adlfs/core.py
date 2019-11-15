@@ -183,7 +183,7 @@ class AzureDatalakeFile(AzureDLFile):
         cache_type="bytes",
         *,
         delimiter=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -249,7 +249,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     protocol = "abfs"
 
-    def __init__(self, account_name: str, container_name: str, account_key: str, is_emulated: bool = False):
+    def __init__(
+        self,
+        account_name: str,
+        container_name: str,
+        account_key: str,
+        is_emulated: bool = False,
+    ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
@@ -277,7 +283,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def do_connect(self):
         self.blob_fs = BlockBlobService(
-            account_name=self.account_name, account_key=self.account_key,
+            account_name=self.account_name,
+            account_key=self.account_key,
             is_emulated=self.is_emulated,
         )
 
@@ -456,7 +463,7 @@ class AzureBlobFile(AbstractBufferedFile):
         autocommit=True,
         block_size="default",
         cache_type="bytes",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             fs=fs,
@@ -465,7 +472,7 @@ class AzureBlobFile(AbstractBufferedFile):
             block_size=block_size,
             autocommit=autocommit,
             cache_type=cache_type,
-            **kwargs
+            **kwargs,
         )
         self.container_name = fs.container_name
 

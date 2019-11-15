@@ -17,7 +17,7 @@ def storage():
     Create blob using azurite.
     """
     bbs = BlockBlobService(is_emulated=True)
-    bbs.create_container('data', timeout=1)
+    bbs.create_container("data", timeout=1)
 
     bbs.create_blob_from_bytes("data", "/root/a/file.txt", data)
     bbs.create_blob_from_bytes("data", "/root/b/file.txt", data)
