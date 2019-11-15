@@ -5,7 +5,7 @@ import adlfs
 
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
-        storage.account_name, "data", storage.account_key, is_emulated=True
+        storage.account_name, "data", storage.account_key,
     )
 
 

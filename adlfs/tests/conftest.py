@@ -16,7 +16,11 @@ def storage():
     """
     Create blob using azurite.
     """
-    bbs = BlockBlobService(is_emulated=True)
+    bbs = BlockBlobService(
+        account_name=USERNAME,
+        account_key=KEY,
+        custom_domain="http://127.0.0.1:10000/devstoreaccount1",
+    )
     bbs.create_container("data", timeout=1)
 
     bbs.create_blob_from_bytes("data", "/root/a/file.txt", data)
