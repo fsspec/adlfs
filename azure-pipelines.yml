@@ -22,7 +22,7 @@ steps:
 
 - script: |
     pytest
-  displayName: 'Run Dask Benchmarks'
+  displayName: 'Run Tests'
 
 - script: |
     pre-commit install --install-hooks
