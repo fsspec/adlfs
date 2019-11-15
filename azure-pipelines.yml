@@ -1,0 +1,31 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+resources:
+  containers:
+    - container: azurtie
+      image: mcr.microsoft.com/azure-storage/azurite
+
+services:
+  azurite: azurite
+
+steps:
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+
+- script: |
+    conda install -y -c python=3.8 conda-forge azure-datalake-store azure-storage-blob fsspec pytest requests
+  displayName: 'Install dependencies'
+
+- script: |
+    pytest
+  displayName: 'Run Dask Benchmarks'
+
+- script: |
+    cd distributed
+    asv machine --yes
+    asv run --quick --show-stderr
+  displayName: 'Run Distributed Benchmarks'
