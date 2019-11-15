@@ -173,7 +173,19 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 class AzureDatalakeFile(AzureDLFile):
     # TODO: refoctor this. I suspect we actually want to compose an
     # AbstractBufferedFile with an AzureDLFile.
-    def __init__(self, fs, path, mode="rb", block_size=2 ** 25, delimiter=None):
+
+    def __init__(
+        self,
+        fs,
+        path,
+        mode="rb",
+        autocommit=True,
+        block_size=2 ** 25,
+        cache_type="bytes",
+        *,
+        delimiter=None,
+        **kwargs
+    ):
         super().__init__(
             azure=fs.azure_fs,
             path=AzureDLPath(path),
