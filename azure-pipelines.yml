@@ -6,7 +6,7 @@ pool:
 
 resources:
   containers:
-    - container: azurtie
+    - container: azurite
       image: mcr.microsoft.com/azure-storage/azurite
 
 services:
@@ -23,9 +23,3 @@ steps:
 - script: |
     pytest
   displayName: 'Run Dask Benchmarks'
-
-- script: |
-    cd distributed
-    asv machine --yes
-    asv run --quick --show-stderr
-  displayName: 'Run Distributed Benchmarks'
