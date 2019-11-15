@@ -21,7 +21,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    pytest
+    pytest --host=azurite adlfs
   displayName: 'Run Tests'
 
 - script: |
