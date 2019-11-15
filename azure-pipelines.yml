@@ -17,7 +17,7 @@ steps:
   displayName: Add conda to PATH
 
 - script: |
-    conda install -y -c python=3.8 conda-forge azure-datalake-store azure-storage-blob fsspec pytest requests
+    conda install -y -c conda-forge python=3 azure-datalake-store azure-storage-blob fsspec pytest requests
   displayName: 'Install dependencies'
 
 - script: |
