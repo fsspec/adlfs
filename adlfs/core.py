@@ -254,12 +254,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
         account_name: str,
         container_name: str,
         account_key: str,
+        custom_domain: str = None,
         is_emulated: bool = False,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
         self.container_name = container_name
+        self.custom_domain = custom_domain
         self.is_emulated = is_emulated
         self.do_connect()
 
@@ -285,6 +287,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.blob_fs = BlockBlobService(
             account_name=self.account_name,
             account_key=self.account_key,
+            custom_domain=self.custom_domain,
             is_emulated=self.is_emulated,
         )
 
