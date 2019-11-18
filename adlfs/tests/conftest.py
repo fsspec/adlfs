@@ -11,7 +11,10 @@ data = b"0123456789"
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--host", action="store", default="127.0.0.1:10000", help="Host running azurite."
+        "--host",
+        action="store",
+        default="127.0.0.1:10000",
+        help="Host running azurite.",
     )
 
 
