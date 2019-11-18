@@ -23,7 +23,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    pytest --host=azurite:10000 adlfs
+    pytest --host="localhost:10000" adlfs
   displayName: 'Run Tests'
 
 - script: |
