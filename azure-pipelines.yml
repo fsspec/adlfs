@@ -1,0 +1,32 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+resources:
+  containers:
+    - container: azurite
+      image: mcr.microsoft.com/azure-storage/azurite
+      ports:
+        - "10000:10000"
+
+services:
+  azurite: azurite
+
+steps:
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+
+- script: |
+    conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+  displayName: 'Install dependencies'
+
+- script: |
+    pytest --host="localhost:10000" adlfs
+  displayName: 'Run Tests'
+
+- script: |
+    pre-commit install --install-hooks
+    pre-commit run --all-files --show-diff-on-failure
+  displayName: 'Lint'

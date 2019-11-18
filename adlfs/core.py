@@ -15,12 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
-
     """
     Access Azure Datalake Gen1 as if it were a file system.
 
     This exposes a filesystem-like API on top of Azure Datalake Storage
-    
+
     Parameters
     -----------
     tenant_id:  string
@@ -35,9 +34,9 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     Examples
     --------
-    >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx", 
+    >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx",
     ...                               client_secret="xxxx")
-    
+
     >>> adl.ls('')
 
     Sharded Parquet & CSV files can be read as
@@ -132,7 +131,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         """Is this entry file-like?"""
         try:
             return self.azure_fs.info(path)["type"].lower() == "file"
-        except:
+        except Exception:
             return False
 
     def _open(
@@ -184,7 +183,7 @@ class AzureDatalakeFile(AzureDLFile):
         cache_type="bytes",
         *,
         delimiter=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -226,31 +225,37 @@ class AzureDatalakeFile(AzureDLFile):
 
 class AzureBlobFileSystem(AbstractFileSystem):
     """
-    Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access 
-    
+    Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
+
     Parameters
     ----------
     storage_account:  Name of the Azure Storage Account
     account_key:  Access key for the Azure Storage account
-    container_name:  Name of the container or filesystem to be accessed (optional) 
+    container_name:  Name of the container or filesystem to be accessed (optional)
 
     Examples
     --------
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
     >>> adl.ls('')
-        
+
     **  Sharded Parquet & csv files can be read as: **
         ------------------------------------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
         ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
-        
+
         ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
         ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
     protocol = "abfs"
 
-    def __init__(self, account_name: str, container_name: str, account_key: str, is_emulated: bool=False):
+    def __init__(
+        self,
+        account_name: str,
+        container_name: str,
+        account_key: str,
+        is_emulated: bool = False,
+    ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
@@ -278,7 +283,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def do_connect(self):
         self.blob_fs = BlockBlobService(
-            account_name=self.account_name, account_key=self.account_key,
+            account_name=self.account_name,
+            account_key=self.account_key,
             is_emulated=self.is_emulated,
         )
 
@@ -286,7 +292,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self, path: str, detail: bool = False, invalidate_cache: bool = True, **kwargs
     ):
         """ Create a list of blob names from a blob container
-        
+
         Parameters
         ----------
         path:  Path to an Azure Blob directory
@@ -316,8 +322,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
             return pathlist
 
     def info(self, path: str, **kwargs):
-        """ Create a dictionary of path attributes 
-        
+        """ Create a dictionary of path attributes
+
         Parameters
         ----------
         path:  An Azure Blob
@@ -337,13 +343,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def walk(self, path, maxdepth=None, **kwargs):
         """ Return all files belows path
-        
+
         List all files, recursing into subdirectories; output is iterator-style,
         like ``os.walk()``. For a simple list of files, ``find()`` is available.
         Note that the "files" outputted will include anything that is not
-        a directory, such as links.  Used by pyarrow during making of the manifest 
+        a directory, such as links.  Used by pyarrow during making of the manifest
         of a ParquetDataset
-        
+
         Parameters
         ----------
         path: str
@@ -421,7 +427,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         """Is this entry file-like?"""
         try:
             return self.info(path)["type"].lower() == "file"
-        except:
+        except Exception:
             return False
 
     def _open(
@@ -457,7 +463,7 @@ class AzureBlobFile(AbstractBufferedFile):
         autocommit=True,
         block_size="default",
         cache_type="bytes",
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             fs=fs,
@@ -466,7 +472,7 @@ class AzureBlobFile(AbstractBufferedFile):
             block_size=block_size,
             autocommit=autocommit,
             cache_type=cache_type,
-            **kwargs
+            **kwargs,
         )
         self.container_name = fs.container_name
 
