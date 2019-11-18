@@ -181,6 +181,7 @@ class AzureDatalakeFile(AzureDLFile):
         autocommit=True,
         block_size=2 ** 25,
         cache_type="bytes",
+        cache_options=None,
         *,
         delimiter=None,
         **kwargs,
@@ -463,9 +464,10 @@ class AzureBlobFile(AbstractBufferedFile):
         fs,
         path,
         mode="rb",
-        autocommit=True,
         block_size="default",
-        cache_type="bytes",
+        autocommit=True,
+        cache_type="readahead",
+        cache_options=None,
         **kwargs,
     ):
         super().__init__(
@@ -475,6 +477,7 @@ class AzureBlobFile(AbstractBufferedFile):
             block_size=block_size,
             autocommit=autocommit,
             cache_type=cache_type,
+            cache_options=cache_options,
             **kwargs,
         )
         self.container_name = fs.container_name
