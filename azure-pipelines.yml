@@ -8,6 +8,8 @@ resources:
   containers:
     - container: azurite
       image: mcr.microsoft.com/azure-storage/azurite
+      ports:
+        - "10000:10000"
 
 services:
   azurite: azurite
@@ -21,7 +23,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    pytest --host=azurite adlfs
+    pytest --host=azurite:10000 adlfs
   displayName: 'Run Tests'
 
 - script: |
