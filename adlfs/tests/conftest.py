@@ -18,13 +18,13 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def host(request):
     print("host:", request.config.getoption("--host"))
     return request.config.getoption("--host")
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def storage(host):
     """
     Create blob using azurite.
