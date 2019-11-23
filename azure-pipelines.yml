@@ -4,15 +4,15 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-resources:
-  containers:
-    - container: azurite
-      image: mcr.microsoft.com/azure-storage/azurite
-      ports:
-        - "10000:10000"
-
-services:
-  azurite: azurite
+# resources:
+#   containers:
+#     - container: azurite
+#       image: mcr.microsoft.com/azure-storage/azurite
+#       ports:
+#         - "10000:10000"
+# 
+# services:
+#   azurite: azurite
 
 steps:
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
@@ -23,7 +23,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    pytest --host="localhost:10000" --use-running-containers
+    pytest --docker-compose=tests/docker-compose.yaml --docker-compose-no-build tests
   displayName: 'Run Tests'
 
 - script: |
