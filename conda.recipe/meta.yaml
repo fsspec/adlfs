@@ -33,12 +33,13 @@ requirements:
 
 test:
   source_files:
-    - adlfs/tests
+    - tests
   requires:
     - pytest
     - pytest-cov
+    - pytest-docker-compose
   commands:
-    - pytest adlfs/tests
+    - pytest --docker-compose=tests/docker-compose.yaml --docker-compose-no-build tests
 
 about:
   home: https://github.com/dask/adlfs
