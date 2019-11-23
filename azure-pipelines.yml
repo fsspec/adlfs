@@ -23,7 +23,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    pytest --host="localhost:10000" adlfs
+    pytest --host="localhost:10000" --use-running-containers
   displayName: 'Run Tests'
 
 - script: |
