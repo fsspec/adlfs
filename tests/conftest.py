@@ -2,6 +2,7 @@ import pytest
 
 from azure.storage.blob import BlockBlobService
 
+pytest_plugins = ["docker_compose"]
 
 URL = "127.0.0.1:10000"
 USERNAME = "devstoreaccount1"
@@ -18,14 +19,14 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def host(request):
     print("host:", request.config.getoption("--host"))
     return request.config.getoption("--host")
 
 
-@pytest.fixture(scope='module')
-def storage(host):
+@pytest.fixture(scope='function')
+def storage(function_scoped_container_getter, host):
     """
     Create blob using azurite.
     """
