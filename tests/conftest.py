@@ -19,13 +19,13 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def host(request):
     print("host:", request.config.getoption("--host"))
     return request.config.getoption("--host")
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def storage(function_scoped_container_getter, host):
     """
     Create blob using azurite.

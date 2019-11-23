@@ -1,5 +1,6 @@
 import adlfs
 
+
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
         "data",
@@ -31,4 +32,3 @@ def test_open_file(storage):
 
     result = f.read()
     assert result == b"0123456789"
-

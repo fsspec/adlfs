@@ -7,10 +7,7 @@ import logging
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
 from azure.storage.blob import BlockBlobService
-from azure.storage.common._constants import (
-    SERVICE_HOST_BASE,
-    DEFAULT_PROTOCOL,
-)
+from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
@@ -304,7 +301,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         request_session=None,
         connection_string=None,
         socket_timeout=None,
-        token_credential=None
+        token_credential=None,
     ):
         AbstractFileSystem.__init__(self)
         self.container_name = container_name
@@ -341,17 +338,17 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def do_connect(self):
         self.blob_fs = BlockBlobService(
-            account_name = self.account_name,
-            account_key = self.account_key,
-            sas_token = self.sas_token,
-            is_emulated = self.is_emulated,
-            protocol = self.protocol,
-            endpoint_suffix = self.endpoint_suffix,
-            custom_domain = self.custom_domain,
-            request_session = self.request_session,
-            connection_string = self.connection_string,
-            socket_timeout = self.socket_timeout,
-            token_credential = self.token_credential
+            account_name=self.account_name,
+            account_key=self.account_key,
+            sas_token=self.sas_token,
+            is_emulated=self.is_emulated,
+            protocol=self.protocol,
+            endpoint_suffix=self.endpoint_suffix,
+            custom_domain=self.custom_domain,
+            request_session=self.request_session,
+            connection_string=self.connection_string,
+            socket_timeout=self.socket_timeout,
+            token_credential=self.token_credential,
         )
 
     def ls(
