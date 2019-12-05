@@ -17,6 +17,7 @@ known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
 STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
 
 dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
+dd.read_parquet('adl://{STORE_NAME}/{FOLDER}/{PARQUET_FILE}, storage_options=STORAGE_OPTIONS, engine='pyarrow)
 ```
 
 To use the Gen2 filesystem:
