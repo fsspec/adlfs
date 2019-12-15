@@ -18,13 +18,13 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def host(request):
     print("host:", request.config.getoption("--host"))
     return request.config.getoption("--host")
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def storage(host):
     """
     Create blob using azurite.
@@ -38,4 +38,6 @@ def storage(host):
 
     bbs.create_blob_from_bytes("data", "root/a/file.txt", data)
     bbs.create_blob_from_bytes("data", "root/b/file.txt", data)
+    bbs.create_blob_from_bytes("data", "root/c/file1.txt", data)
+    bbs.create_blob_from_bytes("data", "root/c/file2.txt", data)
     yield bbs
