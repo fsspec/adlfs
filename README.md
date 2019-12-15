@@ -10,17 +10,19 @@ This package is on PyPi and can be installed using:
 `pip install adlfs`
 
 To use the Gen1 filesystem:
-```
+
+```python
 import dask.dataframe as dd
 from fsspec.registry import known_implementations
 known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
 STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
 
-dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
+dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)
 ```
 
 To use the Gen2 filesystem:
-```
+
+```python
 import dask.dataframe as dd
 from fsspec.registry import known_implementations
 known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
@@ -40,5 +42,5 @@ interactions between both Azure Datalake implementations and Dask.  This is done
 Operations against both Gen1 Datalake currently only work with an Azure ServicePrincipal
 with suitable credentials to perform operations on the resources of choice.
 
-Operations against the Gen2 Datalake are implemented by leveraging [multi-protocol access](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-multi-protocol-access),
-using the Azure Blob Storage Python SDK.  Authentication is currently implemented only by the ACCOUNT_NAME and an ACCOUNT_KEY.
+Operations against the Gen2 Datalake are implemented by leveraging [multi-protocol access](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-multi-protocol-access), using the Azure Blob Storage Python SDK.
+The AzureBlobFileSystem accepts [all of the BlockBlobService arguments](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blockblobservice.blockblobservice?view=azure-python-previous).
