@@ -290,18 +290,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def __init__(
         self,
+        account_name: str,
         container_name: str,
-        account_name=None,
-        account_key=None,
-        sas_token=None,
-        is_emulated=False,
+        account_key: str = None,
+        sas_token:str = None,
+        is_emulated: bool = False,
         protocol=DEFAULT_PROTOCOL,
         endpoint_suffix=SERVICE_HOST_BASE,
-        custom_domain=None,
-        request_session=None,
-        connection_string=None,
-        socket_timeout=None,
-        token_credential=None,
+        custom_domain: str = None,
+        request_session = None,
+        connection_string: str = None,
+        socket_timeout = None,
+        token_credential = None,
     ):
         AbstractFileSystem.__init__(self)
         self.container_name = container_name

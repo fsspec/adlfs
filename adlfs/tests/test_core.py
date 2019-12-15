@@ -3,8 +3,8 @@ import adlfs
 
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
-        "data",
         storage.account_name,
+        "data",
         storage.account_key,
         custom_domain=f"http://{storage.primary_endpoint}",
     )
@@ -12,8 +12,8 @@ def test_connect(storage):
 
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
-        "data",
         storage.account_name,
+        "data",
         storage.account_key,
         custom_domain=f"http://{storage.primary_endpoint}",
     )
@@ -62,25 +62,25 @@ def test_info(storage):
     assert fs.info("root/a/file.txt")["size"] == 10
 
 
-# def test_glob(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         "data",
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
-#     assert fs.glob("root/a/file.txt") == ["root/a/file.txt"]
-#     assert fs.glob("root/a/") == ["root/a/file.txt"]
-#     assert fs.glob("root/a") == ["root/a"]
-#     assert fs.glob("root/") == ["root/a", "root/b", "root/c"]
-#     assert fs.glob("root/*") == ["root/a", "root/b", "root/c"]
-#     assert fs.glob("root/c/*.txt") == ["root/c/file1.txt", "root/c/file2.txt"]
+def test_glob(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        storage.account_name,
+        "data",
+        storage.account_key,
+        custom_domain=f"http://{storage.primary_endpoint}",
+    )
+    assert fs.glob("root/a/file.txt") == ["root/a/file.txt"]
+    assert fs.glob("root/a/") == ["root/a/file.txt"]
+    assert fs.glob("root/a") == ["root/a"]
+    assert fs.glob("root/") == ["root/a", "root/b", "root/c"]
+    assert fs.glob("root/*") == ["root/a", "root/b", "root/c"]
+    assert fs.glob("root/c/*.txt") == ["root/c/file1.txt", "root/c/file2.txt"]
 
 
 def test_open_file(storage):
     fs = adlfs.AzureBlobFileSystem(
-        "data",
         storage.account_name,
+        "data",
         storage.account_key,
         custom_domain=f"http://{storage.primary_endpoint}",
     )
