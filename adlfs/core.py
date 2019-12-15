@@ -295,13 +295,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         account_key: str = None,
         custom_domain: str = None,
         is_emulated: bool = False,
-        sas_token:str = None,
+        sas_token: str = None,
         protocol=DEFAULT_PROTOCOL,
         endpoint_suffix=SERVICE_HOST_BASE,
-        request_session = None,
+        request_session=None,
         connection_string: str = None,
-        socket_timeout = None,
-        token_credential = None,
+        socket_timeout=None,
+        token_credential=None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name

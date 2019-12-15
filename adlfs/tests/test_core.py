@@ -60,7 +60,9 @@ def test_info(storage):
     assert fs.info("root/a/file.txt")["container_name"] == "data"
     assert fs.info("root/a/file.txt")["type"] == "file"
     assert fs.info("root/a/file.txt")["size"] == 10
-   # assert fs.info('root/a')['container_name'] == 'data'
+
+
+# assert fs.info('root/a')['container_name'] == 'data'
 
 
 def test_glob(storage):
