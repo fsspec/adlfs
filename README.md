@@ -26,8 +26,8 @@ from fsspec.registry import known_implementations
 known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
 STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 
-ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS}
-ddf = dd.read_csv('abfs://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS}
+ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)
+ddf = dd.read_csv('abfs://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS)
 ```
 
 Details
