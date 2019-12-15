@@ -304,14 +304,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
         token_credential = None,
     ):
         AbstractFileSystem.__init__(self)
-        self.container_name = container_name
         self.account_name = account_name
         self.account_key = account_key
-        self.sas_token = sas_token
+        self.container_name = container_name
+        self.custom_domain = custom_domain
         self.is_emulated = is_emulated
+        self.sas_token = sas_token
         self.protocol = protocol
         self.endpoint_suffix = endpoint_suffix
-        self.custom_domain = custom_domain
         self.request_session = request_session
         self.connection_string = connection_string
         self.socket_timeout = socket_timeout
@@ -340,11 +340,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.blob_fs = BlockBlobService(
             account_name=self.account_name,
             account_key=self.account_key,
-            sas_token=self.sas_token,
+            custom_domain=self.custom_domain,
             is_emulated=self.is_emulated,
+            sas_token=self.sas_token,
             protocol=self.protocol,
             endpoint_suffix=self.endpoint_suffix,
-            custom_domain=self.custom_domain,
             request_session=self.request_session,
             connection_string=self.connection_string,
             socket_timeout=self.socket_timeout,
