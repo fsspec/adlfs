@@ -84,7 +84,7 @@ def test_open_file(storage):
         storage.account_key,
         custom_domain=f"http://{storage.primary_endpoint}",
     )
-    f = fs.open("root/a/file.txt")
+    f = fs.open("/root/a/file.txt")
 
     result = f.read()
     assert result == b"0123456789"
