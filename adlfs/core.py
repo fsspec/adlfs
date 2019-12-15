@@ -419,25 +419,25 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 logging.debug(f"Detail is True:  Returning {pathlist}")
                 return pathlist
 
-    def info(self, path: str, **kwargs):
-        """ Create a dictionary of path attributes
+    # def info(self, path: str, **kwargs):
+    #     """ Create a dictionary of path attributes
 
-        Parameters
-        ----------
-        path:  An Azure Blob
-        """
-        blob = self.blob_fs.get_blob_properties(
-            container_name=self.container_name, blob_name=path
-        )
-        info = {}
-        info["name"] = path
-        info["size"] = blob.properties.content_length
-        info["container_name"] = self.container_name
-        if blob.properties.content_settings.content_type is not None:
-            info["type"] = "file"
-        else:
-            info["type"] = "directory"
-        return info
+    #     Parameters
+    #     ----------
+    #     path:  An Azure Blob
+    #     """
+    #     blob = self.blob_fs.get_blob_properties(
+    #         container_name=self.container_name, blob_name=path
+    #     )
+    #     info = {}
+    #     info["name"] = path
+    #     info["size"] = blob.properties.content_length
+    #     info["container_name"] = self.container_name
+    #     if blob.properties.content_settings.content_type is not None:
+    #         info["type"] = "file"
+    #     else:
+    #         info["type"] = "directory"
+    #     return info
 
     def walk(self, path, maxdepth=None, **kwargs):
         """ Return all files belows path
