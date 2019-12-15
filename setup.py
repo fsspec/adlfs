@@ -2,11 +2,13 @@
 
 from os.path import exists
 from setuptools import setup
+import versioneer
 
 
 setup(
     name="adlfs",
-    version="0.1.2",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     description="Access Azure Datalake Gen1 with fsspec and dask",
     url="https://github.com/hayesgb/adlfs/",
     maintainer="Greg Hayes",
