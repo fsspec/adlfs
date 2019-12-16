@@ -1,20 +1,24 @@
-Dask interface to Azure-Datalake Gen1 and Gen2 Storage
-------------------------------------------------------
+Dask interface to Azure-Datalake Gen1 and Gen2 Storage Quickstart
+-----------------------------------------------------------------
 
-Warning: this code is experimental and untested.
 
-Quickstart
-----------
 This package is on PyPi and can be installed using:
 
 `pip install adlfs`
+
+The `adl://` and `abfs://` protocols are included in fsspec's known_implementations registry 
+in fsspec > 0.6.1, otherwise users must explicitly inform fsspec about the supported adlfs protocols.
 
 To use the Gen1 filesystem:
 
 ```python
 import dask.dataframe as dd
-from fsspec.registry import known_implementations
-known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
+from pkg_resources import parse_version
+import fsspec
+if parse_version(fsspec.__version__) < parse_version('0.6.2'):
+    from fsspec.registry import known_implementations
+    known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
+
 STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
 
 dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)
@@ -24,8 +28,12 @@ To use the Gen2 filesystem:
 
 ```python
 import dask.dataframe as dd
-from fsspec.registry import known_implementations
-known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
+from pkg_resources import parse_version
+import fsspec
+if parse_version(fsspec.__version__) < parse_version('0.6.2'):
+    from fsspec.registry import known_implementations
+    known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
+
 STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 
 ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)

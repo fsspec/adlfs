@@ -157,10 +157,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def __getstate__(self):
         dic = self.__dict__.copy()
-        # Need to determine what information can be deleted
-        # before passing to the Dask workers
-        # del dic['token']
-        # del dic['azure']
         logger.debug("Serialize with state: %s", dic)
         return dic
 
@@ -232,45 +228,45 @@ class AzureBlobFileSystem(AbstractFileSystem):
     Parameters
     ----------
     account_name:
-            The storage account name. This is used to authenticate requests
-            signed with an account key and to construct the storage endpoint. It
-            is required unless a connection string is given, or if a custom
-            domain is used with anonymous authentication.
+        The storage account name. This is used to authenticate requests
+        signed with an account key and to construct the storage endpoint. It
+        is required unless a connection string is given, or if a custom
+        domain is used with anonymous authentication.
     account_key:
-            The storage account key. This is used for shared key authentication.
-            If neither account key or sas token is specified, anonymous access
-            will be used.
+        The storage account key. This is used for shared key authentication.
+        If neither account key or sas token is specified, anonymous access
+        will be used.
     sas_token:
-             A shared access signature token to use to authenticate requests
-             instead of the account key. If account key and sas token are both
-             specified, account key will be used to sign. If neither are
-             specified, anonymous access will be used.
+        A shared access signature token to use to authenticate requests
+        instead of the account key. If account key and sas token are both
+        specified, account key will be used to sign. If neither are
+        specified, anonymous access will be used.
     is_emulated:
-            Whether to use the emulator. Defaults to False. If specified, will
-            override all other parameters besides connection string and request
-            session.
+        Whether to use the emulator. Defaults to False. If specified, will
+        override all other parameters besides connection string and request
+        session.
     protocol:
-            The protocol to use for requests. Defaults to https.
+        The protocol to use for requests. Defaults to https.
     endpoint_suffix:
-            The host base component of the url, minus the account name. Defaults
-            to Azure (core.windows.net). Override this to use the China cloud
-            (core.chinacloudapi.cn).
+        The host base component of the url, minus the account name. Defaults
+        to Azure (core.windows.net). Override this to use the China cloud
+        (core.chinacloudapi.cn).
     custom_domain:
-            The custom domain to use. This can be set in the Azure Portal. For
-            example, 'www.mydomain.com'.
+        The custom domain to use. This can be set in the Azure Portal. For
+        example, 'www.mydomain.com'.
     request_session:
-            The session object to use for http requests.
+        The session object to use for http requests.
     connection_string:
-            If specified, this will override all other parameters besides
-            request session. See
-            http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
-            for the connection string format.
+        If specified, this will override all other parameters besides
+        request session. See
+        http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
+        for the connection string format.
     socket_timeout:
-            If specified, this will override the default socket timeout. The timeout specified is in seconds.
-            See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
+        If specified, this will override the default socket timeout. The timeout specified is in seconds.
+        See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
     token_credential:
-            A token credential used to authenticate HTTPS requests. The token value
-            should be updated before its expiration.
+        A token credential used to authenticate HTTPS requests. The token value
+        should be updated before its expiration.
 
     Examples
     --------
