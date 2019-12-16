@@ -157,10 +157,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def __getstate__(self):
         dic = self.__dict__.copy()
-        # Need to determine what information can be deleted
-        # before passing to the Dask workers
-        # del dic['token']
-        # del dic['azure']
         logger.debug("Serialize with state: %s", dic)
         return dic
 
