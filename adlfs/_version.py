@@ -41,8 +41,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = ""
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = "my_pkg-"
-    cfg.versionfile_source = "my_pkg/_version.py"
+    cfg.parentdir_prefix = "adlfs-"
+    cfg.versionfile_source = "adlfs/_version.py"
     cfg.verbose = False
     return cfg
 
