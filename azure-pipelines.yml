@@ -20,11 +20,18 @@ steps:
 
 - script: |
     conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+    pip install pytest-azurepipelines
   displayName: 'Install dependencies'
 
 - script: |
     pytest --host="localhost:10000" adlfs
   displayName: 'Run Tests'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/TEST-*.xml'
+    searchFolder: '$(System.DefaultWorkingDirectory)'
 
 - script: |
     pre-commit install --install-hooks
