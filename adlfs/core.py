@@ -6,7 +6,8 @@ import logging
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService
+from azure.storage.blob import BlockBlobService, BlobPrefix
+from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
@@ -156,10 +157,6 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def __getstate__(self):
         dic = self.__dict__.copy()
-        # Need to determine what information can be deleted
-        # before passing to the Dask workers
-        # del dic['token']
-        # del dic['azure']
         logger.debug("Serialize with state: %s", dic)
         return dic
 
@@ -230,9 +227,46 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     Parameters
     ----------
-    storage_account:  Name of the Azure Storage Account
-    account_key:  Access key for the Azure Storage account
-    container_name:  Name of the container or filesystem to be accessed (optional)
+    account_name:
+        The storage account name. This is used to authenticate requests
+        signed with an account key and to construct the storage endpoint. It
+        is required unless a connection string is given, or if a custom
+        domain is used with anonymous authentication.
+    account_key:
+        The storage account key. This is used for shared key authentication.
+        If neither account key or sas token is specified, anonymous access
+        will be used.
+    sas_token:
+        A shared access signature token to use to authenticate requests
+        instead of the account key. If account key and sas token are both
+        specified, account key will be used to sign. If neither are
+        specified, anonymous access will be used.
+    is_emulated:
+        Whether to use the emulator. Defaults to False. If specified, will
+        override all other parameters besides connection string and request
+        session.
+    protocol:
+        The protocol to use for requests. Defaults to https.
+    endpoint_suffix:
+        The host base component of the url, minus the account name. Defaults
+        to Azure (core.windows.net). Override this to use the China cloud
+        (core.chinacloudapi.cn).
+    custom_domain:
+        The custom domain to use. This can be set in the Azure Portal. For
+        example, 'www.mydomain.com'.
+    request_session:
+        The session object to use for http requests.
+    connection_string:
+        If specified, this will override all other parameters besides
+        request session. See
+        http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
+        for the connection string format.
+    socket_timeout:
+        If specified, this will override the default socket timeout. The timeout specified is in seconds.
+        See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
+    token_credential:
+        A token credential used to authenticate HTTPS requests. The token value
+        should be updated before its expiration.
 
     Examples
     --------
@@ -254,9 +288,16 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self,
         account_name: str,
         container_name: str,
-        account_key: str,
+        account_key: str = None,
         custom_domain: str = None,
         is_emulated: bool = False,
+        sas_token: str = None,
+        protocol=DEFAULT_PROTOCOL,
+        endpoint_suffix=SERVICE_HOST_BASE,
+        request_session=None,
+        connection_string: str = None,
+        socket_timeout=None,
+        token_credential=None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
@@ -264,6 +305,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.container_name = container_name
         self.custom_domain = custom_domain
         self.is_emulated = is_emulated
+        self.sas_token = sas_token
+        self.protocol = protocol
+        self.endpoint_suffix = endpoint_suffix
+        self.request_session = request_session
+        self.connection_string = connection_string
+        self.socket_timeout = socket_timeout
+        self.token_credential = token_credential
         self.do_connect()
 
     @staticmethod
@@ -290,10 +338,22 @@ class AzureBlobFileSystem(AbstractFileSystem):
             account_key=self.account_key,
             custom_domain=self.custom_domain,
             is_emulated=self.is_emulated,
+            sas_token=self.sas_token,
+            protocol=self.protocol,
+            endpoint_suffix=self.endpoint_suffix,
+            request_session=self.request_session,
+            connection_string=self.connection_string,
+            socket_timeout=self.socket_timeout,
+            token_credential=self.token_credential,
         )
 
     def ls(
-        self, path: str, detail: bool = False, invalidate_cache: bool = True, **kwargs
+        self,
+        path: str,
+        detail: bool = False,
+        invalidate_cache: bool = True,
+        delimiter: str = "/",
+        **kwargs,
     ):
         """ Create a list of blob names from a blob container
 
@@ -305,45 +365,75 @@ class AzureBlobFileSystem(AbstractFileSystem):
         """
         logging.debug("Running abfs.ls() method")
         path = stringify_path(path)
-        blobs = self.blob_fs.list_blobs(container_name=self.container_name, prefix=path)
-        if detail is False:
-            pathlist = [blob.name for blob in blobs]
-            logging.debug(f"Detail is False.  Returning {pathlist}")
-            return pathlist
-        else:
-            pathlist = []
-            for blob in blobs:
-                data = {}
-                data["name"] = blob.name
-                data["size"] = blob.properties.content_length
-                data["container_name"] = self.container_name
-                if blob.properties.content_settings.content_type is not None:
-                    data["type"] = "file"
-                else:
-                    data["type"] = "directory"
-                pathlist.append(data)
-            logging.debug(f"Detail is True:  Returning {pathlist}")
-            return pathlist
+        if path.strip() == "":
+            homedir_ = self.blob_fs.list_blobs(
+                container_name=self.container_name, prefix=path, delimiter=delimiter
+            )
+            homedir = list(homedir_)[0]
+            return self.ls(path=homedir.name, detail=detail, delimiter=delimiter)
 
-    def info(self, path: str, **kwargs):
-        """ Create a dictionary of path attributes
-
-        Parameters
-        ----------
-        path:  An Azure Blob
-        """
-        blob = self.blob_fs.get_blob_properties(
-            container_name=self.container_name, blob_name=path
-        )
-        info = {}
-        info["name"] = path
-        info["size"] = blob.properties.content_length
-        info["container_name"] = self.container_name
-        if blob.properties.content_settings.content_type is not None:
-            info["type"] = "file"
         else:
-            info["type"] = "directory"
-        return info
+            blobs = self.blob_fs.list_blobs(
+                container_name=self.container_name, prefix=path, delimiter=delimiter
+            )
+            blobs_ = list(blobs)
+            if len(blobs_) == 1 and isinstance(blobs_[0], BlobPrefix):
+                path = blobs_[0].name
+                return self.ls(path, detail=detail, delimiter=delimiter)
+
+            if detail is False:
+                pathlist = [blob.name for blob in blobs]
+                logging.debug(f"Detail is False.  Returning {pathlist}")
+                return pathlist
+            else:
+                pathlist = []
+                for blob in blobs:
+                    logging.debug(f"Parsing {blob}")
+                    data = {}
+                    data["name"] = blob.name
+                    data["container_name"] = self.container_name
+                    try:
+                        data["size"] = blob.properties.content_length
+                        if blob.properties.content_settings.content_type is not None:
+                            data["type"] = "file"
+                        else:
+                            logging.debug("Assigning {blob} is a directory")
+                            data["type"] = "directory"
+                    except AttributeError:
+                        logging.debug(f"Handling AttributeError for {blob.name}")
+                        logging.debug(f"")
+                        if path == blob.name.rstrip("/"):
+                            self.ls(blob.name, detail=detail, delimiter=None)
+                        elif isinstance(blob, BlobPrefix):
+                            data["type"] = "directory"
+                            data["size"] = 0
+                        else:
+                            raise AttributeError(
+                                f"AzureBlobFileSystem.ls() method unable to assign attributes for {blob}!!"
+                            )
+                    pathlist.append(data)
+                logging.debug(f"Detail is True:  Returning {pathlist}")
+                return pathlist
+
+    # def info(self, path: str, **kwargs):
+    #     """ Create a dictionary of path attributes
+
+    #     Parameters
+    #     ----------
+    #     path:  An Azure Blob
+    #     """
+    #     blob = self.blob_fs.get_blob_properties(
+    #         container_name=self.container_name, blob_name=path
+    #     )
+    #     info = {}
+    #     info["name"] = path
+    #     info["size"] = blob.properties.content_length
+    #     info["container_name"] = self.container_name
+    #     if blob.properties.content_settings.content_type is not None:
+    #         info["type"] = "file"
+    #     else:
+    #         info["type"] = "directory"
+    #     return info
 
     def walk(self, path, maxdepth=None, **kwargs):
         """ Return all files belows path
@@ -383,19 +473,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 f"Test path with name, path, type, size:  {name}, {path}, {info['type']}, {info['size']}"
             )
             if info["type"] == "directory" and name != path and info["size"] == 0:
-                logging.debug(f"{name} is a directory")
-                logging.debug(f"compare name and path: {name}, {path}")
+                logging.debug(f"{name} is a directory within {path}")
                 # do not include "self" path
                 full_dirs.append(name)
                 # Need to add this line to handle an oddity in how
                 # Azure Storage returns blob paths from list operations.
                 # Without it, the ParquetDataset operation by pyarrow fails
-                logging.debug(
-                    f"Path name:  {name} is a directory.  Evaluate against {path}"
-                )
                 dirs.append(name.rsplit("/", 1)[-1])
+                logging.debug(f"Dirs are: {dirs}")
             elif info["type"] == "directory" and name == path and info["size"] == 0:
-                logging.debug(f"Skipping {name}.  It is the current directory")
+                logging.debug(
+                    f"Skipping {name}.  It is the current directory, not a subdirectory..."
+                )
                 # The Azure Blob Storage SDK returns the path from a list_blobs()
                 # method call.  This creates an inconsistency across dasks's read methods
                 # Specifically (read_csv(fpath/fname.csv/*.csv), and the fastparquet vs pyarrow

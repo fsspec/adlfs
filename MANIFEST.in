@@ -1,0 +1,2 @@
+include versioneer.py
+include adlfs/_version.py
