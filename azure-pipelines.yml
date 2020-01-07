@@ -4,22 +4,13 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'
 
-resources:
-  containers:
-    - container: azurite
-      image: mcr.microsoft.com/azure-storage/azurite
-      ports:
-        - "10000:10000"
-
-services:
-  azurite: azurite
-
 steps:
 - bash: echo "##vso[task.prependpath]$CONDA/bin"
   displayName: Add conda to PATH
 
 - script: |
     conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+    pip install docker versioneer
   displayName: 'Install dependencies'
 
 - script: |

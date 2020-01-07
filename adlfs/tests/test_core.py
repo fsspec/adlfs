@@ -1,4 +1,18 @@
 import adlfs
+import docker
+import pytest
+
+
+@pytest.fixture(scope="session", autouse=True)
+def spawn_azurite():
+    print("Spawning docker container")
+    client = docker.from_env()
+    azurite = client.containers.run(
+        "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
+    )
+    yield azurite
+    print("Teardown azurite docker container")
+    azurite.stop()
 
 
 def test_connect(storage):
