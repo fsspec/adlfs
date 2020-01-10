@@ -10,9 +10,16 @@ from azure.storage.blob import BlockBlobService, BlobPrefix
 from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import infer_storage_options, stringify_path, tokenize
+from fsspec.utils import infer_storage_options #as _infer_storage_options
+from fsspec.utils import stringify_path, tokenize
 
 logger = logging.getLogger(__name__)
+
+# def infer_storage_options(paths, inherit_storage_options=None):
+#     options = _infer_storage_options(paths)
+#     print(options)
+#     options["path"] = options["host"] + options["path"]
+#     return options
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
@@ -282,12 +289,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
+
     protocol = "abfs"
 
     def __init__(
         self,
         account_name: str,
-        container_name: str,
         account_key: str = None,
         custom_domain: str = None,
         is_emulated: bool = False,
@@ -302,7 +309,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
-        self.container_name = container_name
         self.custom_domain = custom_domain
         self.is_emulated = is_emulated
         self.sas_token = sas_token
@@ -314,21 +320,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.token_credential = token_credential
         self.do_connect()
 
-    @staticmethod
-    def _get_kwargs_from_urls(paths):
-        """ Get the store_name from the urlpath and pass to storage_options """
-        logging.debug("Getting kwargs from urls...")
-        ops = infer_storage_options(paths)
-        out = {}
-        if ops.get("host", None):
-            out["container_name"] = ops["host"]
-        logging.debug(f"kwargs are:  {out}")
-        return out
 
     @classmethod
     def _strip_protocol(cls, path):
         ops = infer_storage_options(path)
+
+        # we need to make sure that the path retains
+        # the format {host}/{path}
+        # here host is the container_name
+        if ops.get('host', None):
+            ops['path'] = ops['host'] + ops['path']
         ops["path"] = ops["path"].lstrip("/")
+
         logging.debug(f"_strip_protocol:  {ops}")
         return ops["path"]
 
@@ -347,6 +350,25 @@ class AzureBlobFileSystem(AbstractFileSystem):
             token_credential=self.token_credential,
         )
 
+    def split_path(self, path):
+        """
+        Normalize ABFS path string into bucket and key.
+        Parameters
+        ----------
+        path : string
+            Input path, like `abfs://my_container/path/to/file`
+        Examples
+        --------
+        >>> split_path("abfs://my_container/path/to/file")
+        ['my_container', 'path/to/file']
+        """
+        #path = self._strip_protocol(path)
+        path = path.lstrip('/')
+        if '/' not in path:
+            return path, ""
+        else:
+            return path.split('/', 1)
+
     def ls(
         self,
         path: str,
@@ -359,169 +381,76 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
         Parameters
         ----------
-        path:  Path to an Azure Blob directory
+        path:  Path to an Azure Blob with its container name
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
         logging.debug("Running abfs.ls() method")
         path = stringify_path(path)
-        if path.strip() == "":
-            homedir_ = self.blob_fs.list_blobs(
-                container_name=self.container_name, prefix=path, delimiter=delimiter
-            )
-            homedir = list(homedir_)[0]
-            return self.ls(path=homedir.name, detail=detail, delimiter=delimiter)
+        if path.strip() in ["",'/']:
+            containers = self.blob_fs.list_containers()
+            return [c.name for c in containers]
 
         else:
-            blobs = self.blob_fs.list_blobs(
-                container_name=self.container_name, prefix=path, delimiter=delimiter
-            )
-            blobs_ = list(blobs)
-            if len(blobs_) == 1 and isinstance(blobs_[0], BlobPrefix):
-                path = blobs_[0].name
-                return self.ls(path, detail=detail, delimiter=delimiter)
+            container_name, path = self.split_path(path)
 
-            if detail is False:
-                pathlist = [blob.name for blob in blobs]
-                logging.debug(f"Detail is False.  Returning {pathlist}")
-                return pathlist
+            # show all top-level prefixes (directories) and files
+            if path == '':
+                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter)
+            
+            # a blob is a single file if you gave it directly we know what to do
+            elif self.blob_fs.exists(container_name, path):
+                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter,
+                                                num_results=1)
+
+            else:
+                # prefixes (directories) are not blobs
+                if not path.endswith('/'):
+                    path = path + '/'
+                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter,
+                                                 num_results=None)
+            
+            if not detail:
+                return [b.name for b in blobs]
             else:
                 pathlist = []
                 for blob in blobs:
-                    logging.debug(f"Parsing {blob}")
                     data = {}
                     data["name"] = blob.name
-                    data["container_name"] = self.container_name
-                    try:
+                    data["container_name"] = container_name
+
+                    if isinstance(blob, BlobPrefix):
+                        data["type"] = "directory"
+                        data["size"] = 0
+                    elif blob.properties.content_settings.content_type is not None:
+                        data["type"] = "file"
                         data["size"] = blob.properties.content_length
-                        if blob.properties.content_settings.content_type is not None:
-                            data["type"] = "file"
-                        else:
-                            logging.debug("Assigning {blob} is a directory")
-                            data["type"] = "directory"
-                    except AttributeError:
-                        logging.debug(f"Handling AttributeError for {blob.name}")
-                        logging.debug(f"")
-                        if path == blob.name.rstrip("/"):
-                            self.ls(blob.name, detail=detail, delimiter=None)
-                        elif isinstance(blob, BlobPrefix):
-                            data["type"] = "directory"
-                            data["size"] = 0
-                        else:
-                            raise AttributeError(
-                                f"AzureBlobFileSystem.ls() method unable to assign attributes for {blob}!!"
-                            )
+                    
                     pathlist.append(data)
-                logging.debug(f"Detail is True:  Returning {pathlist}")
                 return pathlist
 
-    # def info(self, path: str, **kwargs):
-    #     """ Create a dictionary of path attributes
 
-    #     Parameters
-    #     ----------
-    #     path:  An Azure Blob
-    #     """
-    #     blob = self.blob_fs.get_blob_properties(
-    #         container_name=self.container_name, blob_name=path
-    #     )
-    #     info = {}
-    #     info["name"] = path
-    #     info["size"] = blob.properties.content_length
-    #     info["container_name"] = self.container_name
-    #     if blob.properties.content_settings.content_type is not None:
-    #         info["type"] = "file"
-    #     else:
-    #         info["type"] = "directory"
-    #     return info
+    def info(self, path):
+        if path in ['/', '']:
+            return {'name': path, 'size': 0, 'type': 'directory'}
 
-    def walk(self, path, maxdepth=None, **kwargs):
-        """ Return all files belows path
+        blobs = self.ls(path, detail=True)
 
-        List all files, recursing into subdirectories; output is iterator-style,
-        like ``os.walk()``. For a simple list of files, ``find()`` is available.
-        Note that the "files" outputted will include anything that is not
-        a directory, such as links.  Used by pyarrow during making of the manifest
-        of a ParquetDataset
+        if not blobs:
+            raise FileNotFoundError('{} was not found'.format(path))
 
-        Parameters
-        ----------
-        path: str
-            Root to recurse into
-        maxdepth: int
-            Maximum recursion depth. None means limitless, but not recommended
-            on link-based file-systems.
-        kwargs: passed to ``ls``
-        """
+        if len(blobs) == 1:
+            return blobs[0]
+        else:
+            return {"name": path, "size": 0, "type": "directory"}
 
-        logging.debug(f"abfs.walk() for {path}")
-        path = self._strip_protocol(path)
-        full_dirs = []
-        dirs = []
-        files = []
 
-        try:
-            listing = self.ls(path, True, **kwargs)
-        except (FileNotFoundError, IOError):
-            return [], [], []
+    def exists(self, path):
+        if path in ['', '/']:
+            return True
+        
+        return super().exists(path)
 
-        for info in listing:
-            # each info name must be at least [path]/part , but here
-            # we check also for names like [path]/part/
-            name = info["name"].rstrip("/")
-            logging.debug(
-                f"Test path with name, path, type, size:  {name}, {path}, {info['type']}, {info['size']}"
-            )
-            if info["type"] == "directory" and name != path and info["size"] == 0:
-                logging.debug(f"{name} is a directory within {path}")
-                # do not include "self" path
-                full_dirs.append(name)
-                # Need to add this line to handle an oddity in how
-                # Azure Storage returns blob paths from list operations.
-                # Without it, the ParquetDataset operation by pyarrow fails
-                dirs.append(name.rsplit("/", 1)[-1])
-                logging.debug(f"Dirs are: {dirs}")
-            elif info["type"] == "directory" and name == path and info["size"] == 0:
-                logging.debug(
-                    f"Skipping {name}.  It is the current directory, not a subdirectory..."
-                )
-                # The Azure Blob Storage SDK returns the path from a list_blobs()
-                # method call.  This creates an inconsistency across dasks's read methods
-                # Specifically (read_csv(fpath/fname.csv/*.csv), and the fastparquet vs pyarrow
-                # read_parquet(fpath/fname.parquet) implement a glob call.  Adding
-                # this line reconciles those differences
-                continue
-            elif name == path and info["type"] == "file":
-                logging.debug(f"name == path")
-                # file-like with same name as give path
-                files.append("")
-            else:
-                logging.debug(f"{name} is a file")
-                files.append(name.rsplit("/", 1)[-1])
-        yield path, dirs, files
-
-        for d in full_dirs:
-            if maxdepth is None or maxdepth > 1:
-                for res in self.walk(
-                    d,
-                    maxdepth=(maxdepth - 1) if maxdepth is not None else None,
-                    **kwargs,
-                ):
-                    yield res
-
-    def isdir(self, path, **kwargs):
-        """Is this entry directory-like?"""
-        try:
-            return self.info(path)["type"].lower() == "directory"
-        except FileNotFoundError:
-            return False
-
-    def isfile(self, path, **kwargs):
-        """Is this entry file-like?"""
-        try:
-            return self.info(path)["type"].lower() == "file"
-        except Exception:
-            return False
 
     def _open(
         self,
@@ -559,6 +488,10 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_options=None,
         **kwargs,
     ):
+        container_name, blob = fs.split_path(path)
+        self.container_name = container_name
+        self.blob = blob
+        
         super().__init__(
             fs=fs,
             path=path,
@@ -569,12 +502,11 @@ class AzureBlobFile(AbstractBufferedFile):
             cache_options=cache_options,
             **kwargs,
         )
-        self.container_name = fs.container_name
 
     def _fetch_range(self, start, end, **kwargs):
         blob = self.fs.blob_fs.get_blob_to_bytes(
             container_name=self.container_name,
-            blob_name=self.path,
+            blob_name=self.blob,
             start_range=start,
             end_range=end,
         )
@@ -583,5 +515,5 @@ class AzureBlobFile(AbstractBufferedFile):
     def _upload_chunk(self, final=False, **kwargs):
         data = self.buffer.getvalue()
         self.fs.blob_fs.create_blob_from_bytes(
-            container_name=self.container_name, blob_name=self.path, blob=data
+            container_name=self.container_name, blob_name=self.blob, blob=data
         )
