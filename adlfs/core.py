@@ -2,24 +2,19 @@
 from __future__ import print_function, division, absolute_import
 
 import logging
+from itertools import tee
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService, BlobPrefix
+from azure.storage.blob import BlockBlobService, BlobPrefix, Container, Blob
 from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import infer_storage_options #as _infer_storage_options
+from fsspec.utils import infer_storage_options
 from fsspec.utils import stringify_path, tokenize
 
 logger = logging.getLogger(__name__)
-
-# def infer_storage_options(paths, inherit_storage_options=None):
-#     options = _infer_storage_options(paths)
-#     print(options)
-#     options["path"] = options["host"] + options["path"]
-#     return options
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
@@ -362,12 +357,41 @@ class AzureBlobFileSystem(AbstractFileSystem):
         >>> split_path("abfs://my_container/path/to/file")
         ['my_container', 'path/to/file']
         """
-        #path = self._strip_protocol(path)
+        path = self._strip_protocol(path)
         path = path.lstrip('/')
         if '/' not in path:
+            # this means path is the container_name
             return path, ""
         else:
             return path.split('/', 1)
+
+
+    def _generate_blobs(self, *args, **kwargs):
+        '''Follow next_marker to get ALL results.'''
+
+        blobs = self.blob_fs.list_blobs(*args, **kwargs)
+        yield from blobs
+        while blobs.next_marker:
+            kwargs['marker'] = blobs.next_marker
+            blobs = self.blob_fs.list_blobs(*args, **kwargs)
+            yield from blobs
+
+    def _matches(self, container_name, path, as_directory=False, delimiter='/'):
+        '''check if the path returns an exact match'''
+
+        path = path.rstrip('/')
+        gen = self.blob_fs.list_blob_names(container_name=container_name, prefix=path,
+                                           delimiter=delimiter, num_results=1)
+
+        contents = list(gen)
+        if not contents:
+            return False
+
+        if as_directory:
+            return contents[0] == path+'/'
+        else:
+            return contents[0] == path
+
 
     def ls(
         self,
@@ -386,48 +410,63 @@ class AzureBlobFileSystem(AbstractFileSystem):
         invalidate_cache:  Boolean
         """
         logging.debug("Running abfs.ls() method")
-        path = stringify_path(path)
-        if path.strip() in ["",'/']:
-            containers = self.blob_fs.list_containers()
-            return [c.name for c in containers]
+        logging.debug(f'abfs.ls() is searching for {path}')
+
+        path = self._strip_protocol(path).rstrip('/')
+
+        if path in ["",'/']:
+            contents = self.blob_fs.list_containers()
 
         else:
             container_name, path = self.split_path(path)
 
             # show all top-level prefixes (directories) and files
             if path == '':
-                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter)
+                contents = self._generate_blobs(container_name=container_name, prefix=None,
+                                                delimiter=delimiter, num_results=None)
+
+            # check whether path matches a directory
+            # then return the contents
+            elif self._matches(container_name, path, as_directory=True):
+                dirpath = path + '/'
+                contents = self._generate_blobs(container_name=container_name, prefix=dirpath,
+                                                delimiter=delimiter, num_results=None)
             
-            # a blob is a single file if you gave it directly we know what to do
-            elif self.blob_fs.exists(container_name, path):
-                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter,
-                                                num_results=1)
+            # check whether path returns a matching blob
+            elif self._matches(container_name, path, as_directory=False):
+                # do not use _generate_blobs because we just confirmed
+                # there is a single exact match
+                contents = self.blob_fs.list_blobs(container_name=container_name, prefix=path,
+                                                   delimiter=delimiter, num_results=1)
 
             else:
-                # prefixes (directories) are not blobs
-                if not path.endswith('/'):
-                    path = path + '/'
-                blobs = self.blob_fs.list_blobs(container_name, prefix=path, delimiter=delimiter,
-                                                 num_results=None)
-            
-            if not detail:
-                return [b.name for b in blobs]
-            else:
-                pathlist = []
-                for blob in blobs:
-                    data = {}
-                    data["name"] = blob.name
-                    data["container_name"] = container_name
+                raise FileNotFoundError(path)
 
-                    if isinstance(blob, BlobPrefix):
-                        data["type"] = "directory"
-                        data["size"] = 0
-                    elif blob.properties.content_settings.content_type is not None:
-                        data["type"] = "file"
-                        data["size"] = blob.properties.content_length
-                    
-                    pathlist.append(data)
-                return pathlist
+        if detail:
+            return self._details(container_name, contents)
+        else:
+            return [c.name for c in contents if c]
+
+
+    def _details(self, container_name, contents):
+        pathlist = []
+        for c in contents:
+            data = {}
+            data["name"] = c.name
+            data["container_name"] = container_name
+
+            if isinstance(c, BlobPrefix):
+                data["type"] = "directory"
+                data["size"] = 0
+            elif isinstance(c, Container):
+                data['type'] = 'directory'
+                data['size'] = 0
+            elif c.properties.content_settings.content_type is not None:
+                data["type"] = "file"
+                data["size"] = c.properties.content_length
+            
+            pathlist.append(data)
+        return pathlist
 
 
     def info(self, path):
@@ -450,6 +489,29 @@ class AzureBlobFileSystem(AbstractFileSystem):
             return True
         
         return super().exists(path)
+
+    # def walk(self, path, maxdepth, **kwargs):
+    #     if not self.exists(path):
+    #         return []
+
+    #     container_name, path = self.split_path(path)
+    #     blobs = self._generate_blobs(container_name, prefix=path,
+    #                                  num_results=None, delimiter=None)
+    #     for b in blobs:
+    #         yield b.name
+
+
+    def mkdir(self, path):
+        container_name, path = self.split_path(path)
+        #if not self._parent(path):
+        if container_name and (not path):
+            # create new container
+            self.blob_fs.create_container(container_name, fail_on_exist=True)
+    
+    def rmdir(self, path):
+        if not self._parent(path):
+            # delete the whole container
+            print(f'attempt to delete container {path}')
 
 
     def _open(
