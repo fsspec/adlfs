@@ -2,7 +2,7 @@
 from __future__ import print_function, division, absolute_import
 
 import logging
-from itertools import tee
+from os.path import join
 
 
 from azure.datalake.store import lib, AzureDLFileSystem
@@ -417,6 +417,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
         if path in ["",'/']:
             contents = self.blob_fs.list_containers()
 
+            if detail:
+                return self._details(contents)
+            else:
+                return [c.name for c in contents]
+
         else:
             container_name, path = self.split_path(path)
 
@@ -431,7 +436,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 dirpath = path + '/'
                 contents = self._generate_blobs(container_name=container_name, prefix=dirpath,
                                                 delimiter=delimiter, num_results=None)
-            
+
             # check whether path returns a matching blob
             elif self._matches(container_name, path, as_directory=False):
                 # do not use _generate_blobs because we just confirmed
@@ -442,18 +447,20 @@ class AzureBlobFileSystem(AbstractFileSystem):
             else:
                 raise FileNotFoundError(path)
 
-        if detail:
-            return self._details(container_name, contents)
-        else:
-            return [c.name for c in contents if c]
+            if detail:
+                return self._details(contents, container_name)
+            else:
+                return [join(container_name, c.name) for c in contents if c]
 
 
-    def _details(self, container_name, contents):
+    def _details(self, contents, container_name=None):
         pathlist = []
         for c in contents:
             data = {}
-            data["name"] = c.name
-            data["container_name"] = container_name
+            if container_name:
+                data["name"] = join(container_name, c.name)
+            else:
+                data["name"] = c.name
 
             if isinstance(c, BlobPrefix):
                 data["type"] = "directory"
@@ -490,15 +497,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
         
         return super().exists(path)
 
-    # def walk(self, path, maxdepth, **kwargs):
-    #     if not self.exists(path):
-    #         return []
-
-    #     container_name, path = self.split_path(path)
-    #     blobs = self._generate_blobs(container_name, prefix=path,
-    #                                  num_results=None, delimiter=None)
-    #     for b in blobs:
-    #         yield b.name
+    def walk(self, path, maxdepth=None, **kwargs):
+         if path in ['', '*'] + [f'{p}://' for p in self.protocol]:
+             raise ValueError('Cannot crawl all of Azure')
+         return super().walk(path, maxdepth=maxdepth, **kwargs)
 
 
     def mkdir(self, path):
@@ -507,11 +509,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         if container_name and (not path):
             # create new container
             self.blob_fs.create_container(container_name, fail_on_exist=True)
-    
-    def rmdir(self, path):
-        if not self._parent(path):
-            # delete the whole container
-            print(f'attempt to delete container {path}')
 
 
     def _open(
