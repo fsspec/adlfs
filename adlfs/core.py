@@ -327,7 +327,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             ops['path'] = ops['host'] + ops['path']
         ops["path"] = ops["path"].lstrip("/")
 
-        logging.debug(f"_strip_protocol:  {ops}")
+        logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
     def do_connect(self):
@@ -372,6 +372,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         blobs = self.blob_fs.list_blobs(*args, **kwargs)
         yield from blobs
         while blobs.next_marker:
+            logging.debug(f'following next_marker {blobs.next_marker}')
             kwargs['marker'] = blobs.next_marker
             blobs = self.blob_fs.list_blobs(*args, **kwargs)
             yield from blobs
@@ -409,12 +410,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
-        logging.debug("Running abfs.ls() method")
         logging.debug(f'abfs.ls() is searching for {path}')
 
         path = self._strip_protocol(path).rstrip('/')
 
         if path in ["",'/']:
+            logging.debug(f'listing all containers')
             contents = self.blob_fs.list_containers()
 
             if detail:
@@ -427,12 +428,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
             # show all top-level prefixes (directories) and files
             if path == '':
+                logging.debug(f'{path} appears to be a container')
                 contents = self._generate_blobs(container_name=container_name, prefix=None,
                                                 delimiter=delimiter, num_results=None)
 
             # check whether path matches a directory
             # then return the contents
             elif self._matches(container_name, path, as_directory=True):
+                logging.debug(f'{path} appears to be a directory')
                 dirpath = path + '/'
                 contents = self._generate_blobs(container_name=container_name, prefix=dirpath,
                                                 delimiter=delimiter, num_results=None)
@@ -441,6 +444,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             elif self._matches(container_name, path, as_directory=False):
                 # do not use _generate_blobs because we just confirmed
                 # there is a single exact match
+                logging.debug(f'{path} appears to be a blob (file)')
                 contents = self.blob_fs.list_blobs(container_name=container_name, prefix=path,
                                                    delimiter=delimiter, num_results=1)
 
