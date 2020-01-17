@@ -431,8 +431,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # show all top-level prefixes (directories) and files
             if not path:
                 if container_name not in self.ls(''):
-                    msg = '{} was not found in the available containers.'.format(container_name)
-                    raise FileNotFoundError(msg)
+                    raise FileNotFoundError(container_name)
 
                 logging.debug(f'{path} appears to be a container')
                 contents = self._generate_blobs(container_name=container_name, prefix=None,
@@ -488,14 +487,22 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def mkdir(self, path):
         container_name, path = self.split_path(path)
-        if container_name and (not path):
+        if (container_name not in self.ls('')) and (not path):
             # create new container
-            self.blob_fs.create_container(container_name, fail_on_exist=True)
-        elif container_name and path:
+            self.blob_fs.create_container(container_name)
+        elif (container_name in self.ls('')) and path:
             ## attempt to create prefix
-            pass
+            raise RuntimeError(f'Cannot create {container_name}/{path}. Azure does not support creating empty directories.')
         else:
-            raise RuntimeError(f'cannot create {container_name}/{path}')
+            ## everything else
+            raise RuntimeError(f'Cannot create {container_name}/{path}.')
+
+
+    def rmdir(self, path):
+        container_name, path = self.split_path(path)
+        if (container_name in self.ls('')) and (not path):
+            # delete container
+            self.blob_fs.delete_container(container_name)
 
 
     def _rm(self, path):
@@ -503,8 +510,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
             container_name, path = self.split_path(path)
             logging.debug(f'Delete blob {path} in {container_name}')
             self.blob_fs.delete_blob(container_name, path)
-        elif not self.exists(path):
-            raise FileNotFoundError(path)
+        elif self.isdir(path):
+            if (container_name in self.ls('')) and (not path):
+                logging.debug(f'Delete container {container_name}')
+                self.blob_fs.delete_container(container_name)
+        else:
+            raise RuntimeError(f'cannot delete {path}')
 
 
     def _open(
