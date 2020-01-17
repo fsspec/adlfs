@@ -330,6 +330,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
+
     def do_connect(self):
         self.blob_fs = BlockBlobService(
             account_name=self.account_name,
@@ -377,12 +378,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
             blobs = self.blob_fs.list_blobs(*args, **kwargs)
             yield from blobs
 
+
     def _matches(self, container_name, path, as_directory=False, delimiter='/'):
         '''check if the path returns an exact match'''
 
         path = path.rstrip('/')
         gen = self.blob_fs.list_blob_names(container_name=container_name, prefix=path,
-                                           delimiter=delimiter, num_results=1)
+                                           delimiter=delimiter, num_results=None)
 
         contents = list(gen)
         if not contents:
@@ -427,7 +429,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
             container_name, path = self.split_path(path)
 
             # show all top-level prefixes (directories) and files
-            if path == '':
+            if not path:
+                if container_name not in self.ls(''):
+                    msg = '{} was not found in the available containers.'.format(container_name)
+                    raise FileNotFoundError(msg)
+
                 logging.debug(f'{path} appears to be a container')
                 contents = self._generate_blobs(container_name=container_name, prefix=None,
                                                 delimiter=delimiter, num_results=None)
@@ -449,7 +455,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                                    delimiter=delimiter, num_results=1)
 
             else:
-                raise FileNotFoundError(path)
+                raise FileNotFoundError(join(container_name,path))
 
             if detail:
                 return self._details(contents, container_name)
@@ -480,39 +486,25 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return pathlist
 
 
-    def info(self, path):
-        if path in ['/', '']:
-            return {'name': path, 'size': 0, 'type': 'directory'}
-
-        blobs = self.ls(path, detail=True)
-
-        if not blobs:
-            raise FileNotFoundError('{} was not found'.format(path))
-
-        if len(blobs) == 1:
-            return blobs[0]
-        else:
-            return {"name": path, "size": 0, "type": "directory"}
-
-
-    def exists(self, path):
-        if path in ['', '/']:
-            return True
-        
-        return super().exists(path)
-
-    def walk(self, path, maxdepth=None, **kwargs):
-         if path in ['', '*'] + [f'{p}://' for p in self.protocol]:
-             raise ValueError('Cannot crawl all of Azure')
-         return super().walk(path, maxdepth=maxdepth, **kwargs)
-
-
     def mkdir(self, path):
         container_name, path = self.split_path(path)
-        #if not self._parent(path):
         if container_name and (not path):
             # create new container
             self.blob_fs.create_container(container_name, fail_on_exist=True)
+        elif container_name and path:
+            ## attempt to create prefix
+            pass
+        else:
+            raise RuntimeError(f'cannot create {container_name}/{path}')
+
+
+    def _rm(self, path):
+        if self.isfile(path):
+            container_name, path = self.split_path(path)
+            logging.debug(f'Delete blob {path} in {container_name}')
+            self.blob_fs.delete_blob(container_name, path)
+        elif not self.exists(path):
+            raise FileNotFoundError(path)
 
 
     def _open(
