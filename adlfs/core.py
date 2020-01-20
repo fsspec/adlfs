@@ -511,6 +511,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             logging.debug(f'Delete blob {path} in {container_name}')
             self.blob_fs.delete_blob(container_name, path)
         elif self.isdir(path):
+            container_name, path = self.split_path(path, delimiter=delimiter)
             if (container_name in self.ls('')) and (not path):
                 logging.debug(f'Delete container {container_name}')
                 self.blob_fs.delete_container(container_name)
