@@ -7,12 +7,12 @@ from os.path import join
 
 from azure.datalake.store import lib, AzureDLFileSystem
 from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService, BlobPrefix, Container, Blob
+from azure.storage.blob import BlockBlobService, BlobPrefix, Container
 from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
-from fsspec.utils import stringify_path, tokenize
+from fsspec.utils import tokenize
 
 logger = logging.getLogger(__name__)
 
