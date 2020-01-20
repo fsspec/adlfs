@@ -423,14 +423,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
             if detail:
                 return self._details(contents)
             else:
-                return [c.name for c in contents]
+                return [c.name+'/' for c in contents]
 
         else:
             container_name, path = self.split_path(path)
 
             # show all top-level prefixes (directories) and files
             if not path:
-                if container_name not in self.ls(''):
+                if container_name+'/' not in self.ls(''):
                     raise FileNotFoundError(container_name)
 
                 logging.debug(f'{path} appears to be a container')
@@ -469,7 +469,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             if container_name:
                 data["name"] = join(container_name, c.name)
             else:
-                data["name"] = c.name
+                data["name"] = c.name+'/'
 
             if isinstance(c, BlobPrefix):
                 data["type"] = "directory"
