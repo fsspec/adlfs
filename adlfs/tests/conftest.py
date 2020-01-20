@@ -36,6 +36,8 @@ def storage(host):
     )
     bbs.create_container("data", timeout=1)
 
+    bbs.create_blob_from_bytes("data", "top_file.txt", data)
+    bbs.create_blob_from_bytes("data", "root/rfile.txt", data)
     bbs.create_blob_from_bytes("data", "root/a/file.txt", data)
     bbs.create_blob_from_bytes("data", "root/b/file.txt", data)
     bbs.create_blob_from_bytes("data", "root/c/file1.txt", data)
