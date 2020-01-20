@@ -158,3 +158,43 @@ def test_open_file(storage):
 
     result = f.read()
     assert result == b"0123456789"
+
+
+def test_rm(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        storage.account_name,
+        storage.account_key,
+        custom_domain=f"http://{storage.primary_endpoint}",
+    )
+
+    fs.rm("/data/root/a/file.txt")
+
+    with pytest.raises(FileNotFoundError):
+        fs.ls("/data/root/a/file.txt")
+
+
+def test_mkdir_rmdir(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        storage.account_name,
+        storage.account_key,
+        custom_domain=f"http://{storage.primary_endpoint}",
+    )
+
+    fs.mkdir('new-container')
+    assert 'new-container/' in fs.ls('')
+
+    with fs.open('new-container/file.txt', 'wb') as f:
+        f.write(b'0123456789')
+    
+    with fs.open('new-container/dir/file.txt', 'wb') as f:
+        f.write(b'0123456789')
+    with fs.open('new-container/dir/file.txt', 'wb') as f:
+        f.write(b'0123456789')
+    
+    fs.rm('new-container/dir', recursive=True)
+    assert fs.ls('new-container') == ['new-container/file.txt']
+
+    fs.rm('new-container/file.txt')
+    fs.rmdir('new-container')
+
+    assert 'new-container/' not in fs.ls('')
