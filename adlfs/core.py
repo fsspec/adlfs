@@ -346,7 +346,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             token_credential=self.token_credential,
         )
 
-    def split_path(self, path):
+    def split_path(self, path, delimiter='/'):
         """
         Normalize ABFS path string into bucket and key.
         Parameters
@@ -359,12 +359,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         ['my_container', 'path/to/file']
         """
         path = self._strip_protocol(path)
-        path = path.lstrip('/')
+        path = path.lstrip(delimiter)
         if '/' not in path:
             # this means path is the container_name
             return path, ""
         else:
-            return path.split('/', 1)
+            return path.split(delimiter, 1)
 
 
     def _generate_blobs(self, *args, **kwargs):
@@ -382,7 +382,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def _matches(self, container_name, path, as_directory=False, delimiter='/'):
         '''check if the path returns an exact match'''
 
-        path = path.rstrip('/')
+        path = path.rstrip(delimiter)
         gen = self.blob_fs.list_blob_names(container_name=container_name, prefix=path,
                                            delimiter=delimiter, num_results=None)
 
@@ -391,7 +391,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             return False
 
         if as_directory:
-            return contents[0] == path+'/'
+            return contents[0] == path+delimiter
         else:
             return contents[0] == path
 
@@ -414,23 +414,23 @@ class AzureBlobFileSystem(AbstractFileSystem):
         """
         logging.debug(f'abfs.ls() is searching for {path}')
 
-        path = self._strip_protocol(path).rstrip('/')
+        path = self._strip_protocol(path).rstrip(delimiter)
 
-        if path in ["",'/']:
+        if path in ["",delimiter]:
             logging.debug(f'listing all containers')
             contents = self.blob_fs.list_containers()
 
             if detail:
                 return self._details(contents)
             else:
-                return [c.name+'/' for c in contents]
+                return [c.name+delimiter for c in contents]
 
         else:
-            container_name, path = self.split_path(path)
+            container_name, path = self.split_path(path, delimiter='/')
 
             # show all top-level prefixes (directories) and files
             if not path:
-                if container_name+'/' not in self.ls(''):
+                if container_name+delimiter not in self.ls(''):
                     raise FileNotFoundError(container_name)
 
                 logging.debug(f'{path} appears to be a container')
@@ -439,14 +439,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
             # check whether path matches a directory
             # then return the contents
-            elif self._matches(container_name, path, as_directory=True):
+            elif self._matches(container_name, path, as_directory=True, delimiter=delimiter):
                 logging.debug(f'{path} appears to be a directory')
-                dirpath = path + '/'
+                dirpath = path + delimiter
                 contents = self._generate_blobs(container_name=container_name, prefix=dirpath,
                                                 delimiter=delimiter, num_results=None)
 
             # check whether path returns a matching blob
-            elif self._matches(container_name, path, as_directory=False):
+            elif self._matches(container_name, path, as_directory=False, delimiter=delimiter):
                 # do not use _generate_blobs because we just confirmed
                 # there is a single exact match
                 logging.debug(f'{path} appears to be a blob (file)')
@@ -457,19 +457,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 raise FileNotFoundError(join(container_name,path))
 
             if detail:
-                return self._details(contents, container_name)
+                return self._details(contents, container_name, delimiter=delimiter)
             else:
                 return [join(container_name, c.name) for c in contents if c]
 
 
-    def _details(self, contents, container_name=None):
+    def _details(self, contents, container_name=None, delimiter='/'):
         pathlist = []
         for c in contents:
             data = {}
             if container_name:
                 data["name"] = join(container_name, c.name)
             else:
-                data["name"] = c.name+'/'
+                data["name"] = c.name+delimiter
 
             if isinstance(c, BlobPrefix):
                 data["type"] = "directory"
@@ -485,29 +485,29 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return pathlist
 
 
-    def mkdir(self, path):
-        container_name, path = self.split_path(path)
+    def mkdir(self, path, delimiter='/'):
+        container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name not in self.ls('')) and (not path):
             # create new container
             self.blob_fs.create_container(container_name)
         elif (container_name in self.ls('')) and path:
             ## attempt to create prefix
-            raise RuntimeError(f'Cannot create {container_name}/{path}. Azure does not support creating empty directories.')
+            raise RuntimeError(f'Cannot create {container_name}{delimiter}{path}. Azure does not support creating empty directories.')
         else:
             ## everything else
-            raise RuntimeError(f'Cannot create {container_name}/{path}.')
+            raise RuntimeError(f'Cannot create {container_name}{delimiter}{path}.')
 
 
-    def rmdir(self, path):
-        container_name, path = self.split_path(path)
+    def rmdir(self, path, delimiter='/'):
+        container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name in self.ls('')) and (not path):
             # delete container
             self.blob_fs.delete_container(container_name)
 
 
-    def _rm(self, path):
+    def _rm(self, path, delimiter='/'):
         if self.isfile(path):
-            container_name, path = self.split_path(path)
+            container_name, path = self.split_path(path, delimiter=delimiter)
             logging.debug(f'Delete blob {path} in {container_name}')
             self.blob_fs.delete_blob(container_name, path)
         elif self.isdir(path):
