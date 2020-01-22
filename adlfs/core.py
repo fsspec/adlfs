@@ -403,7 +403,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         logging.debug(f"Handling AttributeError for {blob.name}")
                         logging.debug(f"")
                         if path == blob.name.rstrip("/"):
-                            self.ls(blob.name, detail=detail, delimiter=None)
+                            return self.ls(blob.name, detail=detail, delimiter=None)
                         elif isinstance(blob, BlobPrefix):
                             data["type"] = "directory"
                             data["size"] = 0
