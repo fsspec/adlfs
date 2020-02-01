@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import logging
 
-
-from azure.datalake.store import lib, AzureDLFileSystem
-from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService, BlobPrefix
-from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
+from azure.datalake.store import AzureDLFileSystem, lib
+from azure.datalake.store.core import AzureDLFile, AzureDLPath
+from azure.storage.blob import BlobBlock, BlobPrefix, BlockBlobService
+from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, stringify_path, tokenize
@@ -267,6 +266,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
     token_credential:
         A token credential used to authenticate HTTPS requests. The token value
         should be updated before its expiration.
+    blocksize:
+        The block size to use for download/upload operations. Defaults to the value of
+        ``BlockBlobService.MAX_BLOCK_SIZE``
 
     Examples
     --------
@@ -298,6 +300,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         connection_string: str = None,
         socket_timeout=None,
         token_credential=None,
+        blocksize=BlockBlobService.MAX_BLOCK_SIZE,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
@@ -312,6 +315,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.connection_string = connection_string
         self.socket_timeout = socket_timeout
         self.token_credential = token_credential
+        self.blocksize = blocksize
         self.do_connect()
 
     @staticmethod
@@ -538,7 +542,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             fs=self,
             path=path,
             mode=mode,
-            block_size=block_size,
+            block_size=block_size or self.blocksize,
             autocommit=autocommit,
             cache_options=cache_options,
             **kwargs,
@@ -580,8 +584,28 @@ class AzureBlobFile(AbstractBufferedFile):
         )
         return blob.content
 
+    def _initiate_upload(self):
+        self._block_list = []
+        if self.fs.blob_fs.exists(self.container_name, self.path):
+            self.fs.blob_fs.delete_blob(self.container_name, self.path)
+        return super()._initiate_upload()
+
     def _upload_chunk(self, final=False, **kwargs):
         data = self.buffer.getvalue()
-        self.fs.blob_fs.create_blob_from_bytes(
-            container_name=self.container_name, blob_name=self.path, blob=data
+        block_id = len(self._block_list)
+        block_id = f"{block_id:07d}"
+        self.fs.blob_fs.put_block(
+            container_name=self.container_name,
+            blob_name=self.path,
+            block=data,
+            block_id=block_id,
         )
+        self._block_list.append(block_id)
+
+        if final:
+            block_list = [BlobBlock(_id) for _id in self._block_list]
+            self.fs.blob_fs.put_block_list(
+                container_name=self.container_name,
+                blob_name=self.path,
+                block_list=block_list,
+            )
