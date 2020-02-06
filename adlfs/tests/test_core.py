@@ -194,9 +194,10 @@ def test_mkdir_rmdir(storage):
 
     with fs.open("new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
+
     with fs.open("new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
-    
+
     fs.rm("new-container/dir", recursive=True)
     assert fs.ls("new-container") == ["new-container/file.txt"]
 
