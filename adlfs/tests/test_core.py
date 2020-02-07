@@ -1,6 +1,7 @@
-import adlfs
 import docker
 import pytest
+
+import adlfs
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -205,3 +206,72 @@ def test_mkdir_rmdir(storage):
     fs.rmdir("new-container")
 
     assert "new-container/" not in fs.ls("")
+
+
+def test_large_blob(storage):
+    import tempfile
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
+
+    fs = adlfs.AzureBlobFileSystem(
+        storage.account_name,
+        storage.account_key,
+        custom_domain=f"http://{storage.primary_endpoint}",
+    )
+
+    # create a 20MB byte array, ensure it's larger than blocksizes to force a
+    # chuncked upload
+    blob_size = 20_000_000
+    assert blob_size > fs.blocksize
+    assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
+
+    data = b"1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
+
+    # create container
+    fs.mkdir("chunk-container")
+
+    # upload the data using fs.open
+    path = "chunk-container/large-blob.bin"
+    with fs.open(path, "wb") as dst:
+        dst.write(data)
+
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
+
+    del data
+
+    # download with fs.open
+    bio = io.BytesIO()
+    with fs.open(path, "rb") as src:
+        shutil.copyfileobj(src, bio)
+
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
+
+    assert expected == result
+
+    # do the same but using upload/download and a tempdir
+    path = path = "chunk-container/large_blob2.bin"
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_blob2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
+
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size

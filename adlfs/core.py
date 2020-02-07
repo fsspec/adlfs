@@ -595,8 +595,8 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _initiate_upload(self):
         self._block_list = []
-        if self.fs.blob_fs.exists(self.container_name, self.path):
-            self.fs.blob_fs.delete_blob(self.container_name, self.path)
+        if self.fs.blob_fs.exists(self.container_name, self.blob):
+            self.fs.blob_fs.delete_blob(self.container_name, self.blob)
         return super()._initiate_upload()
 
     def _upload_chunk(self, final=False, **kwargs):
@@ -605,7 +605,7 @@ class AzureBlobFile(AbstractBufferedFile):
         block_id = f"{block_id:07d}"
         self.fs.blob_fs.put_block(
             container_name=self.container_name,
-            blob_name=self.path,
+            blob_name=self.blob,
             block=data,
             block_id=block_id,
         )
@@ -615,6 +615,6 @@ class AzureBlobFile(AbstractBufferedFile):
             block_list = [BlobBlock(_id) for _id in self._block_list]
             self.fs.blob_fs.put_block_list(
                 container_name=self.container_name,
-                blob_name=self.path,
+                blob_name=self.blob,
                 block_list=block_list,
             )
