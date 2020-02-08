@@ -1,0 +1,8 @@
+[distutils]
+index-servers =
+    pypi
+
+[pypi]
+repository: <repository-url>
+username: <username>
+password: <password>

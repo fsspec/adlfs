@@ -10,14 +10,25 @@ steps:
 
 - script: |
     conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
-    pip install docker versioneer
+    pip install docker versioneer pytest-cov twine
   displayName: 'Install dependencies'
 
 - script: |
-    pytest --host="localhost:10000" adlfs
+    pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
   displayName: 'Run Tests'
+
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFiles: '**/test-*.xml'
+    testRunTitle: 'Publish test results for Python $(python.version)'
 
 - script: |
     pre-commit install --install-hooks
     pre-commit run --all-files --show-diff-on-failure
   displayName: 'Lint'
+
+- task: TwineAuthenticate@0
+  inputs:
+    artifactFeed: '<Azure Artifacts feed name>'
+    pythonUploadServiceConnection: '<twine service connection from external organization>'
