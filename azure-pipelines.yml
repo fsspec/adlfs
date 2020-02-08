@@ -1,5 +1,8 @@
 trigger:
-- master
+  branches:
+    include:
+    - master
+    - refs/tags/*
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -17,18 +20,30 @@ steps:
     pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
   displayName: 'Run Tests'
 
+- script: |
+    pre-commit install --install-hooks
+    pre-commit run --all-files --show-diff-on-failure
+  displayName: 'Lint'
+
 - task: PublishTestResults@2
   condition: succeededOrFailed()
   inputs:
     testResultsFiles: '**/test-*.xml'
     testRunTitle: 'Publish test results for Python $(python.version)'
 
-- script: |
-    pre-commit install --install-hooks
-    pre-commit run --all-files --show-diff-on-failure
-  displayName: 'Lint'
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - task: TwineAuthenticate@0
+  condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
   inputs:
     artifactFeed: '<Azure Artifacts feed name>'
     pythonUploadServiceConnection: '<twine service connection from external organization>'
+
+- script: |
+   twine upload -r "<feed or service connection name>" --config-file $(PYPIRC_PATH) <package path/files>
+   dependsOn: TwineAuthenticate@0
+   condition: succeeded()
