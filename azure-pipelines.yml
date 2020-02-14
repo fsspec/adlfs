@@ -19,17 +19,20 @@ jobs:
     displayName: 'Install dependencies'
 
 - job: RunTests
+  steps:
   - script: |
       pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
     displayName: 'Run Tests'
 
 - job: RunPreCommitHooks
+  steps:
   - script: |
       pre-commit install --install-hooks
       pre-commit run --all-files --show-diff-on-failure
     displayName: 'Lint'
 
 - job: PublishTestResults
+  steps:
   - task: PublishTestResults@2
     condition: succeededOrFailed()
     inputs:
@@ -37,6 +40,7 @@ jobs:
       testRunTitle: 'Publish test results for Python $(python.version)'
 
 - job: PublishCoverageResults
+  steps:
   - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
@@ -45,19 +49,21 @@ jobs:
 
 # Build the python package from source
 - job: BuildPythonPackage
-  condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+  steps:
+
+
+- job: PushToPyPi
+  steps:
   - script: |
     python setup.py bdist_wheel
-
-- job: AuthenticateTwine
+  displayName: 'Build package'
+  condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
   - task: TwineAuthenticate@1
     displayName: 'Twine Authenticate'
-    condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+    dependsOn: startsWith(variables['build.sourceBranch'], 'refs/tags/')
     inputs:
       pythonUploadServiceConnection: adlfs
-
-# Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
-- job: PushToPyPi
-  dependsOn: AuthenticateTwine
+  # Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
   - script: |
-     python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
+    python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
+  displayName: 'AuthenticateTwine'
