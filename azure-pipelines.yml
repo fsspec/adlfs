@@ -18,29 +18,21 @@ jobs:
       pip install docker versioneer pytest-cov twine
     displayName: 'Install dependencies'
 
-- job: RunTests
-  steps:
   - script: |
       pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
     displayName: 'Run Tests'
 
-- job: RunPreCommitHooks
-  steps:
   - script: |
       pre-commit install --install-hooks
       pre-commit run --all-files --show-diff-on-failure
     displayName: 'Lint'
 
-- job: PublishTestResults
-  steps:
   - task: PublishTestResults@2
     condition: succeededOrFailed()
     inputs:
       testResultsFiles: '**/test-*.xml'
       testRunTitle: 'Publish test results for Python $(python.version)'
 
-- job: PublishCoverageResults
-  steps:
   - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
