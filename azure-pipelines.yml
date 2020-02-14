@@ -4,46 +4,60 @@ trigger:
     - master
     - refs/tags/*
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: SetupServer
+  pool:
+    vmImage: 'ubuntu-latest'
 
-steps:
-- bash: echo "##vso[task.prependpath]$CONDA/bin"
-  displayName: Add conda to PATH
+  steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
 
-- script: |
-    conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
-    pip install docker versioneer pytest-cov twine
-  displayName: 'Install dependencies'
+  - script: |
+      conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+      pip install docker versioneer pytest-cov twine
+    displayName: 'Install dependencies'
 
-- script: |
-    pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
-  displayName: 'Run Tests'
+- job: RunTests
+  - script: |
+      pytest adlfs --host="localhost:10000" --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html 
+    displayName: 'Run Tests'
 
-- script: |
-    pre-commit install --install-hooks
-    pre-commit run --all-files --show-diff-on-failure
-  displayName: 'Lint'
+- job: RunPreCommitHooks
+  - script: |
+      pre-commit install --install-hooks
+      pre-commit run --all-files --show-diff-on-failure
+    displayName: 'Lint'
 
-- task: PublishTestResults@2
-  condition: succeededOrFailed()
-  inputs:
-    testResultsFiles: '**/test-*.xml'
-    testRunTitle: 'Publish test results for Python $(python.version)'
+- job: PublishTestResults
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/test-*.xml'
+      testRunTitle: 'Publish test results for Python $(python.version)'
 
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+- job: PublishCoverageResults
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
-- task: TwineAuthenticate@0
+# Build the python package from source
+- job: BuildPythonPackage
   condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
-  inputs:
-    artifactFeed: '<Azure Artifacts feed name>'
-    pythonUploadServiceConnection: '<twine service connection from external organization>'
+  - script: |
+    python setup.py bdist_wheel
 
-- script: |
-   twine upload -r "<feed or service connection name>" --config-file $(PYPIRC_PATH) <package path/files>
-   dependsOn: TwineAuthenticate@0
-   condition: succeeded()
+- job: AuthenticateTwine
+  - task: TwineAuthenticate@1
+    displayName: 'Twine Authenticate'
+    condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+    inputs:
+      pythonUploadServiceConnection: adlfs
+
+# Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
+- job: PushToPyPi
+  dependsOn: AuthenticateTwine
+  - script: |
+     python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
