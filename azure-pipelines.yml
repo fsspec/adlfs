@@ -50,13 +50,9 @@ jobs:
 # Build the python package from source
 - job: BuildPythonPackage
   steps:
-
-
-- job: PushToPyPi
-  steps:
   - script: |
-    python setup.py bdist_wheel
-  displayName: 'Build package'
+      python setup.py bdist_wheel
+    displayName: 'Build package'
   condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
   - task: TwineAuthenticate@1
     displayName: 'Twine Authenticate'
@@ -65,5 +61,5 @@ jobs:
       pythonUploadServiceConnection: adlfs
   # Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
   - script: |
-    python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
-  displayName: 'AuthenticateTwine'
+      python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
+   displayName: 'AuthenticateTwine'
