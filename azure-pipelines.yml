@@ -40,9 +40,9 @@ jobs:
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
   - script: |
-   python setup.py bdist_wheel
-  displayName: 'Build package'
-  condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+      python setup.py bdist_wheel
+    displayName: 'Build package'
+    condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
 #   - task: TwineAuthenticate@1
 #    displayName: 'Twine Authenticate'
 #    inputs:
