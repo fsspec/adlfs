@@ -5,7 +5,7 @@ trigger:
     - refs/tags/*
 
 jobs:
-- job: SetupServer
+- job: RunUnitTests
   pool:
     vmImage: 'ubuntu-latest'
 
@@ -40,12 +40,12 @@ jobs:
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 # Build the python package from source
-# - job: BuildPythonPackage
-#   steps:
-#   - script: |
-#    python setup.py bdist_wheel
-#   displayName: 'Build package'
-#   condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+- job: BuildPythonPackage
+  steps:
+  - script: |
+   python setup.py bdist_wheel
+  displayName: 'Build package'
+  condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
 #   - task: TwineAuthenticate@1
 #    displayName: 'Twine Authenticate'
 #    inputs:
