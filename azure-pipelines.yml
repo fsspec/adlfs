@@ -39,9 +39,6 @@ jobs:
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
       reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
-# Build the python package from source
-- job: BuildPythonPackage
-  steps:
   - script: |
    python setup.py bdist_wheel
   displayName: 'Build package'
