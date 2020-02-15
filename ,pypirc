@@ -3,6 +3,6 @@ index-servers =
     pypi
 
 [pypi]
-repository: <repository-url>
-username: <username>
-password: <password>
+repository: https://pypi.org/project/adlfs/
+username: __token__
+password: __password__
