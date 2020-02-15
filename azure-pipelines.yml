@@ -1,23 +1,55 @@
 trigger:
-- master
+  branches:
+    include:
+    - master
+    - refs/tags/*
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: RunUnitTests
+  pool:
+    vmImage: 'ubuntu-latest'
 
-steps:
-- bash: echo "##vso[task.prependpath]$CONDA/bin"
-  displayName: Add conda to PATH
+  steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
 
-- script: |
-    conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
-    pip install docker versioneer
-  displayName: 'Install dependencies'
+  - script: |
+      conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+      pip install docker versioneer pytest-cov twine
+    displayName: 'Install dependencies'
 
-- script: |
-    pytest --host="localhost:10000" adlfs
-  displayName: 'Run Tests'
+  - script: |
+      pytest --host="localhost:10000" adlfs --junitxml=junit/test-results.xml --cov=. --cov-report=xml
+    displayName: 'Run Tests'
 
-- script: |
-    pre-commit install --install-hooks
-    pre-commit run --all-files --show-diff-on-failure
-  displayName: 'Lint'
+  - script: |
+      pre-commit install --install-hooks
+      pre-commit run --all-files --show-diff-on-failure
+    displayName: 'Lint'
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: '**/test-*.xml'
+      testRunTitle: 'Publish test results for Python $(python.version)'
+
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+
+  - script: |
+      python setup.py bdist_wheel
+    displayName: 'Build package'
+    condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
+
+  # - task: TwineAuthenticate@1
+  #  displayName: 'Twine Authenticate'
+  #  inputs:
+  #  pythonUploadServiceConnection: adlfs
+  #  condition:
+  
+#   # Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
+#   - script: |
+#    python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
+#   displayName: 'AuthenticateTwine'
