@@ -273,7 +273,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     Examples
     --------
-    >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX")
     >>> adl.ls('')
 
     **  Sharded Parquet & csv files can be read as: **
