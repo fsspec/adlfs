@@ -362,7 +362,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
             tenant=self.tenant_id,
             resource="https://storage.azure.com/",
         )
-        breakpoint()
 
         token_cred = TokenCredential(sp_cred.token["access_token"])
         return token_cred
