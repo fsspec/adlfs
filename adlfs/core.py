@@ -3,14 +3,14 @@ from __future__ import absolute_import, division, print_function
 
 import logging
 from os.path import join
-from azure.datalake.store import lib, AzureDLFileSystem
-from azure.datalake.store.core import AzureDLPath, AzureDLFile
-from azure.storage.blob import BlockBlobService, BlobPrefix, Container, BlobBlock
-from azure.storage.common._constants import SERVICE_HOST_BASE, DEFAULT_PROTOCOL
+
+from azure.datalake.store import AzureDLFileSystem, lib
+from azure.datalake.store.core import AzureDLFile, AzureDLPath
+from azure.storage.blob import BlobBlock, BlobPrefix, BlockBlobService, Container
+from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import infer_storage_options
-from fsspec.utils import tokenize
+from fsspec.utils import infer_storage_options, tokenize
 
 logger = logging.getLogger(__name__)
 
@@ -234,13 +234,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         domain is used with anonymous authentication.
     account_key:
         The storage account key. This is used for shared key authentication.
-        If neither account key or sas token is specified, anonymous access
+        If any of account key, sas token or client_id is specified, anonymous access
         will be used.
     sas_token:
         A shared access signature token to use to authenticate requests
         instead of the account key. If account key and sas token are both
-        specified, account key will be used to sign. If neither are
-        specified, anonymous access will be used.
+        specified, account key will be used to sign. If any of account key, sas token
+        or client_id are specified, anonymous access will be used.
     is_emulated:
         Whether to use the emulator. Defaults to False. If specified, will
         override all other parameters besides connection string and request
@@ -270,6 +270,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
     blocksize:
         The block size to use for download/upload operations. Defaults to the value of
         ``BlockBlobService.MAX_BLOCK_SIZE``
+    client_id:
+        Client ID to use when authenticating using an AD Service Principal client/secret.
+    client_secret:
+        Client secret to use when authenticating using an AD Service Principal client/secret.
+    tenant_id:
+        Tenant ID to use when authenticating using an AD Service Principal client/secret.
 
     Examples
     --------
@@ -301,6 +307,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
         socket_timeout=None,
         token_credential=None,
         blocksize=BlockBlobService.MAX_BLOCK_SIZE,
+        client_id=None,
+        client_secret=None,
+        tenant_id=None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
@@ -315,6 +324,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.socket_timeout = socket_timeout
         self.token_credential = token_credential
         self.blocksize = blocksize
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.tenant_id = tenant_id
+
+        if (
+            self.token_credential is None
+            and self.account_key is None
+            and self.sas_token is None
+            and self.client_id is not None
+        ):
+            self.token_credential = self._get_token_from_service_principal()
+
         self.do_connect()
 
     @classmethod
@@ -330,6 +351,20 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
+
+    def _get_token_from_service_principal(self):
+        from azure.common.credentials import ServicePrincipalCredentials
+        from azure.storage.common import TokenCredential
+
+        sp_cred = ServicePrincipalCredentials(
+            client_id=self.client_id,
+            secret=self.client_secret,
+            tenant=self.tenant_id,
+            resource="https://storage.azure.com/",
+        )
+
+        token_cred = TokenCredential(sp_cred.token["access_token"])
+        return token_cred
 
     def do_connect(self):
         self.blob_fs = BlockBlobService(
