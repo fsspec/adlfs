@@ -2,11 +2,14 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+import time
 from os.path import join
 
+from azure.common.credentials import ServicePrincipalCredentials
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob import BlobBlock, BlobPrefix, BlockBlobService, Container
+from azure.storage.common import TokenCredential
 from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
@@ -328,15 +331,21 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.client_secret = client_secret
         self.tenant_id = tenant_id
 
+        self._token = None
+        self._use_service_principal_auth = False
+        self._blob_fs = None
+
         if (
             self.token_credential is None
             and self.account_key is None
             and self.sas_token is None
             and self.client_id is not None
         ):
-            self.token_credential = self._get_token_from_service_principal()
+            self._use_service_principal_auth = True
+            self._refresh_token_credential()
 
-        self.do_connect()
+        # force connection to Blob
+        assert self.blob_fs is not None
 
     @classmethod
     def _strip_protocol(cls, path):
@@ -352,34 +361,38 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-    def _get_token_from_service_principal(self):
-        from azure.common.credentials import ServicePrincipalCredentials
-        from azure.storage.common import TokenCredential
+    def _refresh_token_credential(self):
+        if self._use_service_principal_auth:
+            if self._token is None or self._token["expires_on"] - time.time() < 30:
+                sp_cred = ServicePrincipalCredentials(
+                    client_id=self.client_id,
+                    secret=self.client_secret,
+                    tenant=self.tenant_id,
+                    resource="https://storage.azure.com/",
+                )
 
-        sp_cred = ServicePrincipalCredentials(
-            client_id=self.client_id,
-            secret=self.client_secret,
-            tenant=self.tenant_id,
-            resource="https://storage.azure.com/",
-        )
+                self._token = sp_cred.token
+                self.token_credential = TokenCredential(self._token["access_token"])
 
-        token_cred = TokenCredential(sp_cred.token["access_token"])
-        return token_cred
+    @property
+    def blob_fs(self):
+        if self._blob_fs is None:
+            self._blob_fs = BlockBlobService(
+                account_name=self.account_name,
+                account_key=self.account_key,
+                custom_domain=self.custom_domain,
+                is_emulated=self.is_emulated,
+                sas_token=self.sas_token,
+                protocol=self.protocol,
+                endpoint_suffix=self.endpoint_suffix,
+                request_session=self.request_session,
+                connection_string=self.connection_string,
+                socket_timeout=self.socket_timeout,
+                token_credential=self.token_credential,
+            )
 
-    def do_connect(self):
-        self.blob_fs = BlockBlobService(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            custom_domain=self.custom_domain,
-            is_emulated=self.is_emulated,
-            sas_token=self.sas_token,
-            protocol=self.protocol,
-            endpoint_suffix=self.endpoint_suffix,
-            request_session=self.request_session,
-            connection_string=self.connection_string,
-            socket_timeout=self.socket_timeout,
-            token_credential=self.token_credential,
-        )
+        self._refresh_token_credential()
+        return self._blob_fs
 
     def split_path(self, path, delimiter="/"):
         """

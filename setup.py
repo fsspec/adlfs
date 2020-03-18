@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 from os.path import exists
-from setuptools import setup
-import versioneer
 
+import versioneer
+from setuptools import setup
 
 setup(
     name="adlfs",
@@ -22,6 +22,8 @@ setup(
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-storage-blob>=2.1.0,<3.0.0",
         "fsspec>=0.6.0,<1.0",
+        "msrest>=0.6.11,<0.7",
+        "msrestazure>=0.6.3,<0.7",
     ],
     tests_require=["pytest>5.0,<6.0", "docker"],
     zip_safe=False,

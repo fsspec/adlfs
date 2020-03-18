@@ -5,3 +5,5 @@ fsspec>=0.6.0,<1.0
 pytest>=5.0,<6.0
 requests>=2.22.0,<3.0
 versioneer>=0.18,<1.0
+msrest>=0.6.11,<0.7
+msrestazure>=0.6.3,<0.7
