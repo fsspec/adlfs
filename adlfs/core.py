@@ -8,7 +8,8 @@ from os.path import join
 from azure.common.credentials import ServicePrincipalCredentials
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob import BlobBlock, BlobPrefix, BlockBlobService, Container
+from azure.storage.blob import (BlobBlock, BlobPrefix, BlockBlobService,
+                                Container)
 from azure.storage.common import TokenCredential
 from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
 from fsspec import AbstractFileSystem
@@ -362,6 +363,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return ops["path"]
 
     def _refresh_token_credential(self):
+        refreshed = False
         if self._use_service_principal_auth:
             if self._token is None or self._token["expires_on"] - time.time() < 30:
                 sp_cred = ServicePrincipalCredentials(
@@ -373,10 +375,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
                 self._token = sp_cred.token
                 self.token_credential = TokenCredential(self._token["access_token"])
+                refreshed = True
+
+        return refreshed
 
     @property
     def blob_fs(self):
-        if self._blob_fs is None:
+        refreshed = self._refresh_token_credential()
+        if refreshed or self._blob_fs is None:
             self._blob_fs = BlockBlobService(
                 account_name=self.account_name,
                 account_key=self.account_key,
@@ -391,7 +397,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 token_credential=self.token_credential,
             )
 
-        self._refresh_token_credential()
         return self._blob_fs
 
     def split_path(self, path, delimiter="/"):
