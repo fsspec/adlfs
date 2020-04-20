@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-from os.path import join
+import posixpath
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -340,6 +340,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     @classmethod
     def _strip_protocol(cls, path):
+        logging.debug(f"_strip_protocol for {path}")
         ops = infer_storage_options(path)
 
         # we need to make sure that the path retains
@@ -381,7 +382,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             token_credential=self.token_credential,
         )
 
-    def split_path(self, path, delimiter="/"):
+    def split_path(self, path, delimiter="/", **kwargs):
         """
         Normalize ABFS path string into bucket and key.
         Parameters
@@ -403,7 +404,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def _generate_blobs(self, *args, **kwargs):
         """Follow next_marker to get ALL results."""
-
+        logging.debug("running _generate_blobs...")
         blobs = self.blob_fs.list_blobs(*args, **kwargs)
         yield from blobs
         while blobs.next_marker:
@@ -412,7 +413,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
             blobs = self.blob_fs.list_blobs(*args, **kwargs)
             yield from blobs
 
-    def _matches(self, container_name, path, as_directory=False, delimiter="/"):
+    def _matches(
+        self, container_name, path, as_directory=False, delimiter="/", **kwargs
+    ):
         """check if the path returns an exact match"""
 
         path = path.rstrip(delimiter)
@@ -448,12 +451,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
+
         logging.debug(f"abfs.ls() is searching for {path}")
 
         path = self._strip_protocol(path).rstrip(delimiter)
 
         if path in ["", delimiter]:
-            logging.debug(f"listing all containers")
             contents = self.blob_fs.list_containers()
 
             if detail:
@@ -463,13 +466,16 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
         else:
             container_name, path = self.split_path(path, delimiter="/")
+            logging.debug(f"Returning container_name, path:  {container_name}, {path}")
 
             # show all top-level prefixes (directories) and files
             if not path:
+                logging.debug("Not path...")
                 if container_name + delimiter not in self.ls(""):
                     raise FileNotFoundError(container_name)
 
                 logging.debug(f"{path} appears to be a container")
+
                 contents = self._generate_blobs(
                     container_name=container_name,
                     prefix=None,
@@ -506,19 +512,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 )
 
             else:
-                raise FileNotFoundError(join(container_name, path))
+                raise FileNotFoundError(posixpath.join(container_name, path))
 
             if detail:
                 return self._details(contents, container_name, delimiter=delimiter)
             else:
-                return [join(container_name, c.name) for c in contents if c]
+                return [posixpath.join(container_name, c.name) for c in contents if c]
 
-    def _details(self, contents, container_name=None, delimiter="/"):
+    def _details(self, contents, container_name=None, delimiter="/", **kwargs):
         pathlist = []
         for c in contents:
             data = {}
             if container_name:
-                data["name"] = join(container_name, c.name)
+                data["name"] = posixpath.join(container_name, c.name)
             else:
                 data["name"] = c.name + delimiter
 
@@ -535,7 +541,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             pathlist.append(data)
         return pathlist
 
-    def mkdir(self, path, delimiter="/"):
+    def mkdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name not in self.ls("")) and (not path):
             # create new container
@@ -549,13 +555,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
             ## everything else
             raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
 
-    def rmdir(self, path, delimiter="/"):
+    def rmdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name + delimiter in self.ls("")) and (not path):
             # delete container
             self.blob_fs.delete_container(container_name)
 
-    def _rm(self, path, delimiter="/"):
+    def _rm(self, path, delimiter="/", **kwargs):
         if self.isfile(path):
             container_name, path = self.split_path(path, delimiter=delimiter)
             logging.debug(f"Delete blob {path} in {container_name}")
@@ -628,7 +634,7 @@ class AzureBlobFile(AbstractBufferedFile):
         )
         return blob.content
 
-    def _initiate_upload(self):
+    def _initiate_upload(self, **kwargs):
         self._block_list = []
         if self.fs.blob_fs.exists(self.container_name, self.blob):
             self.fs.blob_fs.delete_blob(self.container_name, self.blob)

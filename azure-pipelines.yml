@@ -14,7 +14,7 @@ jobs:
     displayName: Add conda to PATH
 
   - script: |
-      conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec pytest requests
+      conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec==0.6.2 pytest requests
       pip install docker versioneer pytest-cov twine
     displayName: 'Install dependencies'
 
