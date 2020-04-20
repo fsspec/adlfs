@@ -23,7 +23,6 @@ def test_connect(storage):
         custom_domain=f"http://{storage.primary_endpoint}",
     )
 
-
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         storage.account_name,

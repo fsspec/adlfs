@@ -340,6 +340,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     @classmethod
     def _strip_protocol(cls, path):
+        logging.debug(f"_strip_protocol for {path}")
         ops = infer_storage_options(path)
 
         # we need to make sure that the path retains
@@ -457,8 +458,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
             contents = self.blob_fs.list_containers()
 
             if detail:
+                logging.debug(f"listing detail for {path}")
                 return self._details(contents)
             else:
+                logging.debug("Not fetching details...")
                 return [c.name + delimiter for c in contents]
 
         else:
@@ -535,7 +538,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             pathlist.append(data)
         return pathlist
 
-    def mkdir(self, path, delimiter="/"):
+    def mkdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name not in self.ls("")) and (not path):
             # create new container
@@ -549,7 +552,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             ## everything else
             raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
 
-    def rmdir(self, path, delimiter="/"):
+    def rmdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name + delimiter in self.ls("")) and (not path):
             # delete container
