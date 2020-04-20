@@ -413,7 +413,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
             blobs = self.blob_fs.list_blobs(*args, **kwargs)
             yield from blobs
 
-    def _matches(self, container_name, path, as_directory=False, delimiter="/", **kwargs):
+    def _matches(
+        self, container_name, path, as_directory=False, delimiter="/", **kwargs
+    ):
         """check if the path returns an exact match"""
 
         path = path.rstrip(delimiter)
@@ -515,7 +517,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             if detail:
                 return self._details(contents, container_name, delimiter=delimiter)
             else:
-                return ([posixpath.join(container_name, c.name) for c in contents if c])
+                return [posixpath.join(container_name, c.name) for c in contents if c]
 
     def _details(self, contents, container_name=None, delimiter="/", **kwargs):
         pathlist = []
