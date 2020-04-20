@@ -382,7 +382,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             token_credential=self.token_credential,
         )
 
-    def split_path(self, path, delimiter="/"):
+    def split_path(self, path, delimiter="/", **kwargs):
         """
         Normalize ABFS path string into bucket and key.
         Parameters
@@ -413,7 +413,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             blobs = self.blob_fs.list_blobs(*args, **kwargs)
             yield from blobs
 
-    def _matches(self, container_name, path, as_directory=False, delimiter="/"):
+    def _matches(self, container_name, path, as_directory=False, delimiter="/", **kwargs):
         """check if the path returns an exact match"""
 
         path = path.rstrip(delimiter)
@@ -517,7 +517,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             else:
                 return ([posixpath.join(container_name, c.name) for c in contents if c])
 
-    def _details(self, contents, container_name=None, delimiter="/"):
+    def _details(self, contents, container_name=None, delimiter="/", **kwargs):
         pathlist = []
         for c in contents:
             data = {}
@@ -559,7 +559,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # delete container
             self.blob_fs.delete_container(container_name)
 
-    def _rm(self, path, delimiter="/"):
+    def _rm(self, path, delimiter="/", **kwargs):
         if self.isfile(path):
             container_name, path = self.split_path(path, delimiter=delimiter)
             logging.debug(f"Delete blob {path} in {container_name}")
@@ -632,7 +632,7 @@ class AzureBlobFile(AbstractBufferedFile):
         )
         return blob.content
 
-    def _initiate_upload(self):
+    def _initiate_upload(self, **kwargs):
         self._block_list = []
         if self.fs.blob_fs.exists(self.container_name, self.blob):
             self.fs.blob_fs.delete_blob(self.container_name, self.blob)
