@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-from os.path import join
+import posixpath
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -404,7 +404,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def _generate_blobs(self, *args, **kwargs):
         """Follow next_marker to get ALL results."""
-
+        logging.debug("running _generate_blobs...")
         blobs = self.blob_fs.list_blobs(*args, **kwargs)
         yield from blobs
         while blobs.next_marker:
@@ -449,30 +449,31 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail:  If False, return a list of blob names, else a list of dictionaries with blob details
         invalidate_cache:  Boolean
         """
+
         logging.debug(f"abfs.ls() is searching for {path}")
 
         path = self._strip_protocol(path).rstrip(delimiter)
 
         if path in ["", delimiter]:
-            logging.debug(f"listing all containers")
             contents = self.blob_fs.list_containers()
 
             if detail:
-                logging.debug(f"listing detail for {path}")
                 return self._details(contents)
             else:
-                logging.debug("Not fetching details...")
                 return [c.name + delimiter for c in contents]
 
         else:
             container_name, path = self.split_path(path, delimiter="/")
+            logging.debug(f"Returning container_name, path:  {container_name}, {path}")
 
             # show all top-level prefixes (directories) and files
             if not path:
+                logging.debug("Not path...")
                 if container_name + delimiter not in self.ls(""):
                     raise FileNotFoundError(container_name)
 
                 logging.debug(f"{path} appears to be a container")
+
                 contents = self._generate_blobs(
                     container_name=container_name,
                     prefix=None,
@@ -509,19 +510,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 )
 
             else:
-                raise FileNotFoundError(join(container_name, path))
+                raise FileNotFoundError(posixpath.join(container_name, path))
 
             if detail:
                 return self._details(contents, container_name, delimiter=delimiter)
             else:
-                return [join(container_name, c.name) for c in contents if c]
+                return ([posixpath.join(container_name, c.name) for c in contents if c])
 
     def _details(self, contents, container_name=None, delimiter="/"):
         pathlist = []
         for c in contents:
             data = {}
             if container_name:
-                data["name"] = join(container_name, c.name)
+                data["name"] = posixpath.join(container_name, c.name)
             else:
                 data["name"] = c.name + delimiter
 
