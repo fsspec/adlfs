@@ -1,7 +1,7 @@
 Dask interface to Azure-Datalake Gen1 and Gen2 Storage Quickstart
 -----------------------------------------------------------------
 
-[https://img.shields.io/pypi/v/adlfs.svg](https://pypi.python.org/pypi/adlfs/)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/adlfs.svg)](https://pypi.python.org/pypi/adlfs/)
 
 This package is on PyPi and can be installed using:
 
