@@ -201,21 +201,21 @@ def test_mkdir_rmdir(storage):
 
     # Check to verify you can skip making a directory if the container
     # already exists, but still create a file in that directory
-    fs.mkdir("new-container/dir/file.txt", exist_ok=True)
+    fs.mkdir("new-container/dir/file.txt", exists_ok=True)
     assert "new-container/" in fs.ls("")
 
-    fs.mkdir("new-container/file2.txt", exist_ok=True)
+    fs.mkdir("new-container/file2.txt", exists_ok=True)
     with fs.open("new-container/file2.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/file2.txt" in fs.ls("new-container")
 
-    fs.mkdir("new-container/dir/file2.txt", exist_ok=True)
+    fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
     with fs.open("new-container/dir/file2.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
-    fs.mkdir("new-container/dir2/file.txt", exist_ok=True)
+    fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
     with fs.open("new-container/dir2/file.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
