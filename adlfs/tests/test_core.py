@@ -199,10 +199,36 @@ def test_mkdir_rmdir(storage):
     with fs.open("new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
+    # Check to verify you can skip making a directory if the container
+    # already exists, but still create a file in that directory
+    fs.mkdir("new-container/dir/file.txt", exist_ok=True)
+    assert "new-container/" in fs.ls("")
+
+    fs.mkdir("new-container/file2.txt", exist_ok=True)
+    with fs.open("new-container/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/file2.txt" in fs.ls("new-container")
+
+    fs.mkdir("new-container/dir/file2.txt", exist_ok=True)
+    with fs.open("new-container/dir/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
+
+    # Also verify you can make a nested directory structure
+    fs.mkdir("new-container/dir2/file.txt", exist_ok=True)
+    with fs.open("new-container/dir2/file.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
+    fs.rm("new-container/dir2", recursive=True)
+
     fs.rm("new-container/dir", recursive=True)
-    assert fs.ls("new-container") == ["new-container/file.txt"]
+    assert fs.ls("new-container") == [
+        "new-container/file.txt",
+        "new-container/file2.txt",
+    ]
 
     fs.rm("new-container/file.txt")
+    fs.rm("new-container/file2.txt")
     fs.rmdir("new-container")
 
     assert "new-container/" not in fs.ls("")
