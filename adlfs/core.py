@@ -541,9 +541,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
             pathlist.append(data)
         return pathlist
 
-    def mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
+    def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
-        if not exist_ok:
+        if not exists_ok:
             if (container_name not in self.ls("")) and (not path):
                 # create new container
                 self.blob_fs.create_container(container_name)
