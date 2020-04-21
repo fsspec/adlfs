@@ -541,19 +541,23 @@ class AzureBlobFileSystem(AbstractFileSystem):
             pathlist.append(data)
         return pathlist
 
-    def mkdir(self, path, delimiter="/", **kwargs):
+    def mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
-        if (container_name not in self.ls("")) and (not path):
-            # create new container
-            self.blob_fs.create_container(container_name)
-        elif (container_name in self.ls("")) and path:
-            ## attempt to create prefix
-            raise RuntimeError(
-                f"Cannot create {container_name}{delimiter}{path}. Azure does not support creating empty directories."
-            )
+        if not exist_ok:
+            if (container_name not in self.ls("")) and (not path):
+                # create new container
+                self.blob_fs.create_container(container_name)
+            elif (container_name in self.ls("")) and path:
+                ## attempt to create prefix
+                raise RuntimeError(
+                    f"Cannot create {container_name}{delimiter}{path}. Azure can not handle empty directories."
+                )
+            else:
+                ## everything else
+                raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
         else:
-            ## everything else
-            raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
+            if container_name in self.ls("") and path:
+                pass
 
     def rmdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
