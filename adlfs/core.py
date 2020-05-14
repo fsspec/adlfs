@@ -6,8 +6,8 @@ import posixpath
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob import BlobBlock, BlobPrefix, BlockBlobService, Container
-from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
+from azure.storage.blob import ContainerClient
+# from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
@@ -232,6 +232,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
         signed with an account key and to construct the storage endpoint. It
         is required unless a connection string is given, or if a custom
         domain is used with anonymous authentication.
+    container: str,
+        The container name.  Required to create a filesystem client.
     account_key:
         The storage account key. This is used for shared key authentication.
         If any of account key, sas token or client_id is specified, anonymous access
@@ -296,47 +298,58 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def __init__(
         self,
         account_name: str,
+        container_name: str,
         account_key: str = None,
-        custom_domain: str = None,
-        is_emulated: bool = False,
-        sas_token: str = None,
-        protocol=DEFAULT_PROTOCOL,
-        endpoint_suffix=SERVICE_HOST_BASE,
-        request_session=None,
-        connection_string: str = None,
-        socket_timeout=None,
-        token_credential=None,
-        blocksize=BlockBlobService.MAX_BLOCK_SIZE,
-        client_id=None,
-        client_secret=None,
-        tenant_id=None,
+        # custom_domain: str = None,
+        # is_emulated: bool = False,
+        # sas_token: str = None,
+        # protocol=DEFAULT_PROTOCOL,
+        # endpoint_suffix=SERVICE_HOST_BASE,
+        # request_session=None,
+        # connection_string: str = None,
+        # socket_timeout=None,
+        # token_credential=None,
+        # blocksize=BlockBlobService.MAX_BLOCK_SIZE,
+        # client_id=None,
+        # client_secret=None,
+        # tenant_id=None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
+        self.container_name = container_name
         self.account_key = account_key
-        self.custom_domain = custom_domain
-        self.is_emulated = is_emulated
-        self.sas_token = sas_token
-        self.protocol = protocol
-        self.endpoint_suffix = endpoint_suffix
-        self.request_session = request_session
-        self.connection_string = connection_string
-        self.socket_timeout = socket_timeout
-        self.token_credential = token_credential
-        self.blocksize = blocksize
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.tenant_id = tenant_id
+        # self.custom_domain = custom_domain
+        # self.is_emulated = is_emulated
+        # self.sas_token = sas_token
+        # self.protocol = protocol
+        # self.endpoint_suffix = endpoint_suffix
+        # self.request_session = request_session
+        # self.connection_string = connection_string
+        # self.socket_timeout = socket_timeout
+        # self.token_credential = token_credential
+        # self.blocksize = blocksize
+        # self.client_id = client_id
+        # self.client_secret = client_secret
+        # self.tenant_id = tenant_id
 
-        if (
-            self.token_credential is None
-            and self.account_key is None
-            and self.sas_token is None
-            and self.client_id is not None
-        ):
-            self.token_credential = self._get_token_from_service_principal()
+        # if (
+        #     self.token_credential is None
+        #     and self.account_key is None
+        #     and self.sas_token is None
+        #     and self.client_id is not None
+        # ):
+        #     self.token_credential = self._get_token_from_service_principal()
 
         self.do_connect()
+
+    # @staticmethod
+    # def _get_kwargs_from_urls(paths):
+    #     """ Get the store_name from the urlpath and pass to storage_options """
+    #     ops = infer_storage_options(paths)
+    #     out = {}
+    #     if ops.get("host", None):
+    #         out["store_name"] = ops["host"]
+    #     return out
 
     @classmethod
     def _strip_protocol(cls, path):
@@ -353,36 +366,21 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-    def _get_token_from_service_principal(self):
-        from azure.common.credentials import ServicePrincipalCredentials
-        from azure.storage.common import TokenCredential
+    # def _get_token_from_service_principal(self):
+    #     from azure.common.credentials import ServicePrincipalCredentials
+    #     from azure.storage.common import TokenCredential
 
-        sp_cred = ServicePrincipalCredentials(
-            client_id=self.client_id,
-            secret=self.client_secret,
-            tenant=self.tenant_id,
-            resource="https://storage.azure.com/",
-        )
+    #     sp_cred = ServicePrincipalCredentials(
+    #         client_id=self.client_id,
+    #         secret=self.client_secret,
+    #         tenant=self.tenant_id,
+    #         resource="https://storage.azure.com/",
+    #     )
 
-        token_cred = TokenCredential(sp_cred.token["access_token"])
-        return token_cred
+    #     token_cred = TokenCredential(sp_cred.token["access_token"])
+    #     return token_cred
 
-    def do_connect(self):
-        self.blob_fs = BlockBlobService(
-            account_name=self.account_name,
-            account_key=self.account_key,
-            custom_domain=self.custom_domain,
-            is_emulated=self.is_emulated,
-            sas_token=self.sas_token,
-            protocol=self.protocol,
-            endpoint_suffix=self.endpoint_suffix,
-            request_session=self.request_session,
-            connection_string=self.connection_string,
-            socket_timeout=self.socket_timeout,
-            token_credential=self.token_credential,
-        )
-
-    def split_path(self, path, delimiter="/", **kwargs):
+    def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
         Normalize ABFS path string into bucket and key.
         Parameters
@@ -396,22 +394,42 @@ class AzureBlobFileSystem(AbstractFileSystem):
         """
         path = self._strip_protocol(path)
         path = path.lstrip(delimiter)
+        if return_container:
+            container = path.partition(delimiter)[0]
+            return container
         if "/" not in path:
             # this means path is the container_name
             return path, ""
         else:
             return path.split(delimiter, 1)
 
-    def _generate_blobs(self, *args, **kwargs):
-        """Follow next_marker to get ALL results."""
-        logging.debug("running _generate_blobs...")
-        blobs = self.blob_fs.list_blobs(*args, **kwargs)
-        yield from blobs
-        while blobs.next_marker:
-            logging.debug(f"following next_marker {blobs.next_marker}")
-            kwargs["marker"] = blobs.next_marker
-            blobs = self.blob_fs.list_blobs(*args, **kwargs)
-            yield from blobs
+    def do_connect(self):
+        _url = f"https://{self.account_name}.blob.core.windows.net"
+        self.blob_fs = ContainerClient(
+            account_url = _url,
+            container_name = self.container_name,
+            credential=self.account_key,
+            # custom_domain=self.custom_domain,
+            # is_emulated=self.is_emulated,
+            # sas_token=self.sas_token,
+            # protocol=self.protocol,
+            # endpoint_suffix=self.endpoint_suffix,
+            # request_session=self.request_session,
+            # connection_string=self.connection_string,
+            # socket_timeout=self.socket_timeout,
+            # token_credential=self.token_credential,
+        )
+
+    # def _generate_blobs(self, *args, **kwargs):
+    #     """Follow next_marker to get ALL results."""
+    #     logging.debug("running _generate_blobs...")
+    #     blobs = self.blob_fs.list_blobs(*args, **kwargs)
+    #     yield from blobs
+    #     while blobs.next_marker:
+    #         logging.debug(f"following next_marker {blobs.next_marker}")
+    #         kwargs["marker"] = blobs.next_marker
+    #         blobs = self.blob_fs.list_blobs(*args, **kwargs)
+    #         yield from blobs
 
     def _matches(
         self, container_name, path, as_directory=False, delimiter="/", **kwargs
@@ -457,67 +475,63 @@ class AzureBlobFileSystem(AbstractFileSystem):
         path = self._strip_protocol(path).rstrip(delimiter)
 
         if path in ["", delimiter]:
-            contents = self.blob_fs.list_containers()
+            contents = self.blob_fs.list_blobs()
 
             if detail:
                 return self._details(contents)
             else:
-                return [c.name + delimiter for c in contents]
+                return [c.name for c in contents]
 
         else:
-            container_name, path = self.split_path(path, delimiter="/")
-            logging.debug(f"Returning container_name, path:  {container_name}, {path}")
+            # container_name, path = self.split_path(path, delimiter="/")
+            # logging.debug(f"Returning container_name, path:  {container_name}, {path}")
 
             # show all top-level prefixes (directories) and files
-            if not path:
-                logging.debug("Not path...")
-                if container_name + delimiter not in self.ls(""):
-                    raise FileNotFoundError(container_name)
+            # if not path:
+            logging.debug("Not path...")
+            # if container_name + delimiter not in self.ls(""):
+            #     raise FileNotFoundError(container_name)
 
-                logging.debug(f"{path} appears to be a container")
+            logging.debug(f"{path} appears to be a container")
 
-                contents = self._generate_blobs(
-                    container_name=container_name,
-                    prefix=None,
-                    delimiter=delimiter,
-                    num_results=None,
-                )
+            contents = self.blob_fs.list_blobs(name_starts_with=path)
+            return [c.name for c in contents]
 
-            # check whether path matches a directory
-            # then return the contents
-            elif self._matches(
-                container_name, path, as_directory=True, delimiter=delimiter
-            ):
-                logging.debug(f"{path} appears to be a directory")
-                dirpath = path + delimiter
-                contents = self._generate_blobs(
-                    container_name=container_name,
-                    prefix=dirpath,
-                    delimiter=delimiter,
-                    num_results=None,
-                )
+            # # check whether path matches a directory
+            # # then return the contents
+            # elif self._matches(
+            #     container_name, path, as_directory=True, delimiter=delimiter
+            # ):
+            #     logging.debug(f"{path} appears to be a directory")
+            #     dirpath = path + delimiter
+            #     contents = self._generate_blobs(
+            #         container_name=container_name,
+            #         prefix=dirpath,
+            #         delimiter=delimiter,
+            #         num_results=None,
+            #     )
 
-            # check whether path returns a matching blob
-            elif self._matches(
-                container_name, path, as_directory=False, delimiter=delimiter
-            ):
-                # do not use _generate_blobs because we just confirmed
-                # there is a single exact match
-                logging.debug(f"{path} appears to be a blob (file)")
-                contents = self.blob_fs.list_blobs(
-                    container_name=container_name,
-                    prefix=path,
-                    delimiter=delimiter,
-                    num_results=1,
-                )
+            # # check whether path returns a matching blob
+            # elif self._matches(
+            #     container_name, path, as_directory=False, delimiter=delimiter
+            # ):
+            #     # do not use _generate_blobs because we just confirmed
+            #     # there is a single exact match
+            #     logging.debug(f"{path} appears to be a blob (file)")
+            #     contents = self.blob_fs.list_blobs(
+            #         container_name=container_name,
+            #         prefix=path,
+            #         delimiter=delimiter,
+            #         num_results=1,
+            #     )
 
-            else:
-                raise FileNotFoundError(posixpath.join(container_name, path))
+            # else:
+            #     raise FileNotFoundError(posixpath.join(container_name, path))
 
-            if detail:
-                return self._details(contents, container_name, delimiter=delimiter)
-            else:
-                return [posixpath.join(container_name, c.name) for c in contents if c]
+            # if detail:
+            #     return self._details(contents, container_name, delimiter=delimiter)
+            # else:
+            #     return [posixpath.join(container_name, c.name) for c in contents if c]
 
     def _details(self, contents, container_name=None, delimiter="/", **kwargs):
         pathlist = []

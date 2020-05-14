@@ -20,8 +20,8 @@ setup(
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
         "azure-datalake-store>=0.0.46,<0.1",
-        "azure-storage-blob>=2.1.0,<3.0.0",
-        "fsspec>=0.6.0,<0.6.3",
+        "azure-storage-blob>=12.0.0",
+        "fsspec>=0.6.0",
     ],
     tests_require=["pytest>5.0,<6.0", "docker"],
     zip_safe=False,
