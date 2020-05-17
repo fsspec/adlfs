@@ -6,8 +6,7 @@ import posixpath
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob import ContainerClient
-# from azure.storage.common._constants import DEFAULT_PROTOCOL, SERVICE_HOST_BASE
+from azure.storage.blob import BlobServiceClient
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
@@ -142,7 +141,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         block_size=None,
         autocommit=True,
         cache_options=None,
-        **kwargs,
+        **kwargs
     ):
         return AzureDatalakeFile(self, path, mode=mode)
 
@@ -181,7 +180,7 @@ class AzureDatalakeFile(AzureDLFile):
         cache_options=None,
         *,
         delimiter=None,
-        **kwargs,
+        **kwargs
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -298,15 +297,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def __init__(
         self,
         account_name: str,
-        container_name: str,
         account_key: str = None,
-        # custom_domain: str = None,
-        # is_emulated: bool = False,
+        connection_string: str = None,
+        credential: str = None,
+        is_emulated: bool = False,
         # sas_token: str = None,
         # protocol=DEFAULT_PROTOCOL,
         # endpoint_suffix=SERVICE_HOST_BASE,
         # request_session=None,
-        # connection_string: str = None,
         # socket_timeout=None,
         # token_credential=None,
         # blocksize=BlockBlobService.MAX_BLOCK_SIZE,
@@ -316,16 +314,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
-        self.container_name = container_name
         self.account_key = account_key
-        self._url = f"https://{self.account_name}.blob.core.windows.net"
-        # self.custom_domain = custom_domain
-        # self.is_emulated = is_emulated
+        self.connection_string = connection_string
+        self.credential = credential
+        self.is_emulated = is_emulated
         # self.sas_token = sas_token
         # self.protocol = protocol
         # self.endpoint_suffix = endpoint_suffix
         # self.request_session = request_session
-        # self.connection_string = connection_string
         # self.socket_timeout = socket_timeout
         # self.token_credential = token_credential
         # self.blocksize = blocksize
@@ -340,45 +336,22 @@ class AzureBlobFileSystem(AbstractFileSystem):
         #     and self.client_id is not None
         # ):
         #     self.token_credential = self._get_token_from_service_principal()
-
         self.do_connect()
 
-    @staticmethod
-    def _get_kwargs_from_urls(paths, delimiter="/", **kwargs):
-        """ 
-        Get the container_name from the urlpath and pass to storage_options
-        Normalize ABFS path string into bucket and key.
-        Parameters
-        ----------
-        path : string
-            Input path, like `abfs://my_container/path/to/file`
-        Examples
-        --------
-        >>> split_path("abfs://my_container/path/to/file")
-        ['container_name', 'path/to/file']
-        """
-        ops = infer_storage_options(paths)
-        out = {}
+    @classmethod
+    def _strip_protocol(cls, path):
+        logging.debug(f"_strip_protocol for {path}")
+        ops = infer_storage_options(path)
+
+        # we need to make sure that the path retains
+        # the format {host}/{path}
+        # here host is the container_name
         if ops.get("host", None):
-            out["container_name"] = ops["host"]
-        if ops.get("path", None):
-            out["path"] = ops["path"]
-        return out
+            ops["path"] = ops["host"] + ops["path"]
+        ops["path"] = ops["path"].lstrip("/")
 
-    # @classmethod
-    # def _strip_protocol(cls, path):
-    #     logging.debug(f"_strip_protocol for {path}")
-    #     ops = infer_storage_options(path)
-
-    #     # we need to make sure that the path retains
-    #     # the format {host}/{path}
-    #     # here host is the container_name
-    #     if ops.get("host", None):
-    #         ops["path"] = ops["host"] + ops["path"]
-    #     ops["path"] = ops["path"].lstrip("/")
-
-    #     logging.debug(f"_strip_protocol({path}) = {ops}")
-    #     return ops["path"]
+        logging.debug(f"_strip_protocol({path}) = {ops}")
+        return ops["path"]
 
     # def _get_token_from_service_principal(self):
     #     from azure.common.credentials import ServicePrincipalCredentials
@@ -394,6 +367,23 @@ class AzureBlobFileSystem(AbstractFileSystem):
     #     token_cred = TokenCredential(sp_cred.token["access_token"])
     #     return token_cred
 
+    def do_connect(self):
+        self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
+        if self.credential is not None:
+            self.service_client = BlobServiceClient(account_url=self.account_url,
+                                                    credential = self.credential)
+        elif self.connection_string is not None:
+            self.service_client = BlobServiceClient.from_connection_string(
+                conn_str = self.connection_string
+            )
+        elif self.account_key is not None:
+            self.service_client = BlobServiceClient(
+                account_url=self.account_url,
+                credential=self.account_key,
+            )
+        else:
+            raise ValueError("unable to connect with provided params!!")
+
     def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
         Normalize ABFS path string into bucket and key.
@@ -406,6 +396,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
         >>> split_path("abfs://my_container/path/to/file")
         ['my_container', 'path/to/file']
         """
+    
+        if path in ["", delimiter]:
+            return "", ""
+
         path = self._strip_protocol(path)
         path = path.lstrip(delimiter)
         if "/" not in path:
@@ -413,22 +407,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
             return path, ""
         else:
             return path.split(delimiter, 1)
-
-    def do_connect(self):
-        self.blob_fs = ContainerClient(
-            account_url = self._url,
-            container_name = self.container_name,
-            credential=self.account_key,
-            # custom_domain=self.custom_domain,
-            # is_emulated=self.is_emulated,
-            # sas_token=self.sas_token,
-            # protocol=self.protocol,
-            # endpoint_suffix=self.endpoint_suffix,
-            # request_session=self.request_session,
-            # connection_string=self.connection_string,
-            # socket_timeout=self.socket_timeout,
-            # token_credential=self.token_credential,
-        )
 
     # def _generate_blobs(self, *args, **kwargs):
     #     """Follow next_marker to get ALL results."""
@@ -469,7 +447,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail: bool = False,
         invalidate_cache: bool = True,
         delimiter: str = "/",
-        **kwargs,
+        **kwargs
     ):
         """ 
         Create a list of blob names from a blob container
@@ -481,34 +459,55 @@ class AzureBlobFileSystem(AbstractFileSystem):
         invalidate_cache:  Boolean
         """
 
-        logging.debug(f"abfs.ls() is searching for {path}")
+        logging.debug(f'abfs.ls() is searching for {path}')
 
-        if path in ["", delimiter]:
-            contents = self.blob_fs.list_blobs(name_starts_with=path)
+        container, path = self.split_path(path)
+
+        if (container in ["", delimiter]) and (path in ["", delimiter]):
+            # This is the case where only the containers are being returned
+            logging.info("Returning a list of containers in the azure blob storage account")
+            if detail:
+                contents = self.service_client.list_containers(include_metadata=True)
+                return self._details(contents)
+            else:
+                contents = self.service_client.list_containers()
+                return [f"{c.name}{delimiter}" for c in contents]
+
+        elif (container not in ["", delimiter]):# and (path in ["", delimiter]):
+            # This is the case where the container name is passed
+            self.container_client = self.service_client.get_container_client(container=container)
+            blobs = self.container_client.walk_blobs(name_starts_with=path)
+            blobs = [blob for blob in blobs]
+            if len(blobs) > 1:
+                if detail:
+                    print("Detail is True")
+                    return self._details(blobs)
+                else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+
+            elif (len(blobs) == 1):
+                if (blobs[0].name.rstrip(delimiter) == path) and not blobs[0].has_key('blob_type'):
+                    path = blobs[0].name
+                    blobs = self.container_client.walk_blobs(name_starts_with=path)
+                    if detail:
+                        return self._details(blobs)
+                    else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+
+                elif len(blobs) == 1 and blobs[0]['blob_type'] == 'BlockBlob':
+                    if detail:  return self._details(blobs)
+                    else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                else:
+                    raise ValueError(f"Unable to identify blobs in {path} for {blobs[0].name}")
+
+            else:  raise ValueError("Unable to identify blobs!!")
+            
+
+        else:
+            self.container_client = self.service_client.get_container_client(container=container)
+            contents = self.container_client.list_blobs(name_starts_with=path)
             if detail:
                 return self._details(contents)
             else:
-                return [c.name for c in contents]
-
-        else:
-
-            # path = self._strip_protocol(path).rstrip(delimiter)
-            ops = self._get_kwargs_from_urls(paths = path)
-            path = ops['path']
-
-            if path.partition(delimiter)[0] == self.container_name:
-                print("Found container_name in path.  Splitting it out...")
-                path = path.partition(delimiter)[-1]
-
-            # container_name, path = self.split_path(path, delimiter="/")
-            logging.debug(f"Returning container_name, path: {path}")
-
-            # show all top-level prefixes (directories) and files
-            if not path:
-                logging.debug("Not path...")
-
-            contents = self.blob_fs.list_blobs(name_starts_with=path)
-            return [c.name for c in contents]
+                return [f"{container}/{c.name}" for c in contents]
 
             # # check whether path matches a directory
             # # then return the contents
@@ -550,21 +549,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         pathlist = []
         for c in contents:
             data = {}
-        #     if container_name:
-        #         data["name"] = posixpath.join(container_name, c.name)
-            # else:
-            data["name"] = c.name + delimiter
-            data['size'] = c.size
-            if data['size'] == 0:
-                data['type'] = "directory"
-            if c.content_settings['content_type'] is not None:
+            data["name"] = f"{c.container}{delimiter}{c.name}"
+            data["size"] = c.size
+            if data["size"] == 0:
+                data["type"] = "directory"
+            if c.content_settings["content_type"] is not None:
                 data["type"] = "file"
-            data['content_type'] = c.content_settings['content_type']
-            data['cache_control'] = c.content_settings['cache_control']
-            data['container_name'] = c.container
-            data['blob_type'] = c.blob_type
             pathlist.append(data)
-
         return pathlist
 
     # def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
@@ -581,9 +572,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
     #         else:
     #             ## everything else
     #             raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
-        # else:
-        #     if container_name in self.ls("") and path:
-        #         pass
+    # else:
+    #     if container_name in self.ls("") and path:
+    #         pass
 
     def rmdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)

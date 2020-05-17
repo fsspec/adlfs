@@ -140,3 +140,7 @@ tests/dummyfiles/*
 *mydask.png
 *writefile.csv
 *build/**
+
+# Azurite
+*azurite*
+*blobstorage*
