@@ -99,8 +99,8 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         )
 
         for file in files:
-            if 'type' in file and file['type'] == 'DIRECTORY':
-                file['type'] = 'directory'
+            if "type" in file and file["type"] == "DIRECTORY":
+                file["type"] = "directory"
 
         return files
 
