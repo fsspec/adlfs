@@ -462,52 +462,55 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f'abfs.ls() is searching for {path}')
 
         container, path = self.split_path(path)
-
-        if (container in ["", delimiter]) and (path in ["", delimiter]):
-            # This is the case where only the containers are being returned
-            logging.info("Returning a list of containers in the azure blob storage account")
-            if detail:
-                contents = self.service_client.list_containers(include_metadata=True)
-                return self._details(contents)
-            else:
-                contents = self.service_client.list_containers()
-                return [f"{c.name}{delimiter}" for c in contents]
-
-        elif (container not in ["", delimiter]):# and (path in ["", delimiter]):
-            # This is the case where the container name is passed
-            self.container_client = self.service_client.get_container_client(container=container)
-            blobs = self.container_client.walk_blobs(name_starts_with=path)
-            blobs = [blob for blob in blobs]
-            if len(blobs) > 1:
+        try:
+            if (container in ["", delimiter]) and (path in ["", delimiter]):
+                # This is the case where only the containers are being returned
+                logging.info("Returning a list of containers in the azure blob storage account")
                 if detail:
-                    print("Detail is True")
-                    return self._details(blobs)
-                else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
-
-            elif (len(blobs) == 1):
-                if (blobs[0].name.rstrip(delimiter) == path) and not blobs[0].has_key('blob_type'):
-                    path = blobs[0].name
-                    blobs = self.container_client.walk_blobs(name_starts_with=path)
-                    if detail:
-                        return self._details(blobs)
-                    else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
-
-                elif len(blobs) == 1 and blobs[0]['blob_type'] == 'BlockBlob':
-                    if detail:  return self._details(blobs)
-                    else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                    contents = self.service_client.list_containers(include_metadata=True)
+                    return self._details(contents)
                 else:
-                    raise ValueError(f"Unable to identify blobs in {path} for {blobs[0].name}")
+                    contents = self.service_client.list_containers()
+                    return [f"{c.name}{delimiter}" for c in contents]
 
-            else:  raise ValueError("Unable to identify blobs!!")
+            else:
+                if (container not in ["", delimiter]):# and (path in ["", delimiter]):
+                    # This is the case where the container name is passed
+                    self.container_client = self.service_client.get_container_client(container=container)
+                    blobs = self.container_client.walk_blobs(name_starts_with=path)
+                    blobs = [blob for blob in blobs]
+                    if len(blobs) > 1:
+                        if detail:
+                            print("Detail is True")
+                            return self._details(blobs)
+                        else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+
+                    elif (len(blobs) == 1):
+                        if (blobs[0].name.rstrip(delimiter) == path) and not blobs[0].has_key('blob_type'):
+                            path = blobs[0].name
+                            blobs = self.container_client.walk_blobs(name_starts_with=path)
+                            if detail:
+                                return self._details(blobs)
+                            else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+
+                        elif len(blobs) == 1 and blobs[0]['blob_type'] == 'BlockBlob':
+                            if detail:  return self._details(blobs)
+                            else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                        else:
+                            raise FileNotFoundError(f"Unable to identify blobs in {path} for {blobs[0].name}")
+
+                    else:  raise FileNotFoundError(f"File {path} does not exist!!")
+        except:
+            raise FileNotFoundError(f"File {path} does not exist!!")
             
 
-        else:
-            self.container_client = self.service_client.get_container_client(container=container)
-            contents = self.container_client.list_blobs(name_starts_with=path)
-            if detail:
-                return self._details(contents)
-            else:
-                return [f"{container}/{c.name}" for c in contents]
+        # else:
+        #     self.container_client = self.service_client.get_container_client(container=container)
+        #     contents = self.container_client.list_blobs(name_starts_with=path)
+        #     if detail:
+        #         return self._details(contents)
+        #     else:
+        #         return [f"{container}/{c.name}" for c in contents]
 
             # # check whether path matches a directory
             # # then return the contents
@@ -549,12 +552,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
         pathlist = []
         for c in contents:
             data = {}
-            data["name"] = f"{c.container}{delimiter}{c.name}"
-            data["size"] = c.size
-            if data["size"] == 0:
+            if c.has_key('container'):
+                data["name"] = f"{c.container}{delimiter}{c.name}"
+                if c.has_key('size'):
+                    data["size"] = c.size
+                else: data["size"] = 0
+                if data["size"] == 0:
+                    data["type"] = "directory"
+                else: data["type"] = "file"
+            else:
+                data["name"] = f"{c.name}{delimiter}"
+                data["size"] = 0
                 data["type"] = "directory"
-            if c.content_settings["content_type"] is not None:
-                data["type"] = "file"
+
             pathlist.append(data)
         return pathlist
 

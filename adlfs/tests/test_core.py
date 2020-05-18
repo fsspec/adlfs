@@ -72,49 +72,48 @@ def test_ls(storage):
         {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
     ]
 
-#     ## if not direct match is found throws error
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("not-a-container")
+    ## if not direct match is found throws error
+    with pytest.raises(FileNotFoundError):
+        fs.ls("not-a-container")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("data/not-a-directory/")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/not-a-directory/")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("data/root/not-a-file.txt")
-
-
-# def test_info(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
-
-#     container_info = fs.info("data")
-#     assert container_info == {"name": "data/", "type": "directory", "size": 0}
-
-#     dir_info = fs.info("data/root/c")
-#     assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
-#     file_info = fs.info("data/root/a/file.txt")
-#     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root/not-a-file.txt")
 
 
-# def test_glob(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
+def test_info(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR
+    )
 
-#     ## just the directory name
-#     assert fs.glob("data/root") == ["data/root"]
-#     ## top-level contents of a directory
-#     assert fs.glob("data/root/") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
+    container_info = fs.info("data")
+    assert container_info == {"name": "data/", "type": "directory", "size": 0}
+
+    dir_info = fs.info("data/root/c")
+    assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
+
+    file_info = fs.info("data/root/a/file.txt")
+    assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
+
+
+def test_glob(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR
+    )
+
+    ## just the directory name
+    assert fs.glob("data/root") == ["data/root"]
+    ## top-level contents of a directory
+    assert fs.glob("data/root/") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
 #     assert fs.glob("data/root/*") == [
 #         "data/root/a",
 #         "data/root/b",
