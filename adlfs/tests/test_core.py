@@ -114,58 +114,57 @@ def test_glob(storage):
         "data/root/c",
         "data/root/rfile.txt",
     ]
-#     assert fs.glob("data/root/*") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
+    assert fs.glob("data/root/*") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
 
-#     assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]
+    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]
 
-#     ## across directories
-#     assert fs.glob("data/root/*/file.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#     ]
+    ## across directories
+    assert fs.glob("data/root/*/file.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+    ]
 
-#     ## regex match
-#     assert fs.glob("data/root/*/file[0-9].txt") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
+    ## regex match
+    assert fs.glob("data/root/*/file[0-9].txt") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
 
-#     ## text files
-#     assert fs.glob("data/root/*/file*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
+    ## text files
+    assert fs.glob("data/root/*/file*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
 
-#     ## all text files
-#     assert fs.glob("data/**/*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
+    ## all text files
+    assert fs.glob("data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
-#     ## missing
-#     assert fs.glob("data/missing/*") == []
+    ## missing
+    assert fs.glob("data/missing/*") == []
 
 
-# def test_open_file(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
-#     f = fs.open("/data/root/a/file.txt")
+def test_open_file(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR
+    )
+    f = fs.open("/data/root/a/file.txt")
 
-#     result = f.read()
-#     assert result == b"0123456789"
+    result = f.read()
+    assert result == b"0123456789"
 
 
 # def test_rm(storage):
