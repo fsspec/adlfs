@@ -95,9 +95,15 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         self.azure_fs = AzureDLFileSystem(token=token, store_name=self.store_name)
 
     def ls(self, path, detail=False, invalidate_cache=True, **kwargs):
-        return self.azure_fs.ls(
+        files = self.azure_fs.ls(
             path=path, detail=detail, invalidate_cache=invalidate_cache
         )
+
+        for file in files:
+            if "type" in file and file["type"] == "DIRECTORY":
+                file["type"] = "directory"
+
+        return files
 
     def info(self, path, invalidate_cache=True, expected_error_code=404, **kwargs):
         info = self.azure_fs.info(
