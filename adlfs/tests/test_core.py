@@ -8,6 +8,7 @@ ACCOUNT_NAME = "devstoreaccount1"
 KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"
 
+
 @pytest.fixture(scope="session", autouse=True)
 def spawn_azurite():
     print("Spawning docker container")
@@ -22,16 +23,14 @@ def spawn_azurite():
 
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
 
 def test_ls(storage):
-    fs =  adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR
-        )
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
     ## these are containers
     assert fs.ls("") == ["data/"]
@@ -85,8 +84,7 @@ def test_ls(storage):
 
 def test_info(storage):
     fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     container_info = fs.info("data")
@@ -101,8 +99,7 @@ def test_info(storage):
 
 def test_glob(storage):
     fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     ## just the directory name
@@ -158,8 +155,7 @@ def test_glob(storage):
 
 def test_open_file(storage):
     fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
     f = fs.open("/data/root/a/file.txt")
 
@@ -167,137 +163,131 @@ def test_open_file(storage):
     assert result == b"0123456789"
 
 
-# def test_rm(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
+def test_rm(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     fs.rm("/data/root/a/file.txt")
+    fs.rm("/data/root/a/file.txt")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("/data/root/a/file.txt")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("/data/root/a/file.txt")
 
 
-# def test_mkdir_rmdir(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
+def test_mkdir_rmdir(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     fs.mkdir("new-container")
-#     assert "new-container/" in fs.ls("")
+    fs.mkdir("new-container")
+    assert "new-container/" in fs.ls("")
 
-#     with fs.open("new-container/file.txt", "wb") as f:
-#         f.write(b"0123456789")
+    with fs.open("new-container/file.txt", "wb") as f:
+        f.write(b"0123456789")
 
-#     with fs.open("new-container/dir/file.txt", "wb") as f:
-#         f.write(b"0123456789")
+    with fs.open("new-container/dir/file.txt", "wb") as f:
+        f.write(b"0123456789")
 
-#     with fs.open("new-container/dir/file.txt", "wb") as f:
-#         f.write(b"0123456789")
+    with fs.open("new-container/dir/file.txt", "wb") as f:
+        f.write(b"0123456789")
 
-#     # Check to verify you can skip making a directory if the container
-#     # already exists, but still create a file in that directory
-#     fs.mkdir("new-container/dir/file.txt", exists_ok=True)
-#     assert "new-container/" in fs.ls("")
+    # Check to verify you can skip making a directory if the container
+    # already exists, but still create a file in that directory
+    fs.mkdir("new-container/dir/file.txt", exists_ok=True)
+    assert "new-container/" in fs.ls("")
 
-#     fs.mkdir("new-container/file2.txt", exists_ok=True)
-#     with fs.open("new-container/file2.txt", "wb") as f:
-#         f.write(b"0123456789")
-#     assert "new-container/file2.txt" in fs.ls("new-container")
+    fs.mkdir("new-container/file2.txt", exists_ok=True)
+    with fs.open("new-container/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/file2.txt" in fs.ls("new-container")
 
-#     fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
-#     with fs.open("new-container/dir/file2.txt", "wb") as f:
-#         f.write(b"0123456789")
-#     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
+    fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
+    with fs.open("new-container/dir/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
-#     # Also verify you can make a nested directory structure
-#     fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
-#     with fs.open("new-container/dir2/file.txt", "wb") as f:
-#         f.write(b"0123456789")
-#     assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
-#     fs.rm("new-container/dir2", recursive=True)
+    # Also verify you can make a nested directory structure
+    fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
+    with fs.open("new-container/dir2/file.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
+    fs.rm("new-container/dir2", recursive=True)
 
-#     fs.rm("new-container/dir", recursive=True)
-#     assert fs.ls("new-container") == [
-#         "new-container/file.txt",
-#         "new-container/file2.txt",
-#     ]
+    fs.rm("new-container/dir", recursive=True)
+    assert fs.ls("new-container") == [
+        "new-container/file.txt",
+        "new-container/file2.txt",
+    ]
 
-#     fs.rm("new-container/file.txt")
-#     fs.rm("new-container/file2.txt")
-#     fs.rmdir("new-container")
+    fs.rm("new-container/file.txt")
+    fs.rm("new-container/file2.txt")
+    fs.rmdir("new-container")
 
-#     assert "new-container/" not in fs.ls("")
+    assert "new-container/" not in fs.ls("")
 
 
-# def test_large_blob(storage):
-#     import tempfile
-#     import hashlib
-#     import io
-#     import shutil
-#     from pathlib import Path
+def test_large_blob(storage):
+    import tempfile
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
 
-#     fs = adlfs.AzureBlobFileSystem(
-#         storage.account_name,
-#         storage.account_key,
-#         custom_domain=f"http://{storage.primary_endpoint}",
-#     )
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     # create a 20MB byte array, ensure it's larger than blocksizes to force a
-#     # chuncked upload
-#     blob_size = 20_000_000
-#     assert blob_size > fs.blocksize
-#     assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
+    # create a 20MB byte array, ensure it's larger than blocksizes to force a
+    # chuncked upload
+    blob_size = 120_000_000
+    assert blob_size > fs.blocksize
+    assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
 
-#     data = b"1" * blob_size
-#     _hash = hashlib.md5(data)
-#     expected = _hash.hexdigest()
+    data = b"1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
 
-#     # create container
-#     fs.mkdir("chunk-container")
+    # create container
+    fs.mkdir("chunk-container")
 
-#     # upload the data using fs.open
-#     path = "chunk-container/large-blob.bin"
-#     with fs.open(path, "wb") as dst:
-#         dst.write(data)
+    # upload the data using fs.open
+    path = "chunk-container/large-blob.bin"
+    with fs.open(path, "wb") as dst:
+        dst.write(data)
 
-#     assert fs.exists(path)
-#     assert fs.size(path) == blob_size
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
 
-#     del data
+    del data
 
-#     # download with fs.open
-#     bio = io.BytesIO()
-#     with fs.open(path, "rb") as src:
-#         shutil.copyfileobj(src, bio)
+    # download with fs.open
+    bio = io.BytesIO()
+    with fs.open(path, "rb") as src:
+        shutil.copyfileobj(src, bio)
 
-#     # read back the data and calculate md5
-#     bio.seek(0)
-#     data = bio.read()
-#     _hash = hashlib.md5(data)
-#     result = _hash.hexdigest()
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
 
-#     assert expected == result
+    assert expected == result
 
-#     # do the same but using upload/download and a tempdir
-#     path = path = "chunk-container/large_blob2.bin"
-#     with tempfile.TemporaryDirectory() as td:
-#         local_blob: Path = Path(td) / "large_blob2.bin"
-#         with local_blob.open("wb") as fo:
-#             fo.write(data)
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
+    # do the same but using upload/download and a tempdir
+    path = path = "chunk-container/large_blob2.bin"
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_blob2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
 
-#         fs.upload(str(local_blob), path)
-#         assert fs.exists(path)
-#         assert fs.size(path) == blob_size
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
 
-#         # download now
-#         local_blob.unlink()
-#         fs.download(path, str(local_blob))
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size

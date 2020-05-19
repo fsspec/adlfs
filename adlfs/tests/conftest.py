@@ -32,8 +32,8 @@ def storage(host):
     """
 
     conn_str = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"
-    
-    bbs = BlobServiceClient.from_connection_string(conn_str = conn_str)
+
+    bbs = BlobServiceClient.from_connection_string(conn_str=conn_str)
     bbs.create_container("data")
     container_client = bbs.get_container_client(container="data")
     container_client.upload_blob("top_file.txt", data)

@@ -4,9 +4,12 @@ from __future__ import absolute_import, division, print_function
 import logging
 import posixpath
 
+from azure.core.exceptions import ResourceNotFoundError
+from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob import BlobServiceClient
+from azure.storage.blob._models import BlobBlock
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
@@ -141,7 +144,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         block_size=None,
         autocommit=True,
         cache_options=None,
-        **kwargs
+        **kwargs,
     ):
         return AzureDatalakeFile(self, path, mode=mode)
 
@@ -180,7 +183,7 @@ class AzureDatalakeFile(AzureDLFile):
         cache_options=None,
         *,
         delimiter=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -300,42 +303,36 @@ class AzureBlobFileSystem(AbstractFileSystem):
         account_key: str = None,
         connection_string: str = None,
         credential: str = None,
-        is_emulated: bool = False,
-        # sas_token: str = None,
-        # protocol=DEFAULT_PROTOCOL,
-        # endpoint_suffix=SERVICE_HOST_BASE,
-        # request_session=None,
-        # socket_timeout=None,
-        # token_credential=None,
-        # blocksize=BlockBlobService.MAX_BLOCK_SIZE,
-        # client_id=None,
-        # client_secret=None,
-        # tenant_id=None,
+        sas_token: str = None,
+        request_session=None,
+        socket_timeout=None,
+        token_credential=None,
+        blocksize=create_configuration(storage_sdk="blob").max_block_size,
+        client_id=None,
+        client_secret=None,
+        tenant_id=None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
         self.account_key = account_key
         self.connection_string = connection_string
         self.credential = credential
-        self.is_emulated = is_emulated
-        # self.sas_token = sas_token
-        # self.protocol = protocol
-        # self.endpoint_suffix = endpoint_suffix
-        # self.request_session = request_session
-        # self.socket_timeout = socket_timeout
-        # self.token_credential = token_credential
-        # self.blocksize = blocksize
-        # self.client_id = client_id
-        # self.client_secret = client_secret
-        # self.tenant_id = tenant_id
+        self.sas_token = sas_token
+        self.request_session = request_session
+        self.socket_timeout = socket_timeout
+        self.token_credential = token_credential
+        self.blocksize = blocksize
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.tenant_id = tenant_id
 
-        # if (
-        #     self.token_credential is None
-        #     and self.account_key is None
-        #     and self.sas_token is None
-        #     and self.client_id is not None
-        # ):
-        #     self.token_credential = self._get_token_from_service_principal()
+        if (
+            self.token_credential is None
+            and self.account_key is None
+            and self.sas_token is None
+            and self.client_id is not None
+        ):
+            self.token_credential = self._get_token_from_service_principal()
         self.do_connect()
 
     @classmethod
@@ -353,33 +350,33 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-    # def _get_token_from_service_principal(self):
-    #     from azure.common.credentials import ServicePrincipalCredentials
-    #     from azure.storage.common import TokenCredential
+    def _get_token_from_service_principal(self):
+        from azure.common.credentials import ServicePrincipalCredentials
+        from azure.storage.common import TokenCredential
 
-    #     sp_cred = ServicePrincipalCredentials(
-    #         client_id=self.client_id,
-    #         secret=self.client_secret,
-    #         tenant=self.tenant_id,
-    #         resource="https://storage.azure.com/",
-    #     )
+        sp_cred = ServicePrincipalCredentials(
+            client_id=self.client_id,
+            secret=self.client_secret,
+            tenant=self.tenant_id,
+            resource="https://storage.azure.com/",
+        )
 
-    #     token_cred = TokenCredential(sp_cred.token["access_token"])
-    #     return token_cred
+        token_cred = TokenCredential(sp_cred.token["access_token"])
+        return token_cred
 
     def do_connect(self):
         self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
         if self.credential is not None:
-            self.service_client = BlobServiceClient(account_url=self.account_url,
-                                                    credential = self.credential)
+            self.service_client = BlobServiceClient(
+                account_url=self.account_url, credential=self.credential
+            )
         elif self.connection_string is not None:
             self.service_client = BlobServiceClient.from_connection_string(
-                conn_str = self.connection_string
+                conn_str=self.connection_string
             )
         elif self.account_key is not None:
             self.service_client = BlobServiceClient(
-                account_url=self.account_url,
-                credential=self.account_key,
+                account_url=self.account_url, credential=self.account_key,
             )
         else:
             raise ValueError("unable to connect with provided params!!")
@@ -396,7 +393,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         >>> split_path("abfs://my_container/path/to/file")
         ['my_container', 'path/to/file']
         """
-    
+
         if path in ["", delimiter]:
             return "", ""
 
@@ -447,7 +444,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
         detail: bool = False,
         invalidate_cache: bool = True,
         delimiter: str = "/",
-        **kwargs
+        return_glob: bool = False,
+        **kwargs,
     ):
         """ 
         Create a list of blob names from a blob container
@@ -459,149 +457,202 @@ class AzureBlobFileSystem(AbstractFileSystem):
         invalidate_cache:  Boolean
         """
 
-        logging.debug(f'abfs.ls() is searching for {path}')
+        logging.debug(f"abfs.ls() is searching for {path}")
 
         container, path = self.split_path(path)
         try:
             if (container in ["", delimiter]) and (path in ["", delimiter]):
                 # This is the case where only the containers are being returned
-                logging.info("Returning a list of containers in the azure blob storage account")
+                logging.info(
+                    "Returning a list of containers in the azure blob storage account"
+                )
                 if detail:
-                    contents = self.service_client.list_containers(include_metadata=True)
+                    contents = self.service_client.list_containers(
+                        include_metadata=True
+                    )
                     return self._details(contents)
                 else:
                     contents = self.service_client.list_containers()
                     return [f"{c.name}{delimiter}" for c in contents]
 
             else:
-                if (container not in ["", delimiter]):# and (path in ["", delimiter]):
+                if container not in ["", delimiter]:
                     # This is the case where the container name is passed
-                    self.container_client = self.service_client.get_container_client(container=container)
-                    blobs = self.container_client.walk_blobs(name_starts_with=path)
+                    container_client = self.service_client.get_container_client(
+                        container=container
+                    )
+                    blobs = container_client.walk_blobs(name_starts_with=path)
                     blobs = [blob for blob in blobs]
                     if len(blobs) > 1:
+                        if return_glob:
+                            return self._details(blobs, return_glob=True)
                         if detail:
-                            print("Detail is True")
                             return self._details(blobs)
-                        else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                        else:
+                            return [
+                                f"{blob.container}{delimiter}{blob.name}"
+                                for blob in blobs
+                            ]
 
-                    elif (len(blobs) == 1):
-                        if (blobs[0].name.rstrip(delimiter) == path) and not blobs[0].has_key('blob_type'):
+                    elif len(blobs) == 1:
+                        if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
+                            0
+                        ].has_key("blob_type"):
                             path = blobs[0].name
-                            blobs = self.container_client.walk_blobs(name_starts_with=path)
+                            blobs = container_client.walk_blobs(name_starts_with=path)
+                            if return_glob:
+                                return self._details(blobs, return_glob=True)
                             if detail:
                                 return self._details(blobs)
-                            else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                            else:
+                                return [
+                                    f"{blob.container}{delimiter}{blob.name}"
+                                    for blob in blobs
+                                ]
 
-                        elif len(blobs) == 1 and blobs[0]['blob_type'] == 'BlockBlob':
-                            if detail:  return self._details(blobs)
-                            else:  return [f"{blob.container}{delimiter}{blob.name}" for blob in blobs]
+                        elif len(blobs) == 1 and blobs[0]["blob_type"] == "BlockBlob":
+                            if detail:
+                                return self._details(blobs)
+                            else:
+                                return [
+                                    f"{blob.container}{delimiter}{blob.name}"
+                                    for blob in blobs
+                                ]
                         else:
-                            raise FileNotFoundError(f"Unable to identify blobs in {path} for {blobs[0].name}")
+                            raise FileNotFoundError(
+                                f"Unable to identify blobs in {path} for {blobs[0].name}"
+                            )
 
-                    else:  raise FileNotFoundError(f"File {path} does not exist!!")
+                    else:
+                        raise FileNotFoundError(f"File {path} does not exist!!")
         except:
             raise FileNotFoundError(f"File {path} does not exist!!")
-            
 
-        # else:
-        #     self.container_client = self.service_client.get_container_client(container=container)
-        #     contents = self.container_client.list_blobs(name_starts_with=path)
-        #     if detail:
-        #         return self._details(contents)
-        #     else:
-        #         return [f"{container}/{c.name}" for c in contents]
-
-            # # check whether path matches a directory
-            # # then return the contents
-            # elif self._matches(
-            #     container_name, path, as_directory=True, delimiter=delimiter
-            # ):
-            #     logging.debug(f"{path} appears to be a directory")
-            #     dirpath = path + delimiter
-            #     contents = self._generate_blobs(
-            #         container_name=container_name,
-            #         prefix=dirpath,
-            #         delimiter=delimiter,
-            #         num_results=None,
-            #     )
-
-            # # check whether path returns a matching blob
-            # elif self._matches(
-            #     container_name, path, as_directory=False, delimiter=delimiter
-            # ):
-            #     # do not use _generate_blobs because we just confirmed
-            #     # there is a single exact match
-            #     logging.debug(f"{path} appears to be a blob (file)")
-            #     contents = self.blob_fs.list_blobs(
-            #         container_name=container_name,
-            #         prefix=path,
-            #         delimiter=delimiter,
-            #         num_results=1,
-            #     )
-
-            # else:
-            #     raise FileNotFoundError(posixpath.join(container_name, path))
-
-            # if detail:
-            #     return self._details(contents, container_name, delimiter=delimiter)
-            # else:
-            #     return [posixpath.join(container_name, c.name) for c in contents if c]
-
-    def _details(self, contents, delimiter="/", **kwargs):
+    def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
         pathlist = []
         for c in contents:
             data = {}
-            if c.has_key('container'):
+            if c.has_key("container"):
                 data["name"] = f"{c.container}{delimiter}{c.name}"
-                if c.has_key('size'):
+                if c.has_key("size"):
                     data["size"] = c.size
-                else: data["size"] = 0
+                else:
+                    data["size"] = 0
                 if data["size"] == 0:
                     data["type"] = "directory"
-                else: data["type"] = "file"
+                else:
+                    data["type"] = "file"
             else:
                 data["name"] = f"{c.name}{delimiter}"
                 data["size"] = 0
                 data["type"] = "directory"
+            if return_glob:
+                data["name"] = data["name"].rstrip("/")
 
             pathlist.append(data)
         return pathlist
 
-    # def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
-    #     container_name, path = self.split_path(path, delimiter=delimiter)
-    #     if not exists_ok:
-    #         if (container_name not in self.ls("")) and (not path):
-    #             # create new container
-    #             self.blob_fs.create_container(container_name)
-    #         elif (container_name in self.ls("")) and path:
-    #             ## attempt to create prefix
-    #             raise RuntimeError(
-    #                 f"Cannot create {container_name}{delimiter}{path}. Azure can not handle empty directories."
-    #             )
-    #         else:
-    #             ## everything else
-    #             raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
-    # else:
-    #     if container_name in self.ls("") and path:
-    #         pass
+    def walk(self, path, maxdepth=None, **kwargs):
+        """ Return all files belows path
+
+        List all files, recursing into subdirectories; output is iterator-style,
+        like ``os.walk()``. For a simple list of files, ``find()`` is available.
+
+        Note that the "files" outputted will include anything that is not
+        a directory, such as links.
+
+        Parameters
+        ----------
+        path: str
+            Root to recurse into
+        maxdepth: int
+            Maximum recursion depth. None means limitless, but not recommended
+            on link-based file-systems.
+        kwargs: passed to ``ls``
+        """
+        path = self._strip_protocol(path)
+        full_dirs = {}
+        dirs = {}
+        files = {}
+
+        detail = kwargs.pop("detail", False)
+        try:
+            listing = self.ls(path, detail=True, return_glob=True, **kwargs)
+        except (FileNotFoundError, IOError):
+            return [], [], []
+
+        for info in listing:
+            # each info name must be at least [path]/part , but here
+            # we check also for names like [path]/part/
+            pathname = info["name"].rstrip("/")
+            name = pathname.rsplit("/", 1)[-1]
+            if info["type"] == "directory" and pathname != path:
+                # do not include "self" path
+                full_dirs[pathname] = info
+                dirs[name] = info
+            elif pathname == path:
+                # file-like with same name as give path
+                files[""] = info
+            else:
+                files[name] = info
+
+        if detail:
+            yield path, dirs, files
+        else:
+            yield path, list(dirs), list(files)
+
+        if maxdepth is not None:
+            maxdepth -= 1
+            if maxdepth < 1:
+                return
+
+        for d in full_dirs:
+            yield from self.walk(d, maxdepth=maxdepth, detail=detail, **kwargs)
+
+    def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
+        container_name, path = self.split_path(path, delimiter=delimiter)
+        if not exists_ok:
+            if (container_name not in self.ls("")) and (not path):
+                # create new container
+                self.service_client.create_container(name=container_name)
+            elif (container_name in self.ls("")) and path:
+                ## attempt to create prefix
+                container_client = self.service_client.get_container_client(
+                    container=container_name
+                )
+                container_client.upload_blob(name=path, data="")
+            else:
+                ## everything else
+                raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
+        else:
+            if container_name in self.ls("") and path:
+                container_client = self.service_client.get_container_client(
+                    container=container_name
+                )
+                container_client.upload_blob(name=path, data="")
 
     def rmdir(self, path, delimiter="/", **kwargs):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name + delimiter in self.ls("")) and (not path):
             # delete container
-            self.blob_fs.delete_container(container_name)
+            self.service_client.delete_container(container_name)
 
     def _rm(self, path, delimiter="/", **kwargs):
         if self.isfile(path):
             container_name, path = self.split_path(path, delimiter=delimiter)
+            container_client = self.service_client.get_container_client(
+                container=container_name
+            )
             logging.debug(f"Delete blob {path} in {container_name}")
-            self.blob_fs.delete_blob(container_name, path)
+            container_client.delete_blob(path)
         elif self.isdir(path):
             container_name, path = self.split_path(path, delimiter=delimiter)
+            container_client = self.service_client.get_container_client(
+                container=container_name
+            )
             if (container_name + delimiter in self.ls("")) and (not path):
                 logging.debug(f"Delete container {container_name}")
-                self.blob_fs.delete_container(container_name)
+                container_client.delete_container(container_name)
         else:
             raise RuntimeError(f"cannot delete {path}")
 
@@ -644,6 +695,9 @@ class AzureBlobFile(AbstractBufferedFile):
         container_name, blob = fs.split_path(path)
         self.container_name = container_name
         self.blob = blob
+        self.container_client = fs.service_client.get_container_client(
+            self.container_name
+        )
 
         super().__init__(
             fs=fs,
@@ -657,36 +711,33 @@ class AzureBlobFile(AbstractBufferedFile):
         )
 
     def _fetch_range(self, start, end, **kwargs):
-        blob = self.fs.blob_fs.get_blob_to_bytes(
-            container_name=self.container_name,
-            blob_name=self.blob,
-            start_range=start,
-            end_range=end,
+        blob = self.container_client.download_blob(
+            blob=self.blob, offset=start, length=end,
         )
-        return blob.content
+        return blob.readall()
 
     def _initiate_upload(self, **kwargs):
+        self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
-        if self.fs.blob_fs.exists(self.container_name, self.blob):
-            self.fs.blob_fs.delete_blob(self.container_name, self.blob)
-        return super()._initiate_upload()
+        try:
+            self.container_client.delete_blob(self.blob)
+        except ResourceNotFoundError as e:
+            pass
+        except Exception as e:
+            raise (f"Failed for {e}")
+        else:
+            return super()._initiate_upload()
 
     def _upload_chunk(self, final=False, **kwargs):
         data = self.buffer.getvalue()
+        length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
-        self.fs.blob_fs.put_block(
-            container_name=self.container_name,
-            blob_name=self.blob,
-            block=data,
-            block_id=block_id,
+        self.blob_client.stage_block(
+            block_id=block_id, data=data, length=length,
         )
         self._block_list.append(block_id)
 
         if final:
             block_list = [BlobBlock(_id) for _id in self._block_list]
-            self.fs.blob_fs.put_block_list(
-                container_name=self.container_name,
-                blob_name=self.blob,
-                block_list=block_list,
-            )
+            self.blob_client.commit_block_list(block_list=block_list,)
