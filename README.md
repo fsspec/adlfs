@@ -14,11 +14,6 @@ To use the Gen1 filesystem:
 
 ```python
 import dask.dataframe as dd
-from pkg_resources import parse_version
-import fsspec
-if parse_version(fsspec.__version__) < parse_version('0.6.2'):
-    from fsspec.registry import known_implementations
-    known_implementations['adl'] = {'class': 'adlfs.AzureDatalakeFileSystem'}
 
 STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
 
@@ -29,11 +24,6 @@ To use the Gen2 filesystem:
 
 ```python
 import dask.dataframe as dd
-from pkg_resources import parse_version
-import fsspec
-if parse_version(fsspec.__version__) < parse_version('0.6.2'):
-    from fsspec.registry import known_implementations
-    known_implementations['abfs'] = {'class': 'adlfs.AzureBlobFileSystem'}
 
 STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 

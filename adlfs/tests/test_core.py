@@ -3,6 +3,11 @@ import pytest
 
 import adlfs
 
+URL = "http://127.0.0.1:10000"
+ACCOUNT_NAME = "devstoreaccount1"
+KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
+CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
+
 
 @pytest.fixture(scope="session", autouse=True)
 def spawn_azurite():
@@ -18,17 +23,13 @@ def spawn_azurite():
 
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
 
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     ## these are containers
@@ -39,7 +40,7 @@ def test_ls(storage):
     assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
     assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
 
-    ## root contains files and directories
+    # root contains files and directories
     assert fs.ls("data/root") == [
         "data/root/a/",
         "data/root/b/",
@@ -83,9 +84,7 @@ def test_ls(storage):
 
 def test_info(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     container_info = fs.info("data")
@@ -93,15 +92,14 @@ def test_info(storage):
 
     dir_info = fs.info("data/root/c")
     assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
+
     file_info = fs.info("data/root/a/file.txt")
     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
 def test_glob(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     ## just the directory name
@@ -120,7 +118,7 @@ def test_glob(storage):
         "data/root/rfile.txt",
     ]
 
-    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]
+    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
 
     ## across directories
     assert fs.glob("data/root/*/file.txt") == [
@@ -157,9 +155,7 @@ def test_glob(storage):
 
 def test_open_file(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
     f = fs.open("/data/root/a/file.txt")
 
@@ -169,9 +165,7 @@ def test_open_file(storage):
 
 def test_rm(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     fs.rm("/data/root/a/file.txt")
@@ -182,9 +176,7 @@ def test_rm(storage):
 
 def test_mkdir_rmdir(storage):
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     fs.mkdir("new-container")
@@ -242,14 +234,12 @@ def test_large_blob(storage):
     from pathlib import Path
 
     fs = adlfs.AzureBlobFileSystem(
-        storage.account_name,
-        storage.account_key,
-        custom_domain=f"http://{storage.primary_endpoint}",
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     # create a 20MB byte array, ensure it's larger than blocksizes to force a
     # chuncked upload
-    blob_size = 20_000_000
+    blob_size = 120_000_000
     assert blob_size > fs.blocksize
     assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
 

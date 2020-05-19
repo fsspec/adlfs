@@ -14,8 +14,8 @@ jobs:
     displayName: Add conda to PATH
 
   - script: |
-      conda install -y -c conda-forge python=3 pre-commit azure-datalake-store azure-storage-blob fsspec==0.6.2 pytest requests
-      pip install docker versioneer pytest-cov twine
+      conda install -y -c conda-forge python=3 pre-commit fsspec pytest requests
+      pip install azure-core azure-datalake-store azure-storage-blob docker versioneer pytest-cov twine
     displayName: 'Install dependencies'
 
   - script: |
@@ -42,14 +42,3 @@ jobs:
       python setup.py bdist_wheel
     displayName: 'Build package'
     condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
-
-  # - task: TwineAuthenticate@1
-  #  displayName: 'Twine Authenticate'
-  #  inputs:
-  #  pythonUploadServiceConnection: adlfs
-  #  condition:
-  
-#   # Use command line script to 'twine upload', use -r to pass the repository name and --config-file to pass the environment variable set by the authenticate task.
-#   - script: |
-#    python -m twine upload -r "adlfs" --config-file $(PYPIRC_PATH) dist/*.whl
-#   displayName: 'AuthenticateTwine'
