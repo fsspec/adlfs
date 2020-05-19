@@ -496,7 +496,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     elif len(blobs) == 1:
                         if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
                             0
-                        ].has_key("blob_type"):
+                        ].has_key("blob_type"):  # NOQA
                             path = blobs[0].name
                             blobs = container_client.walk_blobs(name_starts_with=path)
                             if return_glob:
@@ -524,16 +524,16 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
                     else:
                         raise FileNotFoundError(f"File {path} does not exist!!")
-        except Exception as e:
+        except Exception:
             raise FileNotFoundError(f"File {path} does not exist!!")
 
     def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
         pathlist = []
         for c in contents:
             data = {}
-            if c.has_key("container"):
+            if c.has_key("container"):  # NOQA
                 data["name"] = f"{c.container}{delimiter}{c.name}"
-                if c.has_key("size"):
+                if c.has_key("size"):  # NOQA
                     data["size"] = c.size
                 else:
                     data["size"] = 0
@@ -720,7 +720,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self._block_list = []
         try:
             self.container_client.delete_blob(self.blob)
-        except ResourceNotFoundError as e:
+        except ResourceNotFoundError:
             pass
         except Exception as e:
             raise (f"Failed for {e}")
