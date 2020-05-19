@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-import posixpath
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob._shared.base_client import create_configuration
@@ -447,7 +446,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return_glob: bool = False,
         **kwargs,
     ):
-        """ 
+        """
         Create a list of blob names from a blob container
 
         Parameters
@@ -525,7 +524,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
                     else:
                         raise FileNotFoundError(f"File {path} does not exist!!")
-        except:
+        except Exception as e:
             raise FileNotFoundError(f"File {path} does not exist!!")
 
     def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):

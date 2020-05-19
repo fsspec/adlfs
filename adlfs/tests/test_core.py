@@ -118,7 +118,7 @@ def test_glob(storage):
         "data/root/rfile.txt",
     ]
 
-    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]
+    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
 
     ## across directories
     assert fs.glob("data/root/*/file.txt") == [
