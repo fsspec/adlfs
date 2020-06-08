@@ -357,6 +357,32 @@ def test_mkdir_rm_recursive(storage):
     assert fs.find("test_mkdir_rm_recursive") == []
 
 
+def test_deep_paths(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    fs.mkdir("test_deep")
+    assert "test_deep/" in fs.ls("")
+
+    with fs.open("test_deep/a/b/c/file.txt", "wb") as f:
+        f.write(b"0123456789")
+
+    assert fs.ls("test_deep") == ["test_deep/a/"]
+    assert fs.ls("test_deep/") == ["test_deep/a/"]
+    assert fs.ls("test_deep/a") == ["test_deep/a/b/"]
+    assert fs.ls("test_deep/a/") == ["test_deep/a/b/"]
+    assert fs.find("test_deep") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a/") == ["test_deep/a/b/c/file.txt"]
+
+    fs.rm("test_deep", recursive=True)
+
+    assert "test_deep/" not in fs.ls("")
+    assert fs.find("test_deep") == []
+
+
 def test_large_blob(storage):
     import tempfile
     import hashlib
