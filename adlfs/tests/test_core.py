@@ -283,6 +283,7 @@ def test_mkdir_rmdir(storage):
 
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
+    assert fs.ls("new-container") == []
 
     with fs.open("new-container/file.txt", "wb") as f:
         f.write(b"0123456789")
