@@ -465,30 +465,56 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"abfs.ls() is searching for {path}")
 
         container, path = self.split_path(path)
-        try:
-            if (container in ["", delimiter]) and (path in ["", delimiter]):
-                # This is the case where only the containers are being returned
-                logging.info(
-                    "Returning a list of containers in the azure blob storage account"
+        if (container in ["", delimiter]) and (path in ["", delimiter]):
+            # This is the case where only the containers are being returned
+            logging.info(
+                "Returning a list of containers in the azure blob storage account"
+            )
+            if detail:
+                contents = self.service_client.list_containers(
+                    include_metadata=True
                 )
-                if detail:
-                    contents = self.service_client.list_containers(
-                        include_metadata=True
-                    )
-                    return self._details(contents)
-                else:
-                    contents = self.service_client.list_containers()
-                    return [f"{c.name}{delimiter}" for c in contents]
-
+                return self._details(contents)
             else:
-                if container not in ["", delimiter]:
-                    # This is the case where the container name is passed
-                    container_client = self.service_client.get_container_client(
-                        container=container
-                    )
-                    blobs = container_client.walk_blobs(name_starts_with=path)
+                contents = self.service_client.list_containers()
+                return [f"{c.name}{delimiter}" for c in contents]
+
+        else:
+            if container not in ["", delimiter]:
+                # This is the case where the container name is passed
+                print(f"container is:  {container}")
+                container_client = self.service_client.get_container_client(
+                    container=container
+                )
+                print("Got container client")
+                blobs = container_client.walk_blobs(name_starts_with=path)
+                print(type(blobs))
+                print(blobs)
+                try:
                     blobs = [blob for blob in blobs]
-                    if len(blobs) > 1:
+                except Exception:
+                    raise FileNotFoundError
+                print([b for b in blobs])
+                print('******')
+                print([type(b) for b in blobs])
+                print(f"Length of blobs is {len(blobs)}")
+                print(blobs)
+                if len(blobs) > 1:
+                    if return_glob:
+                        return self._details(blobs, return_glob=True)
+                    if detail:
+                        return self._details(blobs)
+                    else:
+                        return [
+                            f"{blob.container}{delimiter}{blob.name}"
+                            for blob in blobs
+                        ]
+                elif len(blobs) == 1:
+                    if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
+                        0
+                    ].has_key("blob_type"):  # NOQA
+                        path = blobs[0].name
+                        blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
                             return self._details(blobs, return_glob=True)
                         if detail:
@@ -499,39 +525,26 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 for blob in blobs
                             ]
 
-                    elif len(blobs) == 1:
-                        if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
-                            0
-                        ].has_key("blob_type"):  # NOQA
-                            path = blobs[0].name
-                            blobs = container_client.walk_blobs(name_starts_with=path)
-                            if return_glob:
-                                return self._details(blobs, return_glob=True)
-                            if detail:
-                                return self._details(blobs)
-                            else:
-                                return [
-                                    f"{blob.container}{delimiter}{blob.name}"
-                                    for blob in blobs
-                                ]
-
-                        elif len(blobs) == 1 and blobs[0]["blob_type"] == "BlockBlob":
-                            if detail:
-                                return self._details(blobs)
-                            else:
-                                return [
-                                    f"{blob.container}{delimiter}{blob.name}"
-                                    for blob in blobs
-                                ]
+                    elif len(blobs) == 1 and blobs[0]["blob_type"] == "BlockBlob":
+                        if detail:
+                            return self._details(blobs)
                         else:
-                            raise FileNotFoundError(
-                                f"Unable to identify blobs in {path} for {blobs[0].name}"
-                            )
-
+                            return [
+                                f"{blob.container}{delimiter}{blob.name}"
+                                for blob in blobs
+                            ]
                     else:
-                        raise FileNotFoundError(f"File {path} does not exist!!")
-        except Exception:
-            raise FileNotFoundError(f"File {path} does not exist!!")
+                        raise FileNotFoundError(
+                            f"Unable to identify blobs in {path} for {blobs[0].name}"
+                        )
+                elif len(blobs) == 0:
+                    if (return_glob) or (path in ["", delimiter]):
+                        return []
+                    else:
+                        raise FileNotFoundError
+                else:
+                    raise FileNotFoundError
+
 
     def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
         pathlist = []

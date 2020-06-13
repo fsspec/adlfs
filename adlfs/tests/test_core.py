@@ -34,7 +34,7 @@ def test_ls0(storage):
     )
     assert fs.ls(".") == ["data/"]
 
-
+# @pytest.mark.xfail
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -112,7 +112,7 @@ def test_glob(storage):
 
     ## just the directory name
     assert fs.glob("data/root") == ["data/root"]
-    ## top-level contents of a directory
+    # top-level contents of a directory
     assert fs.glob("data/root/") == [
         "data/root/a",
         "data/root/b",
@@ -189,6 +189,7 @@ def test_mkdir_rmdir(storage):
 
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
+    assert fs.ls("new-container") == []
 
     with fs.open("new-container/file.txt", "wb") as f:
         f.write(b"0123456789")
@@ -233,7 +234,7 @@ def test_mkdir_rmdir(storage):
 
     assert "new-container/" not in fs.ls("")
 
-
+@pytest.mark.skip()
 def test_large_blob(storage):
     import tempfile
     import hashlib
