@@ -27,6 +27,14 @@ def test_connect(storage):
     )
 
 
+@pytest.mark.xfail
+def test_ls0(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    assert fs.ls(".") == ["data/"]
+
+
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
