@@ -110,17 +110,65 @@ def test_info(storage):
     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
-
 def test_find(storage):
     fs = adlfs.AzureBlobFileSystem(
-         account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     ## just the directory name
-    #  assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
-    f0 = fs.find("data/root/a/")
-    assert f0 == ["data/root/a/file.txt"]
-    #  assert fs.find("data/root/a/") ==   # NOQA
+    assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
+    assert fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
+
+    assert fs.find("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    assert fs.find("data/root/c/") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+
+    ## all files
+    assert fs.find("data/root") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert fs.find("data/root", withdirs=False) == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    # all files and directories
+    assert fs.find("data/root", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert fs.find("data/root/", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    ## missing
+    assert fs.find("data/missing") == []
+    # assert fs.find("data/roo") == []
 
 
 def test_glob(storage):
@@ -178,27 +226,26 @@ def test_glob(storage):
 
     ## all files
     assert fs.glob("data/root/**") == [
-         "data/root/a",
-         "data/root/a/file.txt",
-         "data/root/b",
-         "data/root/b/file.txt",
-         "data/root/c",
-         "data/root/c/file1.txt",
-         "data/root/c/file2.txt",
-         "data/root/rfile.txt",
-     ]
-    
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
     assert fs.glob("data/roo**") == [
-         "data/root",
-         "data/root/a",
-         "data/root/a/file.txt",
-         "data/root/b",
-         "data/root/b/file.txt",
-         "data/root/c",
-         "data/root/c/file1.txt",
-         "data/root/c/file2.txt",
-         "data/root/rfile.txt",
-     ]
+        "data/root",
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
     ## missing
     assert fs.glob("data/missing/*") == []
@@ -223,6 +270,23 @@ def test_rm(storage):
 
     with pytest.raises(FileNotFoundError):
         fs.ls("/data/root/a/file.txt")
+
+
+def test_rm_recursive(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root/c/" in fs.ls("/data/root")
+    assert fs.ls("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    fs.rm("data/root/c", recursive=True)
+    assert "data/root/c/" not in fs.ls("/data/root")
+
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root/c")
 
 
 def test_mkdir_rmdir(storage):
@@ -278,24 +342,62 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" not in fs.ls("")
 
 
-def test_rm_recursive(storage):
+def test_mkdir_rm_recursive(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    assert "data/root/c/" in fs.ls("/data/root")
-    assert fs.ls("data/root/c") == [
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
+    fs.mkdir("test_mkdir_rm_recursive")
+    assert "test_mkdir_rm_recursive/" in fs.ls("")
+
+    with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
+        f.write(b"0123456789")
+
+    with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
+        f.write(b"ABCD")
+
+    with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
+        f.write(b"abcdef")
+
+    assert fs.find("test_mkdir_rm_recursive") == [
+        "test_mkdir_rm_recursive/dir/file.txt",
+        "test_mkdir_rm_recursive/dir/file2.txt",
+        "test_mkdir_rm_recursive/file.txt",
     ]
-    fs.rm("data/root/c", recursive=True)
-    assert "data/root/c/" not in fs.ls("/data/root")
 
-    with pytest.raises(FileNotFoundError):
-        fs.ls("data/root/c")
+    fs.rm("test_mkdir_rm_recursive", recursive=True)
+
+    assert "test_mkdir_rm_recursive/" not in fs.ls("")
+    assert fs.find("test_mkdir_rm_recursive") == []
 
 
-@pytest.mark.skip()
+@pytest.mark.xfail
+def test_deep_paths(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    fs.mkdir("test_deep")
+    assert "test_deep/" in fs.ls("")
+
+    with fs.open("test_deep/a/b/c/file.txt", "wb") as f:
+        f.write(b"0123456789")
+
+    assert fs.ls("test_deep") == ["test_deep/a/"]
+    assert fs.ls("test_deep/") == ["test_deep/a/"]
+    assert fs.ls("test_deep/a") == ["test_deep/a/b/"]
+    assert fs.ls("test_deep/a/") == ["test_deep/a/b/"]
+    assert fs.find("test_deep") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a/") == ["test_deep/a/b/c/file.txt"]
+
+    fs.rm("test_deep", recursive=True)
+
+    assert "test_deep/" not in fs.ls("")
+    assert fs.find("test_deep") == []
+
+
 def test_large_blob(storage):
     import tempfile
     import hashlib
@@ -368,9 +470,6 @@ def test_dask_parquet(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("test")
-    print(fs.ls(""))
-    print("**")
-    print(fs.ls("test"))
     STORAGE_OPTIONS = {
         "account_name": "devstoreaccount1",
         "connection_string": CONN_STR,
