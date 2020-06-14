@@ -37,8 +37,3 @@ jobs:
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-
-  - script: |
-      python setup.py bdist_wheel
-    displayName: 'Build package'
-    condition: startsWith(variables['build.sourceBranch'], 'refs/tags/')
