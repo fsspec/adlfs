@@ -110,6 +110,19 @@ def test_info(storage):
     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
+
+def test_find(storage):
+    fs = adlfs.AzureBlobFileSystem(
+         account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    ## just the directory name
+    #  assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
+    f0 = fs.find("data/root/a/")
+    assert f0 == ["data/root/a/file.txt"]
+    #  assert fs.find("data/root/a/") ==   # NOQA
+
+
 def test_glob(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -132,6 +145,7 @@ def test_glob(storage):
     ]
 
     assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
+    assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
 
     ## across directories
     assert fs.glob("data/root/*/file.txt") == [
@@ -161,6 +175,30 @@ def test_glob(storage):
         "data/root/c/file2.txt",
         "data/root/rfile.txt",
     ]
+
+    ## all files
+    assert fs.glob("data/root/**") == [
+         "data/root/a",
+         "data/root/a/file.txt",
+         "data/root/b",
+         "data/root/b/file.txt",
+         "data/root/c",
+         "data/root/c/file1.txt",
+         "data/root/c/file2.txt",
+         "data/root/rfile.txt",
+     ]
+    
+    assert fs.glob("data/roo**") == [
+         "data/root",
+         "data/root/a",
+         "data/root/a/file.txt",
+         "data/root/b",
+         "data/root/b/file.txt",
+         "data/root/c",
+         "data/root/c/file1.txt",
+         "data/root/c/file2.txt",
+         "data/root/rfile.txt",
+     ]
 
     ## missing
     assert fs.glob("data/missing/*") == []
@@ -238,6 +276,23 @@ def test_mkdir_rmdir(storage):
     fs.rmdir("new-container")
 
     assert "new-container/" not in fs.ls("")
+
+
+def test_rm_recursive(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root/c/" in fs.ls("/data/root")
+    assert fs.ls("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    fs.rm("data/root/c", recursive=True)
+    assert "data/root/c/" not in fs.ls("/data/root")
+
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root/c")
 
 
 @pytest.mark.skip()
@@ -339,3 +394,5 @@ def test_dask_parquet(storage):
         "test/test_group/_metadata",
         "test/test_group/part.0.parquet",
     ]
+
+

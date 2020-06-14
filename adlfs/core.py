@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 
 from azure.core.exceptions import ResourceNotFoundError
+from azure.core.paging import ItemPaged
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -483,7 +484,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container
                 )
-                blobs = container_client.walk_blobs(name_starts_with=path)
+                blobs = container_client.walk_blobs(name_starts_with=path)                
                 try:
                     blobs = [blob for blob in blobs]
                 except Exception:
@@ -503,6 +504,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     ].has_key(  # NOQA
                         "blob_type"
                     ):
+                        
                         path = blobs[0].name
                         blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
@@ -534,6 +536,11 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 f"{blob.container}{delimiter}{blob.name}"
                                 for blob in blobs
                             ]
+                    elif isinstance(blobs[0], ItemPaged):
+                        outblobs = []
+                        for page in blobs:
+                            for b in page:
+                                outblobs.append(b) 
                     else:
                         raise FileNotFoundError(
                             f"Unable to identify blobs in {path} for {blobs[0].name}"
