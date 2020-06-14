@@ -15,7 +15,7 @@ jobs:
 
   - script: |
       conda install -y -c conda-forge python=3 pre-commit
-      pip install dev-requirements.txt
+      pip install -r dev-requirements.txt
     displayName: 'Install dependencies'
 
   - script: |
