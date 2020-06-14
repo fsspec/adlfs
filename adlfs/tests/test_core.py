@@ -493,5 +493,3 @@ def test_dask_parquet(storage):
         "test/test_group/_metadata",
         "test/test_group/part.0.parquet",
     ]
-
-

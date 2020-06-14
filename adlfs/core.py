@@ -486,7 +486,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container
                 )
-                blobs = container_client.walk_blobs(name_starts_with=path)                
+                blobs = container_client.walk_blobs(name_starts_with=path)
                 try:
                     blobs = [blob for blob in blobs]
                 except Exception:
@@ -506,7 +506,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     ].has_key(  # NOQA
                         "blob_type"
                     ):
-                        
+
                         path = blobs[0].name
                         blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
@@ -542,7 +542,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         outblobs = []
                         for page in blobs:
                             for b in page:
-                                outblobs.append(b) 
+                                outblobs.append(b)
                     else:
                         raise FileNotFoundError(
                             f"Unable to identify blobs in {path} for {blobs[0].name}"
