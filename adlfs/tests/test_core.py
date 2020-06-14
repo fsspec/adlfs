@@ -168,7 +168,13 @@ def test_find(storage):
 
     ## missing
     assert fs.find("data/missing") == []
-    # assert fs.find("data/roo") == []
+
+@pytest.mark.xfail
+def test_find_missing():
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    assert fs.find("data/roo") == []
 
 
 def test_glob(storage):
