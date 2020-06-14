@@ -1,4 +1,6 @@
 import docker
+import dask.dataframe as dd
+import pandas as pd
 import pytest
 
 import adlfs
@@ -34,7 +36,7 @@ def test_ls0(storage):
     )
     assert fs.ls(".") == ["data/"]
 
-# @pytest.mark.xfail
+
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -97,6 +99,9 @@ def test_info(storage):
 
     container_info = fs.info("data")
     assert container_info == {"name": "data/", "type": "directory", "size": 0}
+
+    container2_info = fs.info("data/root")
+    assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
 
     dir_info = fs.info("data/root/c")
     assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
@@ -234,6 +239,7 @@ def test_mkdir_rmdir(storage):
 
     assert "new-container/" not in fs.ls("")
 
+
 @pytest.mark.skip()
 def test_large_blob(storage):
     import tempfile
@@ -300,3 +306,36 @@ def test_large_blob(storage):
         fs.download(path, str(local_blob))
         assert local_blob.exists()
         assert local_blob.stat().st_size == blob_size
+
+
+def test_dask_parquet(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test")
+    print(fs.ls(""))
+    print("**")
+    print(fs.ls("test"))
+    STORAGE_OPTIONS = {
+        "account_name": "devstoreaccount1",
+        "connection_string": CONN_STR,
+    }
+    df = pd.DataFrame(
+        {
+            "col1": [1, 2, 3, 4],
+            "col2": [2, 4, 6, 8],
+            "index_key": [1, 1, 2, 2],
+            "partition_key": [1, 1, 2, 2],
+        }
+    )
+
+    dask_dataframe = dd.from_pandas(df, npartitions=1)
+    dask_dataframe.to_parquet(
+        "abfs://test/test_group", storage_options=STORAGE_OPTIONS, engine="pyarrow"
+    )
+    fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
+    assert fs.ls("test") == [
+        "test/test_group/_common_metadata",
+        "test/test_group/_metadata",
+        "test/test_group/part.0.parquet",
+    ]

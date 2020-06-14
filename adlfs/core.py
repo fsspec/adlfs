@@ -8,7 +8,7 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._models import BlobBlock
+from azure.storage.blob._models import BlobBlock, BlobPrefix
 from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
@@ -471,9 +471,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 "Returning a list of containers in the azure blob storage account"
             )
             if detail:
-                contents = self.service_client.list_containers(
-                    include_metadata=True
-                )
+                contents = self.service_client.list_containers(include_metadata=True)
                 return self._details(contents)
             else:
                 contents = self.service_client.list_containers()
@@ -482,23 +480,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             if container not in ["", delimiter]:
                 # This is the case where the container name is passed
-                print(f"container is:  {container}")
                 container_client = self.service_client.get_container_client(
                     container=container
                 )
-                print("Got container client")
                 blobs = container_client.walk_blobs(name_starts_with=path)
-                print(type(blobs))
-                print(blobs)
                 try:
                     blobs = [blob for blob in blobs]
                 except Exception:
                     raise FileNotFoundError
-                print([b for b in blobs])
-                print('******')
-                print([type(b) for b in blobs])
-                print(f"Length of blobs is {len(blobs)}")
-                print(blobs)
                 if len(blobs) > 1:
                     if return_glob:
                         return self._details(blobs, return_glob=True)
@@ -506,13 +495,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         return self._details(blobs)
                     else:
                         return [
-                            f"{blob.container}{delimiter}{blob.name}"
-                            for blob in blobs
+                            f"{blob.container}{delimiter}{blob.name}" for blob in blobs
                         ]
                 elif len(blobs) == 1:
                     if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
                         0
-                    ].has_key("blob_type"):  # NOQA
+                    ].has_key(
+                        "blob_type"
+                    ):  # NOQA
                         path = blobs[0].name
                         blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
@@ -524,8 +514,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 f"{blob.container}{delimiter}{blob.name}"
                                 for blob in blobs
                             ]
-
-                    elif len(blobs) == 1 and blobs[0]["blob_type"] == "BlockBlob":
+                    elif isinstance(blobs[0], BlobPrefix):
+                        if detail:
+                            for blob_page in blobs:
+                                return self._details(blob_page)
+                        else:
+                            outblobs = []
+                            for blob_page in blobs:
+                                for blob in blob_page:
+                                    outblobs.append(
+                                        f"{blob.container}{delimiter}{blob.name}"
+                                    )
+                            return outblobs
+                    elif blobs[0]["blob_type"] == "BlockBlob":
                         if detail:
                             return self._details(blobs)
                         else:
@@ -544,7 +545,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         raise FileNotFoundError
                 else:
                     raise FileNotFoundError
-
 
     def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
         pathlist = []
