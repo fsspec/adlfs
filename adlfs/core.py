@@ -381,7 +381,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             )
         elif self.account_key is not None:
             self.service_client = BlobServiceClient(
-                account_url=self.account_url, credential=self.account_key,
+                account_url=self.account_url, credential=self.account_key
             )
         else:
             raise ValueError("unable to connect with provided params!!")
@@ -500,9 +500,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 elif len(blobs) == 1:
                     if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
                         0
-                    ].has_key(
+                    ].has_key(  # NOQA
                         "blob_type"
-                    ):  # NOQA
+                    ):
                         path = blobs[0].name
                         blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
@@ -539,7 +539,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                             f"Unable to identify blobs in {path} for {blobs[0].name}"
                         )
                 elif len(blobs) == 0:
-                    if (return_glob) or (path in ["", delimiter]):
+                    if return_glob or (path in ["", delimiter]):
                         return []
                     else:
                         raise FileNotFoundError
@@ -730,7 +730,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def _fetch_range(self, start, end, **kwargs):
         blob = self.container_client.download_blob(
-            blob=self.blob, offset=start, length=end,
+            blob=self.blob, offset=start, length=end
         )
         return blob.readall()
 
@@ -742,7 +742,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except ResourceNotFoundError:
             pass
         except Exception as e:
-            raise (f"Failed for {e}")
+            raise f"Failed for {e}"
         else:
             return super()._initiate_upload()
 
@@ -751,11 +751,9 @@ class AzureBlobFile(AbstractBufferedFile):
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
-        self.blob_client.stage_block(
-            block_id=block_id, data=data, length=length,
-        )
+        self.blob_client.stage_block(block_id=block_id, data=data, length=length)
         self._block_list.append(block_id)
 
         if final:
             block_list = [BlobBlock(_id) for _id in self._block_list]
-            self.blob_client.commit_block_list(block_list=block_list,)
+            self.blob_client.commit_block_list(block_list=block_list)

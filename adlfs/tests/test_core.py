@@ -25,7 +25,7 @@ def spawn_azurite():
 
 def test_connect(storage):
     adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
 
