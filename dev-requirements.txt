@@ -6,5 +6,6 @@ docker>=4.1.0,<5.0.0
 fsspec>=0.6.0
 pyarrow
 pytest>=5.0,<6.0
+pytest-cov
 requests>=2.22.0,<3.0
 versioneer>=0.18,<1.0
