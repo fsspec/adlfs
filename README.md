@@ -2,10 +2,15 @@ Dask interface to Azure-Datalake Gen1 and Gen2 Storage Quickstart
 -----------------------------------------------------------------
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/adlfs.svg)](https://pypi.python.org/pypi/adlfs/)
+[![Latest conda-forge version](https://img.shields.io/conda/vn/conda-forge/adlfs?logo=conda-forge)](https://anaconda.org/conda-forge/aldfs)
 
-This package is on PyPi and can be installed using:
+This package can be installed using:
 
 `pip install adlfs`
+
+or
+
+`conda install -c conda-forge adlfs`
 
 The `adl://` and `abfs://` protocols are included in fsspec's known_implementations registry 
 in fsspec > 0.6.1, otherwise users must explicitly inform fsspec about the supported adlfs protocols.
