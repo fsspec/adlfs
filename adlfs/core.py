@@ -642,7 +642,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             if (container_name not in self.ls("")) and (not path):
                 # create new container
                 self.service_client.create_container(name=container_name)
-            elif (container_name in self.ls("")) and path:
+            elif (container_name in [container_path.split("/")[0] for container_path in self.ls("")]) and path:
                 ## attempt to create prefix
                 container_client = self.service_client.get_container_client(
                     container=container_name
