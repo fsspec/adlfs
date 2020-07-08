@@ -146,13 +146,13 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             return False
 
     def _open(
-            self,
-            path,
-            mode="rb",
-            block_size=None,
-            autocommit=True,
-            cache_options=None,
-            **kwargs,
+        self,
+        path,
+        mode="rb",
+        block_size=None,
+        autocommit=True,
+        cache_options=None,
+        **kwargs,
     ):
         return AzureDatalakeFile(self, path, mode=mode)
 
@@ -181,17 +181,17 @@ class AzureDatalakeFile(AzureDLFile):
     # AbstractBufferedFile with an AzureDLFile.
 
     def __init__(
-            self,
-            fs,
-            path,
-            mode="rb",
-            autocommit=True,
-            block_size=2 ** 25,
-            cache_type="bytes",
-            cache_options=None,
-            *,
-            delimiter=None,
-            **kwargs,
+        self,
+        fs,
+        path,
+        mode="rb",
+        autocommit=True,
+        block_size=2 ** 25,
+        cache_type="bytes",
+        cache_options=None,
+        *,
+        delimiter=None,
+        **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -293,19 +293,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
     protocol = "abfs"
 
     def __init__(
-            self,
-            account_name: str,
-            account_key: str = None,
-            connection_string: str = None,
-            credential: str = None,
-            sas_token: str = None,
-            request_session=None,
-            socket_timeout: int = None,
-            token_credential=None,
-            blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
-            client_id: str = None,
-            client_secret: str = None,
-            tenant_id: str = None,
+        self,
+        account_name: str,
+        account_key: str = None,
+        connection_string: str = None,
+        credential: str = None,
+        sas_token: str = None,
+        request_session=None,
+        socket_timeout: int = None,
+        token_credential=None,
+        blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
+        client_id: str = None,
+        client_secret: str = None,
+        tenant_id: str = None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
@@ -322,10 +322,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.tenant_id = tenant_id
 
         if (
-                self.token_credential is None
-                and self.account_key is None
-                and self.sas_token is None
-                and self.client_id is not None
+            self.token_credential is None
+            and self.account_key is None
+            and self.sas_token is None
+            and self.client_id is not None
         ):
             self.token_credential = self._get_token_from_service_principal()
         self.do_connect()
@@ -468,13 +468,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
     #         return contents[0] == path
 
     def ls(
-            self,
-            path: str,
-            detail: bool = False,
-            invalidate_cache: bool = True,
-            delimiter: str = "/",
-            return_glob: bool = False,
-            **kwargs,
+        self,
+        path: str,
+        detail: bool = False,
+        invalidate_cache: bool = True,
+        delimiter: str = "/",
+        return_glob: bool = False,
+        **kwargs,
     ):
         """
         Create a list of blob names from a blob container
@@ -774,13 +774,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
             raise RuntimeError(f"cannot delete {path}")
 
     def _open(
-            self,
-            path: str,
-            mode: str = "rb",
-            block_size: int = None,
-            autocommit: bool = True,
-            cache_options=None,
-            **kwargs,
+        self,
+        path: str,
+        mode: str = "rb",
+        block_size: int = None,
+        autocommit: bool = True,
+        cache_options=None,
+        **kwargs,
     ):
         """Open a file on the datalake, or a block blob
 
@@ -820,15 +820,15 @@ class AzureBlobFile(AbstractBufferedFile):
     """ File-like operations on Azure Blobs """
 
     def __init__(
-            self,
-            fs: AzureBlobFileSystem,
-            path: str,
-            mode: str = "rb",
-            block_size="default",
-            autocommit: bool = True,
-            cache_type: str = "readahead",
-            cache_options: dict = None,
-            **kwargs,
+        self,
+        fs: AzureBlobFileSystem,
+        path: str,
+        mode: str = "rb",
+        block_size="default",
+        autocommit: bool = True,
+        cache_type: str = "readahead",
+        cache_options: dict = None,
+        **kwargs,
     ):
         """
         Represents a file on AzureBlobStorage that implements buffered reading and writing
