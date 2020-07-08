@@ -132,6 +132,7 @@ dmypy.json
 dist/*
 tests/dummyfiles/*
 .vscode
+.idea
 .pytest_cache/**
 **/*.code-workspace
 *.csv

@@ -146,13 +146,13 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             return False
 
     def _open(
-        self,
-        path,
-        mode="rb",
-        block_size=None,
-        autocommit=True,
-        cache_options=None,
-        **kwargs,
+            self,
+            path,
+            mode="rb",
+            block_size=None,
+            autocommit=True,
+            cache_options=None,
+            **kwargs,
     ):
         return AzureDatalakeFile(self, path, mode=mode)
 
@@ -181,17 +181,17 @@ class AzureDatalakeFile(AzureDLFile):
     # AbstractBufferedFile with an AzureDLFile.
 
     def __init__(
-        self,
-        fs,
-        path,
-        mode="rb",
-        autocommit=True,
-        block_size=2 ** 25,
-        cache_type="bytes",
-        cache_options=None,
-        *,
-        delimiter=None,
-        **kwargs,
+            self,
+            fs,
+            path,
+            mode="rb",
+            autocommit=True,
+            block_size=2 ** 25,
+            cache_type="bytes",
+            cache_options=None,
+            *,
+            delimiter=None,
+            **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -204,13 +204,14 @@ class AzureDatalakeFile(AzureDLFile):
         self.path = AzureDLPath(path)
         self.mode = mode
 
-    def seek(self, loc, whence=0, **kwargs):
+    def seek(self, loc: int, whence: int = 0, **kwargs):
         """ Set current file location
 
         Parameters
         ----------
         loc: int
             byte location
+
         whence: {0, 1, 2}
             from start of file, current location or end of file, resp.
         """
@@ -237,62 +238,48 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     Parameters
     ----------
-    account_name:
+    account_name: str
         The storage account name. This is used to authenticate requests
         signed with an account key and to construct the storage endpoint. It
         is required unless a connection string is given, or if a custom
         domain is used with anonymous authentication.
-    container: str,
-        The container name.  Required to create a filesystem client.
-    account_key:
+    account_key: str
         The storage account key. This is used for shared key authentication.
         If any of account key, sas token or client_id is specified, anonymous access
         will be used.
-    sas_token:
+    sas_token: str
         A shared access signature token to use to authenticate requests
         instead of the account key. If account key and sas token are both
         specified, account key will be used to sign. If any of account key, sas token
         or client_id are specified, anonymous access will be used.
-    is_emulated:
-        Whether to use the emulator. Defaults to False. If specified, will
-        override all other parameters besides connection string and request
-        session.
-    protocol:
-        The protocol to use for requests. Defaults to https.
-    endpoint_suffix:
-        The host base component of the url, minus the account name. Defaults
-        to Azure (core.windows.net). Override this to use the China cloud
-        (core.chinacloudapi.cn).
-    custom_domain:
-        The custom domain to use. This can be set in the Azure Portal. For
-        example, 'www.mydomain.com'.
-    request_session:
+    request_session: Session
         The session object to use for http requests.
-    connection_string:
+    connection_string: str
         If specified, this will override all other parameters besides
         request session. See
         http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
         for the connection string format.
-    socket_timeout:
-        If specified, this will override the default socket timeout. The timeout specified is in seconds.
+    socket_timeout: int
+        If specified, this will override the default socket timeout. The timeout specified is in
+        seconds.
         See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
-    token_credential:
+    token_credential: TokenCredential
         A token credential used to authenticate HTTPS requests. The token value
         should be updated before its expiration.
-    blocksize:
+    blocksize: int
         The block size to use for download/upload operations. Defaults to the value of
         ``BlockBlobService.MAX_BLOCK_SIZE``
-    client_id:
+    client_id: str
         Client ID to use when authenticating using an AD Service Principal client/secret.
-    client_secret:
+    client_secret: str
         Client secret to use when authenticating using an AD Service Principal client/secret.
-    tenant_id:
+    tenant_id: str
         Tenant ID to use when authenticating using an AD Service Principal client/secret.
 
     Examples
     --------
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
-    >>> adl.ls('')
+    >>> abfs.ls('')
 
     **  Sharded Parquet & csv files can be read as: **
         ------------------------------------------
@@ -306,19 +293,19 @@ class AzureBlobFileSystem(AbstractFileSystem):
     protocol = "abfs"
 
     def __init__(
-        self,
-        account_name: str,
-        account_key: str = None,
-        connection_string: str = None,
-        credential: str = None,
-        sas_token: str = None,
-        request_session=None,
-        socket_timeout=None,
-        token_credential=None,
-        blocksize=create_configuration(storage_sdk="blob").max_block_size,
-        client_id=None,
-        client_secret=None,
-        tenant_id=None,
+            self,
+            account_name: str,
+            account_key: str = None,
+            connection_string: str = None,
+            credential: str = None,
+            sas_token: str = None,
+            request_session=None,
+            socket_timeout: int = None,
+            token_credential=None,
+            blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
+            client_id: str = None,
+            client_secret: str = None,
+            tenant_id: str = None,
     ):
         AbstractFileSystem.__init__(self)
         self.account_name = account_name
@@ -335,16 +322,29 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.tenant_id = tenant_id
 
         if (
-            self.token_credential is None
-            and self.account_key is None
-            and self.sas_token is None
-            and self.client_id is not None
+                self.token_credential is None
+                and self.account_key is None
+                and self.sas_token is None
+                and self.client_id is not None
         ):
             self.token_credential = self._get_token_from_service_principal()
         self.do_connect()
 
     @classmethod
-    def _strip_protocol(cls, path):
+    def _strip_protocol(cls, path: str):
+        """
+        Remove the protocol from the input path
+
+        Parameters
+        ----------
+        path: str
+            Path to remove the protocol from
+
+        Returns
+        -------
+        str
+            Returns a path without the protocol
+        """
         logging.debug(f"_strip_protocol for {path}")
         ops = infer_storage_options(path)
 
@@ -359,6 +359,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return ops["path"]
 
     def _get_token_from_service_principal(self):
+        """
+        Create a TokenCredential given a client_id, client_secret and tenant_id
+
+        Returns
+        -------
+        TokenCredential
+        """
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.storage.common import TokenCredential
 
@@ -373,6 +380,13 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return token_cred
 
     def do_connect(self):
+        """Connect to the BlobServiceClient, using user-specified connection details.
+        Tries credentials first, then connection string and finally account key
+
+        Raises
+        ------
+        ValueError if none of the connection details are available
+        """
         self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
         if self.credential is not None:
             self.service_client = BlobServiceClient(
@@ -392,10 +406,17 @@ class AzureBlobFileSystem(AbstractFileSystem):
     def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
         Normalize ABFS path string into bucket and key.
+
         Parameters
         ----------
         path : string
             Input path, like `abfs://my_container/path/to/file`
+
+        delimiter: string
+            Delimiter used to split the path
+
+        return_container: bool
+
         Examples
         --------
         >>> split_path("abfs://my_container/path/to/file")
@@ -447,22 +468,33 @@ class AzureBlobFileSystem(AbstractFileSystem):
     #         return contents[0] == path
 
     def ls(
-        self,
-        path: str,
-        detail: bool = False,
-        invalidate_cache: bool = True,
-        delimiter: str = "/",
-        return_glob: bool = False,
-        **kwargs,
+            self,
+            path: str,
+            detail: bool = False,
+            invalidate_cache: bool = True,
+            delimiter: str = "/",
+            return_glob: bool = False,
+            **kwargs,
     ):
         """
         Create a list of blob names from a blob container
 
         Parameters
         ----------
-        path:  Path to an Azure Blob with its container name
-        detail:  If False, return a list of blob names, else a list of dictionaries with blob details
-        invalidate_cache:  Boolean
+        path: str
+            Path to an Azure Blob with its container name
+
+        detail: bool
+            If False, return a list of blob names, else a list of dictionaries with blob details
+
+        invalidate_cache:  bool
+            If True, do not use the cache
+
+        delimiter: str
+            Delimiter used to split paths
+
+        return_glob: bool
+
         """
 
         logging.debug(f"abfs.ls() is searching for {path}")
@@ -556,6 +588,24 @@ class AzureBlobFileSystem(AbstractFileSystem):
                     raise FileNotFoundError
 
     def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
+        """
+        Return a list of dictionaries of specifying details about the contents
+
+        Parameters
+        ----------
+        contents
+
+        delimiter: str
+            Delimiter used to separate containers and files
+
+        return_glob: bool
+
+
+        Returns
+        -------
+        List of dicts
+            Returns details about the contents, such as name, size and type
+        """
         pathlist = []
         for c in contents:
             data = {}
@@ -579,7 +629,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             pathlist.append(data)
         return pathlist
 
-    def walk(self, path, maxdepth=None, **kwargs):
+    def walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path
 
         List all files, recursing into subdirectories; output is iterator-style,
@@ -592,10 +642,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         ----------
         path: str
             Root to recurse into
+
         maxdepth: int
             Maximum recursion depth. None means limitless, but not recommended
             on link-based file-systems.
-        kwargs: passed to ``ls``
+
+        **kwargs are passed to ``ls``
         """
         path = self._strip_protocol(path)
         full_dirs = {}
@@ -637,6 +689,20 @@ class AzureBlobFileSystem(AbstractFileSystem):
             yield from self.walk(d, maxdepth=maxdepth, detail=detail, **kwargs)
 
     def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
+        """
+        Create directory entry at path
+
+        Parameters
+        ----------
+        path: str
+            The path to create
+
+        delimiter: str
+            Delimiter to use when splitting the path
+
+        exists_ok: bool
+            If True, raise an exception if the directory already exists. Defaults to False
+        """
         container_name, path = self.split_path(path, delimiter=delimiter)
         if not exists_ok:
             if (container_name not in self.ls("")) and (not path):
@@ -658,13 +724,37 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 )
                 container_client.upload_blob(name=path, data="")
 
-    def rmdir(self, path, delimiter="/", **kwargs):
+    def rmdir(self, path: str, delimiter="/", **kwargs):
+        """
+        Remove a directory, if empty
+
+        Parameters
+        ----------
+        path: str
+            Path of directory to remove
+
+        delimiter: str
+            Delimiter to use when splitting the path
+
+        """
+
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name + delimiter in self.ls("")) and (not path):
             # delete container
             self.service_client.delete_container(container_name)
 
     def _rm(self, path, delimiter="/", **kwargs):
+        """
+        Delete a given file
+
+        Parameters
+        ----------
+        path: str
+            Path to file to delete
+
+        delimiter: str
+            Delimiter to use when splitting the path
+        """
         if self.isfile(path):
             container_name, path = self.split_path(path, delimiter=delimiter)
             container_client = self.service_client.get_container_client(
@@ -684,15 +774,36 @@ class AzureBlobFileSystem(AbstractFileSystem):
             raise RuntimeError(f"cannot delete {path}")
 
     def _open(
-        self,
-        path,
-        mode="rb",
-        block_size=None,
-        autocommit=True,
-        cache_options=None,
-        **kwargs,
+            self,
+            path: str,
+            mode: str = "rb",
+            block_size: int = None,
+            autocommit: bool = True,
+            cache_options=None,
+            **kwargs,
     ):
-        """ Open a file on the datalake, or a block blob """
+        """Open a file on the datalake, or a block blob
+
+        Parameters
+        ----------
+        path: str
+            Path to file to open
+
+        mode: str
+            What mode to open the file in - defaults to "rb"
+
+        block_size: int
+            Size per block for multi-part downloads.
+
+        autocommit: bool
+            Whether or not to write to the destination directly
+
+        cache_type: str
+            One of "readahead", "none", "mmap", "bytes", defaults to "readahead"
+            Caching policy in read mode.
+            See the definitions here:
+            https://filesystem-spec.readthedocs.io/en/latest/api.html#readbuffering
+        """
         logging.debug(f"_open:  {path}")
         return AzureBlobFile(
             fs=self,
@@ -709,16 +820,48 @@ class AzureBlobFile(AbstractBufferedFile):
     """ File-like operations on Azure Blobs """
 
     def __init__(
-        self,
-        fs,
-        path,
-        mode="rb",
-        block_size="default",
-        autocommit=True,
-        cache_type="readahead",
-        cache_options=None,
-        **kwargs,
+            self,
+            fs: AzureBlobFileSystem,
+            path: str,
+            mode: str = "rb",
+            block_size="default",
+            autocommit: bool = True,
+            cache_type: str = "readahead",
+            cache_options: dict = None,
+            **kwargs,
     ):
+        """
+        Represents a file on AzureBlobStorage that implements buffered reading and writing
+
+        Parameters
+        ----------
+        fs: AzureBlobFileSystem
+            An instance of the filesystem
+
+        path: str
+            The location of the file on the filesystem
+
+        mode: str
+            What mode to open the file in. Defaults to "rb"
+
+        block_size: int, str
+            Buffer size for reading and writing. The string "default" will use the class
+            default
+
+        autocommit: bool
+            Whether or not to write to the destination directly
+
+        cache_type: str
+            One of "readahead", "none", "mmap", "bytes", defaults to "readahead"
+            Caching policy in read mode. See the definitions in ``core``.
+
+        cache_options : dict
+            Additional options passed to the constructor for the cache specified
+            by `cache_type`.
+
+        kwargs: dict
+            Passed to AbstractBufferedFile
+        """
         container_name, blob = fs.split_path(path)
         self.container_name = container_name
         self.blob = blob
@@ -737,13 +880,24 @@ class AzureBlobFile(AbstractBufferedFile):
             **kwargs,
         )
 
-    def _fetch_range(self, start, end, **kwargs):
+    def _fetch_range(self, start: int, end: int, **kwargs):
+        """
+        Download a chunk of data specified by start and end
+
+        Parameters
+        ----------
+        start: int
+            Start byte position to download blob from
+        end: int
+            End byte position to download blob from
+        """
         blob = self.container_client.download_blob(
             blob=self.blob, offset=start, length=end
         )
         return blob.readall()
 
     def _initiate_upload(self, **kwargs):
+        """Prepare a remote file upload"""
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
         try:
@@ -755,7 +909,17 @@ class AzureBlobFile(AbstractBufferedFile):
         else:
             return super()._initiate_upload()
 
-    def _upload_chunk(self, final=False, **kwargs):
+    def _upload_chunk(self, final: bool = False, **kwargs):
+        """
+        Write one part of a multi-block file upload
+
+        Parameters
+        ----------
+        final: bool
+            This is the last block, so should complete file, if
+            self.autocommit is True.
+
+        """
         data = self.buffer.getvalue()
         length = len(data)
         block_id = len(self._block_list)
