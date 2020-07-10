@@ -754,7 +754,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except ResourceNotFoundError:
             pass
         except Exception as e:
-            raise f"Failed for {e}"
+            raise RuntimeError(f"Failed for {e}")
         else:
             return super()._initiate_upload()
 
