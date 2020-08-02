@@ -278,6 +278,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     Examples
     --------
+    Authentication with an account_key
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
     >>> abfs.ls('')
 
@@ -288,6 +289,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
         ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
         ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
+    
+    Authentication with an Azure ServicePrincipal
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID, 
+        ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+    >>> abfs.ls('')
+    
+    **  Read files as: **
+        -------------
+        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+            'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET})
+        })
     """
 
     protocol = "abfs"
