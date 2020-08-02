@@ -263,9 +263,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
         If specified, this will override the default socket timeout. The timeout specified is in
         seconds.
         See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
-    token_credential: TokenCredential
-        A token credential used to authenticate HTTPS requests. The token value
-        should be updated before its expiration.
+    credential: TokenCredential or SAS token
+        The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
+        Can include an instance of TokenCredential class from azure.identity
     blocksize: int
         The block size to use for download/upload operations. Defaults to the value of
         ``BlockBlobService.MAX_BLOCK_SIZE``
@@ -301,7 +301,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         sas_token: str = None,
         request_session=None,
         socket_timeout: int = None,
-        token_credential=None,
         blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
         client_id: str = None,
         client_secret: str = None,
@@ -315,19 +314,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
         self.sas_token = sas_token
         self.request_session = request_session
         self.socket_timeout = socket_timeout
-        self.token_credential = token_credential
         self.blocksize = blocksize
         self.client_id = client_id
         self.client_secret = client_secret
         self.tenant_id = tenant_id
 
         if (
-            self.token_credential is None
+            self.credential is None
             and self.account_key is None
             and self.sas_token is None
             and self.client_id is not None
         ):
-            self.token_credential = self._get_token_from_service_principal()
+            self.credential = self._get_credential_from_service_principal()
         self.do_connect()
 
     @classmethod
@@ -358,26 +356,23 @@ class AzureBlobFileSystem(AbstractFileSystem):
         logging.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-    def _get_token_from_service_principal(self):
+    def _get_credential_from_service_principal(self):
         """
-        Create a TokenCredential given a client_id, client_secret and tenant_id
+        Create a Credential for authentication.  This can include a TokenCredential 
+        client_id, client_secret and tenant_id
 
         Returns
         -------
-        TokenCredential
+        Credential
         """
-        from azure.common.credentials import ServicePrincipalCredentials
-        from azure.storage.common import TokenCredential
+        from azure.identity import ClientSecretCredential
 
-        sp_cred = ServicePrincipalCredentials(
-            client_id=self.client_id,
-            secret=self.client_secret,
-            tenant=self.tenant_id,
-            resource="https://storage.azure.com/",
+        sp_token = ClientSecretCredential(
+            tenant_id = self.tenant_id,
+            client_id = self.client_id,
+            client_secret = self.client_secret,
         )
-
-        token_cred = TokenCredential(sp_cred.token["access_token"])
-        return token_cred
+        return sp_token
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
