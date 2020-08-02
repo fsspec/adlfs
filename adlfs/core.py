@@ -289,12 +289,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
         ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
         ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
-    
+
     Authentication with an Azure ServicePrincipal
-    >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID, 
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID,
         ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
-    
+
     **  Read files as: **
         -------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
@@ -371,7 +371,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
 
     def _get_credential_from_service_principal(self):
         """
-        Create a Credential for authentication.  This can include a TokenCredential 
+        Create a Credential for authentication.  This can include a TokenCredential
         client_id, client_secret and tenant_id
 
         Returns
@@ -381,9 +381,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
         from azure.identity import ClientSecretCredential
 
         sp_token = ClientSecretCredential(
-            tenant_id = self.tenant_id,
-            client_id = self.client_id,
-            client_secret = self.client_secret,
+            tenant_id=self.tenant_id,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
         )
         return sp_token
 
