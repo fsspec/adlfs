@@ -105,7 +105,8 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         for file in files:
             if "type" in file:
                 file["type"] = file["type"].lower()
-
+            if "length" in file:
+                file["size"] = file["length"]
         return files
 
     def info(self, path, invalidate_cache=True, expected_error_code=404, **kwargs):
