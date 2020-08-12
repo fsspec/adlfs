@@ -3,8 +3,9 @@ repos:
     rev: 6bedb5c58a7d8c25aa9509f8217bc24e9797e90d
     hooks:
     - id: black
-      language_version: python3.7
+      language_version: python3
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
     - id: flake8
+      language_version: python3
