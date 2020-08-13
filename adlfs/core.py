@@ -16,6 +16,8 @@ from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 
+from glob import has_magic
+
 logger = logging.getLogger(__name__)
 
 
@@ -442,39 +444,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    # def _generate_blobs(self, *args, **kwargs):
-    #     """Follow next_marker to get ALL results."""
-    #     logging.debug("running _generate_blobs...")
-    #     blobs = self.blob_fs.list_blobs(*args, **kwargs)
-    #     yield from blobs
-    #     while blobs.next_marker:
-    #         logging.debug(f"following next_marker {blobs.next_marker}")
-    #         kwargs["marker"] = blobs.next_marker
-    #         blobs = self.blob_fs.list_blobs(*args, **kwargs)
-    #         yield from blobs
-
-    # def _matches(
-    #     self, container_name, path, as_directory=False, delimiter="/", **kwargs
-    # ):
-    #     """check if the path returns an exact match"""
-
-    #     path = path.rstrip(delimiter)
-    #     gen = self.blob_fs.list_blob_names(
-    #         container_name=container_name,
-    #         prefix=path,
-    #         delimiter=delimiter,
-    #         num_results=None,
-    #     )
-
-    #     contents = list(gen)
-    #     if not contents:
-    #         return False
-
-    #     if as_directory:
-    #         return contents[0] == path + delimiter
-    #     else:
-    #         return contents[0] == path
-
     def ls(
         self,
         path: str,
@@ -754,7 +723,47 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # delete container
             self.service_client.delete_container(container_name)
 
-    def _rm(self, path, delimiter="/", **kwargs):
+    def rm(self, path, recursive=False, maxdepth=None):
+        """Delete files.
+        Parameters
+        ----------
+        path: str or list of str
+            File(s) to delete.
+        recursive: bool
+            If file(s) are directories, recursively delete contents and then
+            also remove the directory
+        maxdepth: int or None
+            Depth to pass to walk for finding files to delete, if recursive.
+            If None, there will be no limit and infinite recursion may be
+            possible.
+        """
+        path = self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
+        for p in reversed(path):
+            self.rm_file(p)
+
+    def expand_path(self, path, recursive=False, maxdepth=None):
+        """Turn one or more globs or directories into a list of all matching files"""
+        import pdb;pdb.set_trace()
+        if isinstance(path, str):
+            out = self.expand_path([path], recursive, maxdepth)
+        else:
+            out = set()
+            for p in path:
+                if has_magic(p):
+                    bit = set(self.glob(p))
+                    out |= bit
+                    if recursive:
+                        out += self.expand_path(p)
+                    continue
+                elif recursive:
+                    out |= set(self.find(p, withdirs=True))
+                # TODO: the following is maybe only necessary if NOT recursive
+                out.add(p)
+        if not out:
+            raise FileNotFoundError(path)
+        return list(sorted(out))
+
+    def rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
 
@@ -767,7 +776,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
             Delimiter to use when splitting the path
         """
         if self.isfile(path):
+            print(f"isfile path:  {path}")
             container_name, path = self.split_path(path, delimiter=delimiter)
+            print(container_name, path)
             container_client = self.service_client.get_container_client(
                 container=container_name
             )
