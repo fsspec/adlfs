@@ -16,7 +16,6 @@ from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 
-from glob import has_magic
 
 logger = logging.getLogger(__name__)
 

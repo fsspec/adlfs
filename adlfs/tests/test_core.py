@@ -28,6 +28,7 @@ def test_connect(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
+
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
