@@ -13,7 +13,7 @@ CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey
 
 @pytest.fixture(scope="session", autouse=True)
 def spawn_azurite():
-    print("Spawning docker container")
+    print('Starting azurite docker container')
     client = docker.from_env()
     azurite = client.containers.run(
         "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
@@ -28,15 +28,6 @@ def test_connect(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-
-@pytest.mark.xfail
-def test_ls0(storage):
-    fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    assert fs.ls(".") == ["data/"]
-
-
 def test_ls(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -45,6 +36,7 @@ def test_ls(storage):
     ## these are containers
     assert fs.ls("") == ["data/"]
     assert fs.ls("/") == ["data/"]
+    assert fs.ls(".") == ["data/"]
 
     ## these are top-level directories and files
     assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
@@ -378,7 +370,7 @@ def test_mkdir_rm_recursive(storage):
     assert fs.find("test_mkdir_rm_recursive") == []
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_deep_paths(storage):
     fs = adlfs.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -492,11 +484,11 @@ def test_dask_parquet(storage):
 
     dask_dataframe = dd.from_pandas(df, npartitions=1)
     dask_dataframe.to_parquet(
-        "abfs://test/test_group", storage_options=STORAGE_OPTIONS, engine="pyarrow"
+        "abfs://test/test_group.parquet", storage_options=STORAGE_OPTIONS, engine="pyarrow"
     )
     fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
-    assert fs.ls("test") == [
-        "test/test_group/_common_metadata",
-        "test/test_group/_metadata",
-        "test/test_group/part.0.parquet",
+    assert fs.ls("test/test_group.parquet") == [
+        "test/test_group.parquet/_common_metadata",
+        "test/test_group.parquet/_metadata",
+        "test/test_group.parquet/part.0.parquet",
     ]

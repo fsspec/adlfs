@@ -23,7 +23,7 @@ setup(
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
         "azure-storage-blob>=12.0.0",
-        "fsspec>=0.6.0,<0.8.",
+        "fsspec>=0.8.0",
         "msrestazure",
     ],
     tests_require=["pytest>5.0,<6.0", "docker"],
