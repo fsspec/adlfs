@@ -105,9 +105,10 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         )
 
         for file in files:
-            if "type" in file and file["type"] == "DIRECTORY":
-                file["type"] = "directory"
-
+            if "type" in file:
+                file["type"] = file["type"].lower()
+            if "length" in file:
+                file["size"] = file["length"]
         return files
 
     def info(self, path, invalidate_cache=True, expected_error_code=404, **kwargs):
@@ -117,6 +118,8 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             expected_error_code=expected_error_code,
         )
         info["size"] = info["length"]
+        """Azure FS uses upper case type values but fsspec is expecting lower case"""
+        info["type"] = info["type"].lower()
         return info
 
     def _trim_filename(self, fn, **kwargs):
@@ -409,6 +412,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
         elif self.account_key is not None:
             self.service_client = BlobServiceClient(
                 account_url=self.account_url, credential=self.account_key
+            )
+        elif self.sas_token is not None:
+            self.service_client = BlobServiceClient(
+                account_url=self.account_url + self.sas_token, credential=None
             )
         else:
             raise ValueError("unable to connect with provided params!!")
