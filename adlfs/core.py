@@ -408,6 +408,10 @@ class AzureBlobFileSystem(AbstractFileSystem):
             self.service_client = BlobServiceClient(
                 account_url=self.account_url, credential=self.account_key
             )
+        elif self.sas_token is not None:
+            self.service_client = BlobServiceClient(
+                account_url=self.account_url + self.sas_token, credential=None
+            )
         else:
             raise ValueError("unable to connect with provided params!!")
 
