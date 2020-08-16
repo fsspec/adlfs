@@ -13,7 +13,7 @@ CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey
 
 @pytest.fixture(scope="session", autouse=True)
 def spawn_azurite():
-    print('Starting azurite docker container')
+    print("Starting azurite docker container")
     client = docker.from_env()
     azurite = client.containers.run(
         "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
@@ -485,7 +485,9 @@ def test_dask_parquet(storage):
 
     dask_dataframe = dd.from_pandas(df, npartitions=1)
     dask_dataframe.to_parquet(
-        "abfs://test/test_group.parquet", storage_options=STORAGE_OPTIONS, engine="pyarrow"
+        "abfs://test/test_group.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
     )
     fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
     assert fs.ls("test/test_group.parquet") == [

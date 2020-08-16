@@ -547,7 +547,9 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 depth = depth + 1
                             for blob_page in blobs:
                                 for blob in blob_page:
-                                    directory_ = f"{blob.container}{delimiter}{blob.name}"
+                                    directory_ = (
+                                        f"{blob.container}{delimiter}{blob.name}"
+                                    )
                                     dir_parts = directory_.split("/", depth)[0:depth]
                                     directory = "/".join([d for d in dir_parts])
                                     directory = f"{directory}/"
@@ -750,15 +752,15 @@ class AzureBlobFileSystem(AbstractFileSystem):
             Delimiter to use when splitting the path
         """
         try:
-            kind = self.info(path)['type']
-            if kind == 'file':
+            kind = self.info(path)["type"]
+            if kind == "file":
                 container_name, path = self.split_path(path, delimiter=delimiter)
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
                 logging.debug(f"Delete blob {path} in {container_name}")
                 container_client.delete_blob(path)
-            elif kind == 'directory':
+            elif kind == "directory":
                 container_name, path = self.split_path(path, delimiter=delimiter)
                 container_client = self.service_client.get_container_client(
                     container=container_name
