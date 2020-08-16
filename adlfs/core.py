@@ -16,6 +16,7 @@ from fsspec import AbstractFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -449,39 +450,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    # def _generate_blobs(self, *args, **kwargs):
-    #     """Follow next_marker to get ALL results."""
-    #     logging.debug("running _generate_blobs...")
-    #     blobs = self.blob_fs.list_blobs(*args, **kwargs)
-    #     yield from blobs
-    #     while blobs.next_marker:
-    #         logging.debug(f"following next_marker {blobs.next_marker}")
-    #         kwargs["marker"] = blobs.next_marker
-    #         blobs = self.blob_fs.list_blobs(*args, **kwargs)
-    #         yield from blobs
-
-    # def _matches(
-    #     self, container_name, path, as_directory=False, delimiter="/", **kwargs
-    # ):
-    #     """check if the path returns an exact match"""
-
-    #     path = path.rstrip(delimiter)
-    #     gen = self.blob_fs.list_blob_names(
-    #         container_name=container_name,
-    #         prefix=path,
-    #         delimiter=delimiter,
-    #         num_results=None,
-    #     )
-
-    #     contents = list(gen)
-    #     if not contents:
-    #         return False
-
-    #     if as_directory:
-    #         return contents[0] == path + delimiter
-    #     else:
-    #         return contents[0] == path
-
     def ls(
         self,
         path: str,
@@ -511,11 +479,12 @@ class AzureBlobFileSystem(AbstractFileSystem):
         return_glob: bool
 
         """
-
+        # import pdb;pdb.set_trace()
         logging.debug(f"abfs.ls() is searching for {path}")
 
+        target_path = path.lstrip("/")
         container, path = self.split_path(path)
-        if (container in ["", delimiter]) and (path in ["", delimiter]):
+        if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             # This is the case where only the containers are being returned
             logging.info(
                 "Returning a list of containers in the azure blob storage account"
@@ -571,11 +540,20 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 return self._details(blob_page)
                         else:
                             outblobs = []
+                            depth = target_path.count("/")
+                            if depth == 0:
+                                depth = 2
+                            else:
+                                depth = depth + 1
                             for blob_page in blobs:
                                 for blob in blob_page:
-                                    outblobs.append(
+                                    directory_ = (
                                         f"{blob.container}{delimiter}{blob.name}"
                                     )
+                                    dir_parts = directory_.split("/", depth)[0:depth]
+                                    directory = "/".join([d for d in dir_parts])
+                                    directory = f"{directory}/"
+                                    outblobs.append(directory)
                             return outblobs
                     elif blobs[0]["blob_type"] == "BlockBlob":
                         if detail:
@@ -761,7 +739,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # delete container
             self.service_client.delete_container(container_name)
 
-    def _rm(self, path, delimiter="/", **kwargs):
+    def rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
 
@@ -773,23 +751,27 @@ class AzureBlobFileSystem(AbstractFileSystem):
         delimiter: str
             Delimiter to use when splitting the path
         """
-        if self.isfile(path):
-            container_name, path = self.split_path(path, delimiter=delimiter)
-            container_client = self.service_client.get_container_client(
-                container=container_name
-            )
-            logging.debug(f"Delete blob {path} in {container_name}")
-            container_client.delete_blob(path)
-        elif self.isdir(path):
-            container_name, path = self.split_path(path, delimiter=delimiter)
-            container_client = self.service_client.get_container_client(
-                container=container_name
-            )
-            if (container_name + delimiter in self.ls("")) and (not path):
-                logging.debug(f"Delete container {container_name}")
-                container_client.delete_container(container_name)
-        else:
-            raise RuntimeError(f"cannot delete {path}")
+        try:
+            kind = self.info(path)["type"]
+            if kind == "file":
+                container_name, path = self.split_path(path, delimiter=delimiter)
+                container_client = self.service_client.get_container_client(
+                    container=container_name
+                )
+                logging.debug(f"Delete blob {path} in {container_name}")
+                container_client.delete_blob(path)
+            elif kind == "directory":
+                container_name, path = self.split_path(path, delimiter=delimiter)
+                container_client = self.service_client.get_container_client(
+                    container=container_name
+                )
+                if (container_name + delimiter in self.ls("")) and (not path):
+                    logging.debug(f"Delete container {container_name}")
+                    container_client.delete_container()
+            else:
+                raise RuntimeError(f"Unable to delete {path}!")
+        except FileNotFoundError:
+            pass
 
     def _open(
         self,
