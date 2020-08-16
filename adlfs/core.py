@@ -737,24 +737,6 @@ class AzureBlobFileSystem(AbstractFileSystem):
             # delete container
             self.service_client.delete_container(container_name)
 
-    def rm(self, path, recursive=False, maxdepth=None):
-        """Delete files.
-        Parameters
-        ----------
-        path: str or list of str
-            File(s) to delete.
-        recursive: bool
-            If file(s) are directories, recursively delete contents and then
-            also remove the directory
-        maxdepth: int or None
-            Depth to pass to walk for finding files to delete, if recursive.
-            If None, there will be no limit and infinite recursion may be
-            possible.
-        """
-        path = self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
-        for p in reversed(path):
-            self.rm_file(p)
-
     def rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
