@@ -4,15 +4,18 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+import asyncio
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.core.paging import ItemPaged
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._models import BlobBlock, BlobPrefix
+from azure.storage.blob.aio import BlobServiceClient
+from azure.storage.blob.aio._models import BlobPrefix
+from azure.storage.blob._models import BlobBlock
 from fsspec import AbstractFileSystem
+from fsspec.asyn import AsyncFileSystem
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 
@@ -236,7 +239,7 @@ class AzureDatalakeFile(AzureDLFile):
         return self.loc
 
 
-class AzureBlobFileSystem(AbstractFileSystem):
+class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
 
@@ -450,7 +453,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    def ls(
+    async def ls(
         self,
         path: str,
         detail: bool = False,
@@ -489,12 +492,14 @@ class AzureBlobFileSystem(AbstractFileSystem):
             logging.info(
                 "Returning a list of containers in the azure blob storage account"
             )
+            contents = self.service_client.list_containers(include_metadata=True)
             if detail:
-                contents = self.service_client.list_containers(include_metadata=True)
-                return self._details(contents)
+                # contents = self.service_client.list_containers(include_metadata=True)
+                res = [await self._details(c) async for c in contents]
+                return res
             else:
-                contents = self.service_client.list_containers()
-                return [f"{c.name}{delimiter}" for c in contents]
+                contents = [f"{c.name}{delimiter}" async for c in contents]
+                return contents
 
         else:
             if container not in ["", delimiter]:
@@ -504,14 +509,15 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 )
                 blobs = container_client.walk_blobs(name_starts_with=path)
                 try:
-                    blobs = [blob for blob in blobs]
+                    blobs = [blob async for blob in blobs]
                 except Exception:
                     raise FileNotFoundError
                 if len(blobs) > 1:
                     if return_glob:
                         return self._details(blobs, return_glob=True)
                     if detail:
-                        return self._details(blobs)
+                        res = [await self._details(blob) for blob in blobs]
+                        return res
                     else:
                         return [
                             f"{blob.container}{delimiter}{blob.name}" for blob in blobs
@@ -528,16 +534,18 @@ class AzureBlobFileSystem(AbstractFileSystem):
                         if return_glob:
                             return self._details(blobs, return_glob=True)
                         if detail:
-                            return self._details(blobs)
+                            res = await self._details(blobs)
+                            return res
                         else:
                             return [
                                 f"{blob.container}{delimiter}{blob.name}"
-                                for blob in blobs
+                                async for blob in blobs
                             ]
                     elif isinstance(blobs[0], BlobPrefix):
                         if detail:
                             for blob_page in blobs:
-                                return self._details(blob_page)
+                                res = await self._details(blob_page)
+                                return res
                         else:
                             outblobs = []
                             depth = target_path.count("/")
@@ -545,8 +553,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
                                 depth = 2
                             else:
                                 depth = depth + 1
-                            for blob_page in blobs:
-                                for blob in blob_page:
+                            async for blob_page in blobs:
+                                async for blob in blob_page:
                                     directory_ = (
                                         f"{blob.container}{delimiter}{blob.name}"
                                     )
@@ -557,7 +565,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
                             return outblobs
                     elif blobs[0]["blob_type"] == "BlockBlob":
                         if detail:
-                            return self._details(blobs)
+                            res = [await self._details(blob) for blob in blobs]
+                            return res
                         else:
                             return [
                                 f"{blob.container}{delimiter}{blob.name}"
@@ -565,8 +574,8 @@ class AzureBlobFileSystem(AbstractFileSystem):
                             ]
                     elif isinstance(blobs[0], ItemPaged):
                         outblobs = []
-                        for page in blobs:
-                            for b in page:
+                        async for page in blobs:
+                            async for b in page:
                                 outblobs.append(b)
                     else:
                         raise FileNotFoundError(
@@ -580,7 +589,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
                 else:
                     raise FileNotFoundError
 
-    def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
+    async def _details(self, content, delimiter="/", return_glob: bool = False, **kwargs):
         """
         Return a list of dictionaries of specifying details about the contents
 
@@ -599,28 +608,30 @@ class AzureBlobFileSystem(AbstractFileSystem):
         List of dicts
             Returns details about the contents, such as name, size and type
         """
-        pathlist = []
-        for c in contents:
-            data = {}
-            if c.has_key("container"):  # NOQA
-                data["name"] = f"{c.container}{delimiter}{c.name}"
-                if c.has_key("size"):  # NOQA
-                    data["size"] = c.size
-                else:
-                    data["size"] = 0
-                if data["size"] == 0:
-                    data["type"] = "directory"
-                else:
-                    data["type"] = "file"
+        import pdb;pdb.set_trace()
+        # pathlist = []
+        # try:
+        # for c in contents:
+        data = {}
+        if content.has_key("container"):  # NOQA
+            data["name"] = f"{content.container}{delimiter}{content.name}"
+            if content.has_key("size"):  # NOQA
+                data["size"] = content.size
             else:
-                data["name"] = f"{c.name}{delimiter}"
                 data["size"] = 0
+            if data["size"] == 0:
                 data["type"] = "directory"
-            if return_glob:
-                data["name"] = data["name"].rstrip("/")
+            else:
+                data["type"] = "file"
+        else:
+            data["name"] = f"{content.name}{delimiter}"
+            data["size"] = 0
+            data["type"] = "directory"
+        if return_glob:
+            data["name"] = data["name"].rstrip("/")
 
-            pathlist.append(data)
-        return pathlist
+        # pathlist.append(data)
+        return data
 
     def walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path

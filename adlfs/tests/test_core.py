@@ -494,4 +494,4 @@ def test_dask_parquet(storage):
         "test/test_group.parquet/_common_metadata",
         "test/test_group.parquet/_metadata",
         "test/test_group.parquet/part.0.parquet",
-    ]
+    ]ß
