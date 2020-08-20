@@ -113,279 +113,279 @@ async def test_info(storage):
     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
-# @pytest.mark.asyncio
-# async def test_find(storage):
+@pytest.mark.asyncio
+async def test_find(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    ## just the directory name
+    assert await fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
+    assert await fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
+
+    assert await fs.find("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    assert await fs.find("data/root/c/") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+
+    ## all files
+    assert await fs.find("data/root") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert await fs.find("data/root", withdirs=False) == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    # all files and directories
+    assert await fs.find("data/root", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert await fs.find("data/root/", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    ## missing
+    assert await fs.find("data/missing") == []
+
+
+# @pytest.mark.xfail
+# def test_find_missing(storage):
 #     fs = adlfs.AzureBlobFileSystem(
 #         account_name=storage.account_name, connection_string=CONN_STR
 #     )
+#     assert await fs.find("data/roo") == []
 
-#     ## just the directory name
-#     assert await fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
-#     assert await fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
+@pytest.mark.asyncio
+async def test_glob(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     assert await fs.find("data/root/c") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-#     assert await fs.find("data/root/c/") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
+    ## just the directory name
+    assert await fs.glob("data/root") == ["data/root"]
 
-#     ## all files
-#     assert await fs.find("data/root") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert await fs.find("data/root", withdirs=False) == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
+    # top-level contents of a directory
+    assert await fs.glob("data/root/") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
+    assert await fs.glob("data/root/*") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
 
-#     # all files and directories
-#     assert await fs.find("data/root", withdirs=True) == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert await fs.find("data/root/", withdirs=True) == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
+    assert await fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
+    assert await fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
 
-#     ## missing
-#     assert await fs.find("data/missing") == []
+    ## across directories
+    assert await fs.glob("data/root/*/file.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+    ]
 
+    ## regex match
+    assert await fs.glob("data/root/*/file[0-9].txt") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
 
-# # @pytest.mark.xfail
-# # def test_find_missing(storage):
-# #     fs = adlfs.AzureBlobFileSystem(
-# #         account_name=storage.account_name, connection_string=CONN_STR
-# #     )
-# #     assert await fs.find("data/roo") == []
+    ## text files
+    assert await fs.glob("data/root/*/file*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
 
-# @pytest.mark.asyncio
-# async def test_glob(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+    ## all text files
+    assert await fs.glob("data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
-#     ## just the directory name
-#     assert await fs.glob("data/root") == ["data/root"]
+    ## all files
+    assert await fs.glob("data/root/**") == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert await fs.glob("data/roo**") == [
+        "data/root",
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
-#     # top-level contents of a directory
-#     assert await fs.glob("data/root/") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
-#     assert await fs.glob("data/root/*") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
-
-#     assert await fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
-#     assert await fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
-
-#     ## across directories
-#     assert await fs.glob("data/root/*/file.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#     ]
-
-#     ## regex match
-#     assert await fs.glob("data/root/*/file[0-9].txt") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-
-#     ## text files
-#     assert await fs.glob("data/root/*/file*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-
-#     ## all text files
-#     assert await fs.glob("data/**/*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     ## all files
-#     assert await fs.glob("data/root/**") == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert await fs.glob("data/roo**") == [
-#         "data/root",
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     ## missing
-#     assert await fs.glob("data/missing/*") == []
-
-# # @pytest.mark.asyncio
-# def test_open_file(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-#     f = fs.open("/data/root/a/file.txt")
-
-#     result = f.read()
-#     assert result == b"0123456789"
+    ## missing
+    assert await fs.glob("data/missing/*") == []
 
 
-# @pytest.mark.asyncio
-# async def test_rm(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_open_file(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    f = fs.open("/data/root/a/file.txt")
 
-#     await fs.rm("/data/root/a/file.txt")
-
-#     with pytest.raises(FileNotFoundError):
-#         await fs.ls("/data/root/a/file.txt")
+    result = f.read()
+    assert result == b"0123456789"
 
 
-# @pytest.mark.asyncio
-# async def test_rm_recursive(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+@pytest.mark.asyncio
+async def test_rm(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     assert "data/root/c/" in await fs.ls("/data/root")
-#     assert await fs.ls("data/root/c") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-#     await fs.rm("data/root/c", recursive=True)
-#     assert "data/root/c/" not in await fs.ls("/data/root")
+    await fs.rm("/data/root/a/file.txt")
 
-#     with pytest.raises(FileNotFoundError):
-#         await fs.ls("data/root/c")
+    with pytest.raises(FileNotFoundError):
+        await fs.ls("/data/root/a/file.txt")
 
-# @pytest.mark.asyncio
-# async def test_mkdir_rmdir(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name,
-#         connection_string=CONN_STR,
-#     )
+
+@pytest.mark.asyncio
+async def test_rm_recursive(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root/c/" in await fs.ls("/data/root")
+    assert await fs.ls("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    await fs.rm("data/root/c", recursive=True)
+    assert "data/root/c/" not in await fs.ls("/data/root")
+
+    with pytest.raises(FileNotFoundError):
+        await fs.ls("data/root/c")
+
+@pytest.mark.asyncio
+async def test_mkdir_rmdir(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
         
-#     await fs.mkdir("new-container")
-#     assert "new-container/" in await fs.ls("")
-#     assert await fs.ls("new-container") == []
+    await fs.mkdir("new-container")
+    assert "new-container/" in await fs.ls("")
+    assert await fs.ls("new-container") == []
 
-#     async with adlfs.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
-#         await f.write(b"0123456789")
+    async with adlfs.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
+        await f.write(b"0123456789")
 
-#     async with adlfs.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
-#         await f.write(b"0123456789")
+    async with adlfs.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
+        await f.write(b"0123456789")
 
-#     async with fs.open("new-container/dir/file.txt", "wb") as f:
-#         await f.write(b"0123456789")
+    async with fs.open("new-container/dir/file.txt", "wb") as f:
+        await f.write(b"0123456789")
 
-#     # Check to verify you can skip making a directory if the container
-#     # already exists, but still create a file in that directory
-#     await fs.mkdir("new-container/dir/file.txt", exists_ok=True)
-#     assert "new-container/" in await fs.ls("")
+    # Check to verify you can skip making a directory if the container
+    # already exists, but still create a file in that directory
+    await fs.mkdir("new-container/dir/file.txt", exists_ok=True)
+    assert "new-container/" in await fs.ls("")
 
-#     await fs.mkdir("new-container/file2.txt", exists_ok=True)
-#     async with fs.open("new-container/file2.txt", "wb") as f:
-#         await f.write(b"0123456789")
-#     assert "new-container/file2.txt" in await fs.ls("new-container")
+    await fs.mkdir("new-container/file2.txt", exists_ok=True)
+    async with fs.open("new-container/file2.txt", "wb") as f:
+        await f.write(b"0123456789")
+    assert "new-container/file2.txt" in await fs.ls("new-container")
 
-#     await fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
-#     async with fs.open("new-container/dir/file2.txt", "wb") as f:
-#         await f.write(b"0123456789")
-#     print(await fs.ls("new-container"))
-#     assert "new-container/dir/file2.txt" in await fs.ls("new-container/dir")
+    await fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
+    async with fs.open("new-container/dir/file2.txt", "wb") as f:
+        await f.write(b"0123456789")
+    print(await fs.ls("new-container"))
+    assert "new-container/dir/file2.txt" in await fs.ls("new-container/dir")
 
-#     # Also verify you can make a nested directory structure
-#     await fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
-#     async with fs.open("new-container/dir2/file.txt", "wb") as f:
-#         await f.write(b"0123456789")
-#     assert "new-container/dir2/file.txt" in await fs.ls("new-container/dir2")
-#     await fs.rm("new-container/dir2", recursive=True)
+    # Also verify you can make a nested directory structure
+    await fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
+    async with fs.open("new-container/dir2/file.txt", "wb") as f:
+        await f.write(b"0123456789")
+    assert "new-container/dir2/file.txt" in await fs.ls("new-container/dir2")
+    await fs.rm("new-container/dir2", recursive=True)
 
-#     await fs.rm("new-container/dir", recursive=True)
-#     assert await fs.ls("new-container") == [
-#         "new-container/file.txt",
-#         "new-container/file2.txt",
-#     ]
+    await fs.rm("new-container/dir", recursive=True)
+    assert await fs.ls("new-container") == [
+        "new-container/file.txt",
+        "new-container/file2.txt",
+    ]
 
-#     await fs.rm("new-container/file.txt")
-#     await fs.rm("new-container/file2.txt")
-#     await fs.rmdir("new-container")
+    await fs.rm("new-container/file.txt")
+    await fs.rm("new-container/file2.txt")
+    await fs.rmdir("new-container")
 
-#     assert "new-container/" not in await fs.ls("")
+    assert "new-container/" not in await fs.ls("")
 
 
-# @pytest.mark.asyncio
-# async def test_mkdir_rm_recursive(storage):
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+@pytest.mark.asyncio
+async def test_mkdir_rm_recursive(storage):
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     await fs.mkdir("test_mkdir_rm_recursive")
-#     assert "test_mkdir_rm_recursive/" in await fs.ls("")
+    await fs.mkdir("test_mkdir_rm_recursive")
+    assert "test_mkdir_rm_recursive/" in await fs.ls("")
 
-#     async with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
-#         await f.write(b"0123456789")
+    async with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
+        await f.write(b"0123456789")
 
-#     async with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
-#         await f.write(b"ABCD")
+    async with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
+        await f.write(b"ABCD")
 
-#     async with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
-#         await f.write(b"abcdef")
+    async with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
+        await f.write(b"abcdef")
 
-#     assert await fs.find("test_mkdir_rm_recursive") == [
-#         "test_mkdir_rm_recursive/dir/file.txt",
-#         "test_mkdir_rm_recursive/dir/file2.txt",
-#         "test_mkdir_rm_recursive/file.txt",
-#     ]
+    assert await fs.find("test_mkdir_rm_recursive") == [
+        "test_mkdir_rm_recursive/dir/file.txt",
+        "test_mkdir_rm_recursive/dir/file2.txt",
+        "test_mkdir_rm_recursive/file.txt",
+    ]
 
-#     await fs.rm("test_mkdir_rm_recursive", recursive=True)
+    await fs.rm("test_mkdir_rm_recursive", recursive=True)
 
-#     assert "test_mkdir_rm_recursive/" not in await fs.ls("")
-#     assert await fs.find("test_mkdir_rm_recursive") == []
+    assert "test_mkdir_rm_recursive/" not in await fs.ls("")
+    assert await fs.find("test_mkdir_rm_recursive") == []
 
 
 @pytest.mark.asyncio
@@ -415,71 +415,72 @@ async def test_deep_paths(storage):
     assert await fs.find("test_deep") == []
 
 
-# def test_large_blob(storage):
-#     import tempfile
-#     import hashlib
-#     import io
-#     import shutil
-#     from pathlib import Path
+@pytest.mark.asyncio
+async def test_large_blob(storage):
+    import tempfile
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
 
-#     fs = adlfs.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+    fs = adlfs.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     # create a 20MB byte array, ensure it's larger than blocksizes to force a
-#     # chuncked upload
-#     blob_size = 120_000_000
-#     assert blob_size > fs.blocksize
-#     assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
+    # create a 20MB byte array, ensure it's larger than blocksizes to force a
+    # chuncked upload
+    blob_size = 120_000_000
+    assert blob_size > fs.blocksize
+    assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
 
-#     data = b"1" * blob_size
-#     _hash = hashlib.md5(data)
-#     expected = _hash.hexdigest()
+    data = b"1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
 
-#     # create container
-#     fs.mkdir("chunk-container")
+    # create container
+    await fs.mkdir("chunk-container")
 
-#     # upload the data using fs.open
-#     path = "chunk-container/large-blob.bin"
-#     with fs.open(path, "wb") as dst:
-#         dst.write(data)
+    # upload the data using fs.open
+    path = "chunk-container/large-blob.bin"
+    async with fs.open(path, "wb") as dst:
+        await dst.write(data)
 
-#     assert fs.exists(path)
-#     assert fs.size(path) == blob_size
+    assert await fs.exists(path)
+    assert await fs.size(path) == blob_size
 
-#     del data
+    del data
 
-#     # download with fs.open
-#     bio = io.BytesIO()
-#     with fs.open(path, "rb") as src:
-#         shutil.copyfileobj(src, bio)
+    # download with fs.open
+    bio = io.BytesIO()
+    async with fs.open(path, "rb") as src:
+        await shutil.copyfileobj(src, bio)
 
-#     # read back the data and calculate md5
-#     bio.seek(0)
-#     data = bio.read()
-#     _hash = hashlib.md5(data)
-#     result = _hash.hexdigest()
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
 
-#     assert expected == result
+    assert expected == result
 
-#     # do the same but using upload/download and a tempdir
-#     path = path = "chunk-container/large_blob2.bin"
-#     with tempfile.TemporaryDirectory() as td:
-#         local_blob: Path = Path(td) / "large_blob2.bin"
-#         with local_blob.open("wb") as fo:
-#             fo.write(data)
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
+    # do the same but using upload/download and a tempdir
+    # path = path = "chunk-container/large_blob2.bin"
+    # async with tempfile.TemporaryDirectory() as td:
+    #     local_blob: Path = Path(td) / "large_blob2.bin"
+    #     async with local_blob.open("wb") as fo:
+    #         await fo.write(data)
+    #     assert local_blob.exists()
+    #     assert local_blob.stat().st_size == blob_size
 
-#         fs.upload(str(local_blob), path)
-#         assert fs.exists(path)
-#         assert fs.size(path) == blob_size
+    #     fs.upload(str(local_blob), path)
+    #     assert await fs.exists(path)
+    #     assert fs.size(path) == blob_size
 
-#         # download now
-#         local_blob.unlink()
-#         fs.download(path, str(local_blob))
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
+    #     # download now
+    #     local_blob.unlink()
+    #     fs.download(path, str(local_blob))
+    #     assert local_blob.exists()
+    #     assert local_blob.stat().st_size == blob_size
 
 
 # def test_dask_parquet(storage):

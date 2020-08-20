@@ -9,6 +9,7 @@ import functools
 import io
 from glob import has_magic
 import logging
+from threading import Thread
 import weakref
 import warnings
 
@@ -576,10 +577,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return list(out)
 
-    async def yield_blobs(self, blobs):
-        for blob in blobs:
-            yield blob
-
     async def ls(
         self,
         path: str,
@@ -940,6 +937,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # delete container
             await self.service_client.delete_container(container_name)
 
+    async def size(self, path):
+        """Size in bytes of file"""
+        res = await self.info(path)
+        size = res.get("size", None)
+        return size
+
     async def rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
@@ -1101,6 +1104,7 @@ class AzureBlobFile(AbstractBufferedFile):
         from fsspec.core import caches
 
         container_name, blob = fs.split_path(path)
+        self.path = path
         self.container_name = container_name
         self.blob = blob
         self.container_client = fs.service_client.get_container_client(
@@ -1110,9 +1114,14 @@ class AzureBlobFile(AbstractBufferedFile):
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
         if mode == "rb":
-            # import pdb;pdb.set_trace()
+            import pdb;pdb.set_trace()
             if not hasattr(self, "details"):
-                self.details = fs.loop.run_until_complete(fs.info(path))
+                try:
+                    self.details = fs.loop.run_until_complete(fs.info(path))
+                except RuntimeError:
+                    self.details = self.get_info().__await__()
+                    
+                    # self.details = loop.run_until_complete(fs.info(path))
             self.size = self.details["size"]
             self.cache = caches[cache_type](
                 self.blocksize, self._fetch_range, self.size,
@@ -1134,6 +1143,12 @@ class AzureBlobFile(AbstractBufferedFile):
             blocksize=self.blocksize,
         )
 
+    async def get_info(self):
+        await self.fs.info(self.path)
+
+    def __await__(self):
+        return get_info().__await()
+
     def _fetch_range(self, start: int, end: int, **kwargs):
         """
         Download a chunk of data specified by start and end
@@ -1151,9 +1166,6 @@ class AzureBlobFile(AbstractBufferedFile):
         ))
         return self.fs.loop.run_until_complete(blob.readall())
 
-    async def run_async_task(self, coro):
-        future = asyncio.ensure_future(coro)
-        await future
     
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
@@ -1247,7 +1259,7 @@ class AzureBlobFile(AbstractBufferedFile):
         out = self.buffer.write(data)
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
-            await self.flush
+            await self.flush()
         return out
 
     async def close(self):
@@ -1278,14 +1290,6 @@ class AzureBlobFile(AbstractBufferedFile):
     async def __aenter__(self):
         return self
     
-    # def _finalize(self):
-    #     try:
-    #         loop = asyncio.get_event_loop()
-    #         loop.run_until_complete(self.close())
-    #     except Exception as e:
-    #         print(f"Errored for {e}")
-    #         self.fs.loop.run_until_complete(self.close())
-    
     def __del__(self):
         print("dundering")
-        # self._finalize()
+        self.fs.loop.close()
