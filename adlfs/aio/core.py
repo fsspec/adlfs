@@ -575,7 +575,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return out
         else:
             return list(out)
- 
+
+    async def yield_blobs(self, blobs):
+        for blob in blobs:
+            yield blob
+
     async def ls(
         self,
         path: str,
@@ -627,7 +631,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         else:
             if container not in ["", delimiter]:
-                # import pdb;pdb.set_trace()
                 # This is the case where the container name is passed
                 container_client = self.service_client.get_container_client(
                     container=container
@@ -639,7 +642,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     raise FileNotFoundError
                 if len(blobs) > 1:
                     if return_glob:
-                        return [await self._details(blob, return_glob=True) for blob in blobs]
+                        res = [await self._details(blob, return_glob=True) for blob in blobs]
+                        return res
                     if detail:
                         res = [await self._details(blob) for blob in blobs]
                         return res
@@ -658,24 +662,25 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         path = blobs[0].name
                         blobs = container_client.walk_blobs(name_starts_with=path)
                         if return_glob:
-                            return [await self._details(blob, return_glob=True) async for blob in blobs]
+                            res = [await self._details(blob, return_glob=True) async for blob in blobs]
+                            return res
                         if detail:
                             res = [await self._details(blob) async for blob in blobs]
                             return res
                         else:
-                            return [
+                            res  = [
                                 f"{blob.container}{delimiter}{blob.name}"
                                 async for blob in blobs
                             ]
+                            return res
                     elif isinstance(blobs[0], BlobPrefix):
-                        # import pdb;pdb.set_trace()
                         outblobs = []
                         depth = target_path.count("/")
                         if depth == 0:
                             depth = 2
                         else:
                             depth = depth + 1
-                        async for blob_page in blobs:
+                        for blob_page in blobs:
                             async for blob in blob_page:
                                 if detail:
                                     res = await self._details(blob)
@@ -690,7 +695,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                     outblobs.append(directory)
                                 return outblobs
                     elif blobs[0]["blob_type"] == "BlockBlob":
-                        # import pdb;pdb.set_trace()
                         if detail:
                             res = [await self._details(blob) for blob in blobs]
                             return res
@@ -700,7 +704,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                 for blob in blobs
                             ]
                     elif isinstance(blobs[0], ItemPaged):
-                        # import pdb;pdb.set_trace()
                         outblobs = []
                         async for page in blobs:
                             async for b in page:
@@ -710,7 +713,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             f"Unable to identify blobs in {path} for {blobs[0].name}"
                         )
                 elif len(blobs) == 0:
-                    # import pdb;pdb.set_trace()
                     if return_glob or (path in ["", delimiter]):
                         return []
                     else:
@@ -771,11 +773,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         # TODO: allow equivalent of -name parameter
-        # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
         async for path, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
+            if files == []:
+                # import pdb;pdb.set_trace()
+                files = {}
+                dirs = {}
             if withdirs:
                 files.update(dirs)
             out.update({info["name"]: info for name, info in files.items()})
@@ -793,7 +798,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # import pdb;pdb.set_trace()
         for p, d, f in zip([path], [dirs], [files]):
             yield p, d, f
-        
+
     async def walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path
 
@@ -821,10 +826,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         files = {}
 
         detail = kwargs.pop("detail", False)
+        # import pdb;pdb.set_trace()
         try:
             listing = await self.ls(path, detail=True, return_glob=True, **kwargs)
         except (FileNotFoundError, IOError):
-            yield [], [], []
+            listing = []
+            # self._stop_iterating()
+            # yield [], [], []
 
         for info in listing:
             # each info name must be at least [path]/part , but here
@@ -842,10 +850,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 files[name] = info
 
         if detail:
-            # import pdb;pdb.set_trace()
             for p, d, f in self._walk(path, dirs, files):
                 yield p, d, f
-
         else:
             yield path, list(dirs), list(files)
 
@@ -855,8 +861,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return
 
         for d in full_dirs:
-            async for path, files, dirs in self.walk(d, maxdepth=maxdepth, detail=detail, **kwargs):
-                yield path, files, dirs
+            async for path, dirs, files in self.walk(d, maxdepth=maxdepth, detail=detail, **kwargs):
+                yield path, dirs, files
     
     async def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         """
@@ -930,7 +936,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(path, delimiter=delimiter)
-        if (container_name + delimiter in self.ls("")) and (not path):
+        if (container_name + delimiter in await self.ls("")) and (not path):
             # delete container
             await self.service_client.delete_container(container_name)
 
@@ -962,7 +968,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                if (container_name + delimiter in self.ls("")) and (not path):
+                if (container_name + delimiter in await self.ls("")) and (not path):
                     logging.debug(f"Delete container {container_name}")
                     await container_client.delete_container()
             else:
@@ -1161,7 +1167,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise RuntimeError(f"Failed for {e}")
         else:
-            return await super()._initiate_upload()
+            return super()._initiate_upload()
 
     async def _upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -1217,11 +1223,11 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = 0
             await self._initiate_upload()
 
-        if self._upload_chunk(final=force) is not False:
+        if await self._upload_chunk(final=force) is not False:
             self.offset += self.buffer.seek(0, 2)
             self.buffer = io.BytesIO()
 
-    def write(self, data):
+    async def write(self, data):
         """
         Write data to buffer.
         Buffer only sent on flush() or if buffer is greater than
@@ -1231,6 +1237,7 @@ class AzureBlobFile(AbstractBufferedFile):
         data: bytes
             Set of bytes to be written.
         """
+        # import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
@@ -1240,32 +1247,45 @@ class AzureBlobFile(AbstractBufferedFile):
         out = self.buffer.write(data)
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
-            self.fs.loop.call_soon_threadsafe(self.flush)
+            await self.flush
         return out
 
-    def close(self):
+    async def close(self):
         """ Close file
         Finalizes writes, discards cache
         """
+        # import pdb;pdb.set_trace()
         if self.closed:
             return
         if self.mode == "rb":
             self.cache = None
         else:
             if not self.forced:
-                self.fs.loop.call_soon_threadsafe(functools.partial(self.flush, force=True))
+                await self.flush(force=True)
             if self.fs is not None:
                 self.fs.invalidate_cache(self.path)
                 self.fs.invalidate_cache(self.fs._parent(self.path))
 
         self.closed = True
-
+        
     def __exit__(self, *args):
-        loop = asyncio.get_event_loop()
-        loop.call_soon_threadsafe(functools.partial(self.close))
+        self.close()
 
-    def __aexit__(self, *args):
-        return True
+    async def __aexit__(self, *args):
+        print('exiting...')
+        await self.close()
+    
+    async def __aenter__(self):
+        return self
+    
+    # def _finalize(self):
+    #     try:
+    #         loop = asyncio.get_event_loop()
+    #         loop.run_until_complete(self.close())
+    #     except Exception as e:
+    #         print(f"Errored for {e}")
+    #         self.fs.loop.run_until_complete(self.close())
     
     def __del__(self):
-        self.close()
+        print("dundering")
+        # self._finalize()
