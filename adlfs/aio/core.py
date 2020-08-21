@@ -348,6 +348,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_secret = client_secret
         self.tenant_id = tenant_id
         self.loop = loop
+        self.concurrent_loop = None
         if (
             self.credential is None
             and self.account_key is None
@@ -440,6 +441,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 self.loop = self.service_client._loop
         else:
             self.service_client._loop = self.loop
+        if self.concurrent_loop is None:
+            self.concurrent_loop = get_loop()
 
     def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
@@ -988,7 +991,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # any exception allowed bar FileNotFoundError?
             return False
         
-
     async def expand_path(self, path, recursive=False, maxdepth=None):
         """Turn one or more globs or directories into a list of all matching files"""
         if isinstance(path, str):
@@ -1009,6 +1011,63 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if not out:
             raise FileNotFoundError(path)
         return list(sorted(out))
+
+    async def open(self, path, mode="rb", block_size=None, cache_options=None, **kwargs):
+        """
+        Return a file-like object from the filesystem
+        The resultant instance must function correctly in a context ``with``
+        block.
+        Parameters
+        ----------
+        path: str
+            Target file
+        mode: str like 'rb', 'w'
+            See builtin ``open()``
+        block_size: int
+            Some indication of buffering - this is a value in bytes
+        cache_options : dict, optional
+            Extra arguments to pass through to the cache.
+        encoding, errors, newline: passed on to TextIOWrapper for text mode
+        """
+        import io
+        import pdb;pdb.set_trace()
+        path = self._strip_protocol(path)
+        if "b" not in mode:
+            mode = mode.replace("t", "") + "b"
+
+            text_kwargs = {
+                k: kwargs.pop(k)
+                for k in ["encoding", "errors", "newline"]
+                if k in kwargs
+            }
+            return io.TextIOWrapper(
+                await self.open(path, mode, block_size, **kwargs), **text_kwargs
+            )
+        else:
+            ac = kwargs.pop("autocommit", not self._intrans)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                f = await self.concurrent_loop.run_in_executor(
+                    executor,
+                    functools.partial(
+                        self._open,
+                        path,
+                        mode=mode,
+                        block_size=block_size,
+                        autocommit=ac,
+                        cache_options=cache_options,
+                        **kwargs
+                    )  
+                )
+                f = f.result()
+            if not ac:
+                self.transaction.files.append(f)
+            return f
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return True
 
     def _open(
         self,
@@ -1052,6 +1111,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_options=cache_options,
             **kwargs
         )
+
 
 class AzureBlobFile(AbstractBufferedFile):
     """ File-like operations on Azure Blobs """
@@ -1116,12 +1176,7 @@ class AzureBlobFile(AbstractBufferedFile):
         if mode == "rb":
             import pdb;pdb.set_trace()
             if not hasattr(self, "details"):
-                try:
-                    self.details = fs.loop.run_until_complete(fs.info(path))
-                except RuntimeError:
-                    self.details = self.get_info().__await__()
-                    
-                    # self.details = loop.run_until_complete(fs.info(path))
+                self.details = asyncio.run_coroutine_threadsafe(fs.info(path), fs.loop)
             self.size = self.details["size"]
             self.cache = caches[cache_type](
                 self.blocksize, self._fetch_range, self.size,
@@ -1143,9 +1198,6 @@ class AzureBlobFile(AbstractBufferedFile):
             blocksize=self.blocksize,
         )
 
-    async def get_info(self):
-        await self.fs.info(self.path)
-
     def __await__(self):
         return get_info().__await()
 
@@ -1166,7 +1218,6 @@ class AzureBlobFile(AbstractBufferedFile):
         ))
         return self.fs.loop.run_until_complete(blob.readall())
 
-    
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         # import pdb;pdb.set_trace()
