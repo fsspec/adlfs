@@ -28,6 +28,15 @@ from fsspec.implementations.http import get_client
 from fsspec.utils import infer_storage_options, tokenize
 
 
+from adlfs.aio.caching import (  # noqa: F401
+    BaseCache,
+    MMapCache,
+    ReadAheadCache,
+    BytesCache,
+    BlockCache,
+    caches,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -1012,7 +1021,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError(path)
         return list(sorted(out))
 
-    async def open(self, path, mode="rb", block_size=None, cache_options=None, **kwargs):
+    async def open(self, path, mode="rb", block_size=None, cache_options=None, cache_type="readahead", **kwargs):
         """
         Return a file-like object from the filesystem
         The resultant instance must function correctly in a context ``with``
@@ -1030,7 +1039,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         encoding, errors, newline: passed on to TextIOWrapper for text mode
         """
         import io
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
         if "b" not in mode:
             mode = mode.replace("t", "") + "b"
@@ -1041,12 +1050,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if k in kwargs
             }
             return io.TextIOWrapper(
-                await self.open(path, mode, block_size, **kwargs), **text_kwargs
+                await self.open(path, mode, block_size, cache_type="readahead", **kwargs), **text_kwargs
             )
         else:
             ac = kwargs.pop("autocommit", not self._intrans)
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                f = await self.concurrent_loop.run_in_executor(
+                f = await self.loop.run_in_executor(
                     executor,
                     functools.partial(
                         self._open,
@@ -1055,10 +1064,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         block_size=block_size,
                         autocommit=ac,
                         cache_options=cache_options,
+                        cache_type=cache_type,
                         **kwargs
                     )  
                 )
-                f = f.result()
             if not ac:
                 self.transaction.files.append(f)
             return f
@@ -1076,6 +1085,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         block_size: int = None,
         autocommit: bool = True,
         cache_options: dict = {},
+        cache_type="readahead",
         **kwargs
     ):
         """Open a file on the datalake, or a block blob
@@ -1109,6 +1119,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             block_size=block_size or self.blocksize,
             autocommit=autocommit,
             cache_options=cache_options,
+            cache_type=cache_type,
             **kwargs
         )
 
@@ -1161,7 +1172,7 @@ class AzureBlobFile(AbstractBufferedFile):
         kwargs: dict
             Passed to AbstractBufferedFile
         """
-        from fsspec.core import caches
+        from adlfs.aio.caching import caches
 
         container_name, blob = fs.split_path(path)
         self.path = path
@@ -1174,11 +1185,12 @@ class AzureBlobFile(AbstractBufferedFile):
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
         if mode == "rb":
-            import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
             if not hasattr(self, "details"):
-                self.details = asyncio.run_coroutine_threadsafe(fs.info(path), fs.loop)
+                future = asyncio.run_coroutine_threadsafe(fs.info(path), fs.loop)
+                self.details = future.result()
             self.size = self.details["size"]
-            self.cache = caches[cache_type](
+            self.cache = ReadAheadCache(
                 self.blocksize, self._fetch_range, self.size,
             )
         else:
@@ -1198,10 +1210,7 @@ class AzureBlobFile(AbstractBufferedFile):
             blocksize=self.blocksize,
         )
 
-    def __await__(self):
-        return get_info().__await()
-
-    def _fetch_range(self, start: int, end: int, **kwargs):
+    async def _fetch_range(self, start: int, end: int, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -1213,10 +1222,10 @@ class AzureBlobFile(AbstractBufferedFile):
             End byte position to download blob from
         """
         # import pdb;pdb.set_trace()
-        blob = self.fs.loop.run_until_complete(self.container_client.download_blob(
+        blob = await self.container_client.download_blob(
             blob=self.blob, offset=start, length=end
-        ))
-        return self.fs.loop.run_until_complete(blob.readall())
+        )
+        blob.readall()
 
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
@@ -1313,6 +1322,30 @@ class AzureBlobFile(AbstractBufferedFile):
             await self.flush()
         return out
 
+    def read(self, length=-1):
+        """
+        Return data from cache, or fetch pieces as necessary
+        Parameters
+        ----------
+        length: int (-1)
+            Number of bytes to read; if <0, all remaining bytes.
+        """
+        import pdb;pdb.set_trace()
+        length = -1 if length is None else int(length)
+        if self.mode != "rb":
+            raise ValueError("File not in read mode")
+        if length < 0:
+            length = self.size - self.loc
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        logger.debug("%s read: %i - %i" % (self, self.loc, self.loc + length))
+        if length == 0:
+            # don't even bother calling fetch
+            return b""
+        out = asyncio.run_coroutine_threadsafe(self.cache._fetch(self.loc, self.loc + length))
+        self.loc += len(out)
+        return out
+
     async def close(self):
         """ Close file
         Finalizes writes, discards cache
@@ -1343,4 +1376,4 @@ class AzureBlobFile(AbstractBufferedFile):
     
     def __del__(self):
         print("dundering")
-        self.fs.loop.close()
+        # self.fs.loop.close()
