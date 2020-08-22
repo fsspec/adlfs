@@ -484,14 +484,17 @@ def test_dask_parquet(storage):
     )
 
     dask_dataframe = dd.from_pandas(df, npartitions=1)
-    dask_dataframe.to_parquet(
-        "abfs://test/test_group.parquet",
-        storage_options=STORAGE_OPTIONS,
-        engine="pyarrow",
-    )
-    fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
-    assert fs.ls("test/test_group.parquet") == [
-        "test/test_group.parquet/_common_metadata",
-        "test/test_group.parquet/_metadata",
-        "test/test_group.parquet/part.0.parquet",
-    ]
+    for protocol in ["az", "abfs"]:
+        dask_dataframe.to_parquet(
+            "{}://test/test_group.parquet".format(protocol),
+            storage_options=STORAGE_OPTIONS,
+            engine="pyarrow",
+        )
+        fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
+        assert fs.ls("test/test_group.parquet") == [
+            "test/test_group.parquet/_common_metadata",
+            "test/test_group.parquet/_metadata",
+            "test/test_group.parquet/part.0.parquet",
+        ]
+        fs.rm("test/test_group.parquet")
+        

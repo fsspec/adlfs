@@ -307,7 +307,7 @@ class AzureBlobFileSystem(AbstractFileSystem):
         })
     """
 
-    protocol = "abfs"
+    protocol = ("az", "abfs")
 
     def __init__(
         self,
