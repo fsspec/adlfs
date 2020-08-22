@@ -1,8 +1,11 @@
+import asyncio
 import os
 import io
 import functools
 import logging
 import math
+
+from fsspec.asyn import get_loop
 
 logger = logging.getLogger("fsspec")
 
@@ -137,9 +140,10 @@ class ReadAheadCache(BaseCache):
             # miss
             part = b""
         end = min(self.size, end + self.blocksize)
-        self.cache = await self.fetcher(start, end)  # new block replaces old
+        import pdb;pdb.set_trace()
+        self.cache = await self.fetcher(start, end)
         self.start = start
-        self.end = self.start + await len(self.cache)
+        self.end = self.start + len(self.cache)
         return part + self.cache[:l]
 
 

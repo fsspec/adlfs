@@ -40,6 +40,7 @@ from adlfs.aio.caching import (  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
+
 class AzureDatalakeFileSystem(AbstractFileSystem):
     """
     Access Azure Datalake Gen1 as if it were a file system.
@@ -484,7 +485,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    async def info(self, path, **kwargs):
+    def info(self, path, **kwargs):
+        future = asyncio.run_coroutine_threadsafe(self._info(path=path, **kwargs),
+                                                  self.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _info(self, path, **kwargs):
         """Give details of entry at path
         Returns a single dictionary, with exactly the same information as ``ls``
         would with ``detail=True``.
@@ -499,11 +506,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
-        out = await self.ls(self._parent(path), detail=True, **kwargs)
+        out = await self._ls(self._parent(path), detail=True, **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
         if out:
             return out[0]
-        out = await self.ls(path, detail=True, **kwargs)
+        out = await self._ls(path, detail=True, **kwargs)
         path = path.rstrip("/")
         out1 = [o for o in out if o["name"].rstrip("/") == path]
         if len(out1) == 1:
@@ -514,8 +521,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return {"name": path, "size": 0, "type": "directory"}
         else:
             raise FileNotFoundError(path)
-    
-    async def glob(self, path, **kwargs):
+
+    def glob(self, path, **kwargs):
+        future = asyncio.run_coroutine_threadsafe(self._glob(path, **kwargs),
+                                                  self.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _glob(self, path, **kwargs):
         """
         Find files by glob-matching.
         If the path ends with '/' and does not contain "*", it is essentially
@@ -542,11 +555,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             depth = 1
             if ends:
                 path += "/*"
-            elif await self.exists(path):
+            elif await self._exists(path):
                 if not detail:
                     return [path]
                 else:
-                    return {path: await self.info(path)}
+                    return {path: await self._info(path)}
             else:
                 if not detail:
                     return []  # glob of non-existent returns empty
@@ -560,7 +573,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             root = ""
             depth = 20 if "**" in path else 1
 
-        allpaths = await self.find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
+        allpaths = await self._find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
         pattern = (
             "^"
             + (
@@ -589,7 +602,27 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return list(out)
 
-    async def ls(
+    def ls(self, 
+           path: str, 
+           detail: bool = False, 
+           invalidate_cache: bool = True,
+           delimiter: str = "/",
+           return_glob: bool = False,
+           **kwargs
+    ):
+
+        future = asyncio.run_coroutine_threadsafe(self._ls(path=path,
+                                                        detail=detail,
+                                                        invalidate_cache=invalidate_cache,
+                                                        delimiter=delimiter,
+                                                        return_glob=return_glob,
+                                                        **kwargs
+                                                 ), self.concurrent_loop)
+        # import pdb;pdb.set_trace()
+        result = future.result()
+        return result
+
+    async def _ls(
         self,
         path: str,
         detail: bool = False,
@@ -645,10 +678,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container=container
                 )
                 blobs = container_client.walk_blobs(name_starts_with=path)
+                # if isinstance(blobs, BlobPrefix):
+                #     pass
                 try:
                     blobs = [blob async for blob in blobs]
                 except Exception:
-                    raise FileNotFoundError
+                    return FileNotFoundError
                 if len(blobs) > 1:
                     if return_glob:
                         res = [await self._details(blob, return_glob=True) for blob in blobs]
@@ -683,26 +718,30 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             ]
                             return res
                     elif isinstance(blobs[0], BlobPrefix):
-                        outblobs = []
-                        depth = target_path.count("/")
-                        if depth == 0:
-                            depth = 2
+                        if detail:
+                            for blob_page in blobs:
+                                return self._details(blob_page)
                         else:
-                            depth = depth + 1
-                        for blob_page in blobs:
-                            async for blob in blob_page:
-                                if detail:
-                                    res = await self._details(blob)
-                                    outblobs.append(res)
-                                else:
-                                    directory_ = (
-                                        f"{blob.container}{delimiter}{blob.name}"
-                                    )
-                                    dir_parts = directory_.split("/", depth)[0:depth]
-                                    directory = "/".join([d for d in dir_parts])
-                                    directory = f"{directory}/"
-                                    outblobs.append(directory)
-                                return outblobs
+                            outblobs = []
+                            depth = target_path.count("/")
+                            if depth == 0:
+                                depth = 2
+                            else:
+                                depth = depth + 1
+                            for blob_page in blobs:
+                                async for blob in blob_page:
+                                    if detail:
+                                        res = await self._details(blob)
+                                        outblobs.append(res)
+                                    else:
+                                        directory_ = (
+                                            f"{blob.container}{delimiter}{blob.name}"
+                                        )
+                                        dir_parts = directory_.split("/", depth)[0:depth]
+                                        directory = "/".join([d for d in dir_parts])
+                                        directory = f"{directory}/"
+                                        outblobs.append(directory)
+                                    return outblobs
                     elif blobs[0]["blob_type"] == "BlockBlob":
                         if detail:
                             res = [await self._details(blob) for blob in blobs]
@@ -768,7 +807,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
             data["name"] = data["name"].rstrip("/")
         return data
 
-    async def find(self, path, maxdepth=None, withdirs=False, **kwargs):
+    def find(self, path, maxdepth=None, withdirs=False, **kwargs):
+        future = asyncio.run_coroutine_threadsafe(self._find(path=path,
+                                                             maxdepth=maxdepth,
+                                                             withdirs=withdirs,
+                                                             **kwargs),
+                                                  self.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _find(self, path, maxdepth=None, withdirs=False, **kwargs):
         """List all files below path.
         Like posix ``find`` command without conditions
         Parameters
@@ -782,10 +830,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         # TODO: allow equivalent of -name parameter
+        # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
-        async for path, dirs, files in self.walk(path, maxdepth, detail=True, **kwargs):
+        async for path, dirs, files in self._async_walk(path, maxdepth, detail=True, **kwargs):
             if files == []:
                 # import pdb;pdb.set_trace()
                 files = {}
@@ -793,7 +842,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if withdirs:
                 files.update(dirs)
             out.update({info["name"]: info for name, info in files.items()})
-        if self.isfile(path) and path not in out:
+        if await self._isfile(path) and path not in out:
             # walk works on directories, but find should also return [path]
             # when path happens to be a file
             out[path] = {}
@@ -808,7 +857,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for p, d, f in zip([path], [dirs], [files]):
             yield p, d, f
 
-    async def walk(self, path: str, maxdepth=None, **kwargs):
+    async def _async_walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path
 
         List all files, recursing into subdirectories; output is iterator-style,
@@ -837,7 +886,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         # import pdb;pdb.set_trace()
         try:
-            listing = await self.ls(path, detail=True, return_glob=True, **kwargs)
+            listing = await self._ls(path, detail=True, return_glob=True, **kwargs)
         except (FileNotFoundError, IOError):
             listing = []
             # self._stop_iterating()
@@ -870,10 +919,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return
 
         for d in full_dirs:
-            async for path, dirs, files in self.walk(d, maxdepth=maxdepth, detail=detail, **kwargs):
+            async for path, dirs, files in self._async_walk(d, maxdepth=maxdepth, detail=detail, **kwargs):
                 yield path, dirs, files
-    
-    async def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
+
+    def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
+        future = asyncio.run_coroutine_threadsafe(self._mkdir(
+            path=path, delimiter=delimiter, exists_ok=exists_ok, **kwargs), 
+                                                  self.concurrent_loop)
+        result = future.result()
+
+    async def _mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         """
         Create directory entry at path
 
@@ -890,12 +945,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         container_name, path = self.split_path(path, delimiter=delimiter)
         if not exists_ok:
-            if (container_name not in await self.ls("")) and (not path):
+            if (container_name not in await self._ls("")) and (not path):
                 # create new container
                 await self.service_client.create_container(name=container_name)
             elif (
                 container_name
-                in [container_path.split("/")[0] for container_path in await self.ls("")]
+                in [container_path.split("/")[0] for container_path in await self._ls("")]
             ) and path:
                 ## attempt to create prefix
                 container_client = self.service_client.get_container_client(
@@ -906,7 +961,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ## everything else
                 raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
         else:
-            if container_name in await self.ls("") and path:
+            if container_name in await self._ls("") and path:
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
@@ -951,9 +1006,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def size(self, path):
         """Size in bytes of file"""
-        res = await self.info(path)
+        res = await self._info(path)
         size = res.get("size", None)
         return size
+
+    async def _isfile(self, path):
+        """Is this entry file-like?"""
+        try:
+            return await self._info(path)["type"] == "file"
+        except:  # noqa: E722
+            return False
 
     async def rm_file(self, path, delimiter="/", **kwargs):
         """
@@ -969,7 +1031,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         # import pdb;pdb.set_trace()
         try:
-            kind = await self.info(path)
+            kind = await self._info(path)
             kind = kind["type"]
             if kind == "file":
                 container_name, path = self.split_path(path, delimiter=delimiter)
@@ -991,10 +1053,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
 
-    async def exists(self, path):
+    async def _exists(self, path):
         """Is there a file at the given path"""
         try:
-            await self.info(path)
+            await self._info(path)
             return True
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
@@ -1008,7 +1070,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             out = set()
             for p in path:
                 if has_magic(p):
-                    bit = set(await self.glob(p))
+                    bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
                         out += await self.expand_path(p)
@@ -1021,62 +1083,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError(path)
         return list(sorted(out))
 
-    async def open(self, path, mode="rb", block_size=None, cache_options=None, cache_type="readahead", **kwargs):
-        """
-        Return a file-like object from the filesystem
-        The resultant instance must function correctly in a context ``with``
-        block.
-        Parameters
-        ----------
-        path: str
-            Target file
-        mode: str like 'rb', 'w'
-            See builtin ``open()``
-        block_size: int
-            Some indication of buffering - this is a value in bytes
-        cache_options : dict, optional
-            Extra arguments to pass through to the cache.
-        encoding, errors, newline: passed on to TextIOWrapper for text mode
-        """
-        import io
-        # import pdb;pdb.set_trace()
-        path = self._strip_protocol(path)
-        if "b" not in mode:
-            mode = mode.replace("t", "") + "b"
+    # async def __aenter__(self):
+    #     return self
 
-            text_kwargs = {
-                k: kwargs.pop(k)
-                for k in ["encoding", "errors", "newline"]
-                if k in kwargs
-            }
-            return io.TextIOWrapper(
-                await self.open(path, mode, block_size, cache_type="readahead", **kwargs), **text_kwargs
-            )
-        else:
-            ac = kwargs.pop("autocommit", not self._intrans)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                f = await self.loop.run_in_executor(
-                    executor,
-                    functools.partial(
-                        self._open,
-                        path,
-                        mode=mode,
-                        block_size=block_size,
-                        autocommit=ac,
-                        cache_options=cache_options,
-                        cache_type=cache_type,
-                        **kwargs
-                    )  
-                )
-            if not ac:
-                self.transaction.files.append(f)
-            return f
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return True
+    # async def __aexit__(self, *args):
+    #     return True
 
     def _open(
         self,
@@ -1111,12 +1122,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             https://filesystem-spec.readthedocs.io/en/latest/api.html#readbuffering
         """
         logging.debug(f"_open:  {path}")
-        # import pdb;pdb.set_trace()
         return AzureBlobFile(
             fs=self,
             path=path,
             mode=mode,
-            block_size=block_size or self.blocksize,
+            block_size=block_size,
             autocommit=autocommit,
             cache_options=cache_options,
             cache_type=cache_type,
@@ -1124,7 +1134,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )
 
 
-class AzureBlobFile(AbstractBufferedFile):
+class AzureBlobFile(io.IOBase):
     """ File-like operations on Azure Blobs """
 
     DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
@@ -1172,26 +1182,49 @@ class AzureBlobFile(AbstractBufferedFile):
         kwargs: dict
             Passed to AbstractBufferedFile
         """
+
         from adlfs.aio.caching import caches
 
         container_name, blob = fs.split_path(path)
+        self.fs = fs
         self.path = path
+        self.mode = mode
         self.container_name = container_name
         self.blob = blob
+        self.block_size = block_size
         self.container_client = fs.service_client.get_container_client(
             self.container_name
         )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
-        if mode == "rb":
-            # import pdb;pdb.set_trace()
+        self.loc = 0
+        self.autocommit = autocommit
+        self.end = None
+        self.start = None
+        self.closed = False
+
+        if cache_options is None:
+            cache_options = {}
+
+        if "trim" in kwargs:
+            warnings.warn(
+                "Passing 'trim' to control the cache behavior has been deprecated. "
+                "Specify it within the 'cache_options' argument instead.",
+                FutureWarning,
+            )
+            cache_options["trim"] = kwargs.pop("trim")
+
+        self.kwargs = kwargs
+
+        if self.mode not in {"ab", "rb", "wb"}:
+            raise NotImplementedError("File mode not supported")
+        if self.mode == "rb":
             if not hasattr(self, "details"):
-                future = asyncio.run_coroutine_threadsafe(fs.info(path), fs.loop)
-                self.details = future.result()
+                self.details = self.fs.info(self.path)
             self.size = self.details["size"]
             self.cache = ReadAheadCache(
-                self.blocksize, self._fetch_range, self.size,
+                self.blocksize, self._fetch_range, self.size, **cache_options
             )
         else:
             self.buffer = io.BytesIO()
@@ -1199,16 +1232,60 @@ class AzureBlobFile(AbstractBufferedFile):
             self.forced = False
             self.location = None
 
-        super().__init__(
-            fs=fs,
-            path=path,
-            mode=mode,
-            block_size=block_size,
-            autocommit=autocommit,
-            cache_type=cache_type,
-            cache_options=cache_options,
-            blocksize=self.blocksize,
-        )
+    @property
+    def closed(self):
+        # get around this attr being read-only in IOBase
+        # use getattr here, since this can be called during del
+        return getattr(self, "_closed", True)
+
+    @closed.setter
+    def closed(self, c):
+        self._closed = c
+
+    def __hash__(self):
+        if "w" in self.mode:
+            return id(self)
+        else:
+            return int(tokenize(self.details), 16)
+
+    def __eq__(self, other):
+        """Files are equal if they have the same checksum, only in read mode"""
+        return self.mode == "rb" and other.mode == "rb" and hash(self) == hash(other)
+
+    def commit(self):
+        """Move from temp to final destination"""
+
+    def tell(self):
+        """ Current file location """
+        return self.loc
+
+    def seek(self, loc, whence=0):
+        """ Set current file location
+        Parameters
+        ----------
+        loc: int
+            byte location
+        whence: {0, 1, 2}
+            from start of file, current location or end of file, resp.
+        """
+        loc = int(loc)
+        if not self.mode == "rb":
+            raise OSError("Seek only available in read mode")
+        if whence == 0:
+            nloc = loc
+        elif whence == 1:
+            nloc = self.loc + loc
+        elif whence == 2:
+            nloc = self.size + loc
+        else:
+            raise ValueError("invalid whence (%s, should be 0, 1 or 2)" % whence)
+        if nloc < 0:
+            raise ValueError("Seek before start of file")
+        self.loc = nloc
+        return self.loc
+
+    def discard(self):
+        """Throw away temporary file"""
 
     async def _fetch_range(self, start: int, end: int, **kwargs):
         """
@@ -1221,25 +1298,33 @@ class AzureBlobFile(AbstractBufferedFile):
         end: int
             End byte position to download blob from
         """
-        # import pdb;pdb.set_trace()
         blob = await self.container_client.download_blob(
             blob=self.blob, offset=start, length=end
         )
-        blob.readall()
+        # blob = await self.container_client.
+        return await blob.readall()
 
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
+
         try:
+            import pdb;pdb.set_trace()
             await self.container_client.delete_blob(self.blob)
+        except Exception as e:
+            print(e)
         except ResourceNotFoundError:
             pass
         except Exception as e:
             raise RuntimeError(f"Failed for {e}")
         else:
-            return super()._initiate_upload()
+            # future = asyncio.run_coroutine_threadsafe(self._initiate_upload(),
+            #                                          self.fs.concurrent_loop)
+            # result = future.result()
+            # return result
+            pass
 
     async def _upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -1293,13 +1378,20 @@ class AzureBlobFile(AbstractBufferedFile):
         if self.offset is None:
             # Initialize a multipart upload
             self.offset = 0
+            import pdb;pdb.set_trace()
             await self._initiate_upload()
 
         if await self._upload_chunk(final=force) is not False:
             self.offset += self.buffer.seek(0, 2)
             self.buffer = io.BytesIO()
 
-    async def write(self, data):
+    def write(self, data):
+        future = asyncio.run_coroutine_threadsafe(self._write(data=data),
+                                                  self.fs.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _write(self, data):
         """
         Write data to buffer.
         Buffer only sent on flush() or if buffer is greater than
@@ -1309,7 +1401,6 @@ class AzureBlobFile(AbstractBufferedFile):
         data: bytes
             Set of bytes to be written.
         """
-        # import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
@@ -1319,10 +1410,73 @@ class AzureBlobFile(AbstractBufferedFile):
         out = self.buffer.write(data)
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
+            import pdb;pdb.set_trace()
             await self.flush()
         return out
 
+    def readuntil(self, char=b"\n", blocks=None):
+        """Return data between current position and first occurrence of char
+        char is included in the output, except if the end of the tile is
+        encountered first.
+        Parameters
+        ----------
+        char: bytes
+            Thing to find
+        blocks: None or int
+            How much to read in each go. Defaults to file blocksize - which may
+            mean a new read on every call.
+        """
+        out = []
+        while True:
+            start = self.tell()
+            part = self.read(blocks or self.blocksize)
+            if len(part) == 0:
+                break
+            found = part.find(char)
+            if found > -1:
+                out.append(part[: found + len(char)])
+                self.seek(start + found + len(char))
+                break
+            out.append(part)
+        return b"".join(out)
+
+    def readline(self):
+        """Read until first occurrence of newline character
+        Note that, because of character encoding, this is not necessarily a
+        true line ending.
+        """
+        return self.readuntil(b"\n")
+
+    def __next__(self):
+        out = self.readline()
+        if out:
+            return out
+        raise StopIteration
+
+    def __iter__(self):
+        return self
+
+    def readlines(self):
+        """Return all data, split by the newline character"""
+        data = self.read()
+        lines = data.split(b"\n")
+        out = [l + b"\n" for l in lines[:-1]]
+        if data.endswith(b"\n"):
+            return out
+        else:
+            return out + [lines[-1]]
+        # return list(self)  ???
+
+    def readinto1(self, b):
+        return self.readinto(b)
+
     def read(self, length=-1):
+        future = asyncio.run_coroutine_threadsafe(self._read(length=length),
+                                                  self.fs.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _read(self, length=-1):
         """
         Return data from cache, or fetch pieces as necessary
         Parameters
@@ -1330,7 +1484,7 @@ class AzureBlobFile(AbstractBufferedFile):
         length: int (-1)
             Number of bytes to read; if <0, all remaining bytes.
         """
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         length = -1 if length is None else int(length)
         if self.mode != "rb":
             raise ValueError("File not in read mode")
@@ -1342,11 +1496,15 @@ class AzureBlobFile(AbstractBufferedFile):
         if length == 0:
             # don't even bother calling fetch
             return b""
-        out = asyncio.run_coroutine_threadsafe(self.cache._fetch(self.loc, self.loc + length))
+        out = await self.cache._fetch(self.loc, self.loc + length)
         self.loc += len(out)
         return out
 
-    async def close(self):
+    def close(self):
+        future = asyncio.run_coroutine_threadsafe(self._close(), self.fs.concurrent_loop)
+        result = future.result()
+
+    async def _close(self):
         """ Close file
         Finalizes writes, discards cache
         """
@@ -1363,17 +1521,28 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.fs.invalidate_cache(self.fs._parent(self.path))
 
         self.closed = True
-        
+
+    def readable(self):
+        """Whether opened for reading"""
+        return self.mode == "rb" and not self.closed
+
+    def seekable(self):
+        """Whether is seekable (only in read mode)"""
+        return self.readable()
+
+    def writable(self):
+        """Whether opened for writing"""
+        return self.mode in {"wb", "ab"} and not self.closed
+    
     def __exit__(self, *args):
         self.close()
 
     async def __aexit__(self, *args):
         print('exiting...')
-        await self.close()
+        await self._close()
     
     async def __aenter__(self):
         return self
     
     def __del__(self):
-        print("dundering")
-        # self.fs.loop.close()
+        self.close()
