@@ -683,7 +683,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 try:
                     blobs = [blob async for blob in blobs]
                 except Exception:
-                    return FileNotFoundError
+                    raise FileNotFoundError
                 if len(blobs) > 1:
                     if return_glob:
                         res = [await self._details(blob, return_glob=True) for blob in blobs]
@@ -720,7 +720,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     elif isinstance(blobs[0], BlobPrefix):
                         if detail:
                             for blob_page in blobs:
-                                return self._details(blob_page)
+                                return await self._details(blob_page)
                         else:
                             outblobs = []
                             depth = target_path.count("/")
@@ -967,7 +967,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
                 await container_client.upload_blob(name=path, data="")
 
-    async def rm(self, path, recursive=False, maxdepth=None):
+    def rm(self, path, recursive=False, maxdepth=None):
+        future = asyncio.run_coroutine_threadsafe(
+            self._rm(path=path, recursive=recursive, maxdepth=maxdepth),
+            self.concurrent_loop
+        )
+        result = future.result()
+
+
+    async def _rm(self, path, recursive=False, maxdepth=None):
         """Delete files.
         Parameters
         ----------
@@ -1301,30 +1309,23 @@ class AzureBlobFile(io.IOBase):
         blob = await self.container_client.download_blob(
             blob=self.blob, offset=start, length=end
         )
-        # blob = await self.container_client.
         return await blob.readall()
 
+    def __initiate_upload(self, **kwargs):
+        pass
+        
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
 
         try:
-            import pdb;pdb.set_trace()
             await self.container_client.delete_blob(self.blob)
-        except Exception as e:
-            print(e)
         except ResourceNotFoundError:
             pass
-        except Exception as e:
-            raise RuntimeError(f"Failed for {e}")
         else:
-            # future = asyncio.run_coroutine_threadsafe(self._initiate_upload(),
-            #                                          self.fs.concurrent_loop)
-            # result = future.result()
-            # return result
-            pass
+            return self.__initiate_upload()
 
     async def _upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -1345,6 +1346,7 @@ class AzureBlobFile(io.IOBase):
         self._block_list.append(block_id)
 
         if final:
+            # import pdb;pdb.set_trace()
             block_list = [BlobBlock(_id) for _id in self._block_list]
             await self.blob_client.commit_block_list(block_list=block_list)
 
@@ -1359,14 +1361,13 @@ class AzureBlobFile(io.IOBase):
             When closing, write the last block even if it is smaller than
             blocks are allowed to be. Disallows further writing to this file.
         """
-
+        # import pdb;pdb.set_trace()
         if self.closed:
             raise ValueError("Flush on closed file")
         if force and self.forced:
             raise ValueError("Force flush cannot be called more than once")
         if force:
             self.forced = True
-
         if self.mode not in {"wb", "ab"}:
             # no-op to flush on read-mode
             return
@@ -1378,18 +1379,18 @@ class AzureBlobFile(io.IOBase):
         if self.offset is None:
             # Initialize a multipart upload
             self.offset = 0
-            import pdb;pdb.set_trace()
             await self._initiate_upload()
 
-        if await self._upload_chunk(final=force) is not False:
+        future_upload_chunk = await self._upload_chunk(final=force)
+        if future_upload_chunk is not False:
             self.offset += self.buffer.seek(0, 2)
             self.buffer = io.BytesIO()
 
     def write(self, data):
         future = asyncio.run_coroutine_threadsafe(self._write(data=data),
                                                   self.fs.concurrent_loop)
-        result = future.result()
-        return result
+        out = future.result()
+        return out
 
     async def _write(self, data):
         """
@@ -1410,7 +1411,7 @@ class AzureBlobFile(io.IOBase):
         out = self.buffer.write(data)
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
-            import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
             await self.flush()
         return out
 
@@ -1467,7 +1468,7 @@ class AzureBlobFile(io.IOBase):
             return out + [lines[-1]]
         # return list(self)  ???
 
-    def readinto1(self, b):
+    def readinto(self, b):
         return self.readinto(b)
 
     def read(self, length=-1):
@@ -1503,6 +1504,7 @@ class AzureBlobFile(io.IOBase):
     def close(self):
         future = asyncio.run_coroutine_threadsafe(self._close(), self.fs.concurrent_loop)
         result = future.result()
+        return result
 
     async def _close(self):
         """ Close file
