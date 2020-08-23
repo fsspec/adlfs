@@ -352,33 +352,33 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" not in fs.ls("")
 
 
-def test_mkdir_rm_recursive(storage):
-    fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+# def test_mkdir_rm_recursive(storage):
+#     fs = adlfs.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-    fs.mkdir("test_mkdir_rm_recursive")
-    assert "test_mkdir_rm_recursive/" in fs.ls("")
+#     fs.mkdir("test_mkdir_rm_recursive")
+#     assert "test_mkdir_rm_recursive/" in fs.ls("")
 
-    with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
-        f.write(b"0123456789")
+#     with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
+#         f.write(b"0123456789")
 
-    with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
-        f.write(b"ABCD")
+#     with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
+#         f.write(b"ABCD")
 
-    with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
-        f.write(b"abcdef")
+#     with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
+#         f.write(b"abcdef")
 
-    assert fs.find("test_mkdir_rm_recursive") == [
-        "test_mkdir_rm_recursive/dir/file.txt",
-        "test_mkdir_rm_recursive/dir/file2.txt",
-        "test_mkdir_rm_recursive/file.txt",
-    ]
+#     assert fs.find("test_mkdir_rm_recursive") == [
+#         "test_mkdir_rm_recursive/dir/file.txt",
+#         "test_mkdir_rm_recursive/dir/file2.txt",
+#         "test_mkdir_rm_recursive/file.txt",
+#     ]
 
-    fs.rm("test_mkdir_rm_recursive", recursive=True)
+#     fs.rm("test_mkdir_rm_recursive", recursive=True)
 
-    assert "test_mkdir_rm_recursive/" not in fs.ls("")
-    assert fs.find("test_mkdir_rm_recursive") == []
+#     assert "test_mkdir_rm_recursive/" not in fs.ls("")
+#     assert fs.find("test_mkdir_rm_recursive") == []
 
 
 def test_deep_paths(storage):
