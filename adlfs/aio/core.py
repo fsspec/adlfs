@@ -968,6 +968,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 await container_client.upload_blob(name=path, data="")
 
     def rm(self, path, recursive=False, maxdepth=None):
+        # import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(
             self._rm(path=path, recursive=recursive, maxdepth=maxdepth),
             self.concurrent_loop
@@ -989,8 +990,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
+        # import pdb;pdb.set_trace()
         path = await self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
         for p in reversed(path):
+            # import pdb;pdb.set_trace()
             await self.rm_file(p)
 
     async def rmdir(self, path: str, delimiter="/", **kwargs):
@@ -1008,7 +1011,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(path, delimiter=delimiter)
-        if (container_name + delimiter in await self.ls("")) and (not path):
+        if (container_name + delimiter in await self._ls("")) and (not path):
             # delete container
             await self.service_client.delete_container(container_name)
 
@@ -1084,7 +1087,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         out += await self.expand_path(p)
                     continue
                 elif recursive:
-                    out |= set(await self.find(p, withdirs=True))
+                    out |= set(await self._find(p, withdirs=True))
                 # TODO: the following is maybe only necessary if NOT recursive
                 out.add(p)
         if not out:
@@ -1387,6 +1390,7 @@ class AzureBlobFile(io.IOBase):
             self.buffer = io.BytesIO()
 
     def write(self, data):
+        # import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(self._write(data=data),
                                                   self.fs.concurrent_loop)
         out = future.result()
