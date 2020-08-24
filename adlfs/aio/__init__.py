@@ -1,11 +1,11 @@
-from .core import AzureBlobFileSystem, AzureBlobFile
-import fsspec
+# from .core import AzureBlobFileSystem, AzureBlobFile
+# import fsspec
 
-__all__ = ["AzureBlobFileSystem", "AzureBlobFile"]
+# __all__ = ["AzureBlobFileSystem", "AzureBlobFile"]
 
-if hasattr(fsspec, 'register_implementation'):
-    fsspec.register_implementation('abfs', AzureBlobFileSystem, clobber=True)
+# if hasattr(fsspec, 'register_implementation'):
+#     fsspec.register_implementation('abfs', AzureBlobFileSystem, clobber=True)
 
-del fsspec
+# del fsspec
 
 from . import caching
