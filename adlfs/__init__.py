@@ -1,7 +1,7 @@
 from .core import AzureDatalakeFileSystem
 from .core import AzureBlobFileSystem, AzureBlobFile
 from ._version import get_versions
-from .aio import core as async
+import aio as ASYNC_CORE
 
 __all__ = ["AzureBlobFileSystem", "AzureBlobFile", "AzureDatalakeFileSystem"]
 
