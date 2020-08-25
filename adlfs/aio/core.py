@@ -1024,11 +1024,32 @@ class AzureBlobFileSystem(AsyncFileSystem):
         size = res.get("size", None)
         return size
 
+    def isfile(self, path):
+        future = asyncio.run_coroutine_threadsafe(
+            self._isfile(path), self.concurent_loop
+        )
+        result = future.result()
+        return result
+
     async def _isfile(self, path):
         """Is this entry file-like?"""
         try:
             return await self._info(path)["type"] == "file"
         except:  # noqa: E722
+            return False
+
+    def isdir(self, path):
+        future = asyncio.run_coroutine_threadsafe(
+            self._isdir(path), self.concurent_loop
+        )
+        result = future.result()
+        return result
+
+    async def _isdir(self, path):
+        """Is this entry directory-like?"""
+        try:
+            return await self._info(path)["type"] == "directory"
+        except IOError:
             return False
 
     async def rm_file(self, path, delimiter="/", **kwargs):

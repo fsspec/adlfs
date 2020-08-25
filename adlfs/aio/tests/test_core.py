@@ -477,7 +477,7 @@ def test_large_blob(storage):
         assert local_blob.exists()
         assert local_blob.stat().st_size == blob_size
 
-# @pytest.mark.skip
+
 def test_dask_parquet(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
