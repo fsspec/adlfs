@@ -1,7 +1,9 @@
 import asyncio
 import docker
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
+from pandas.testing import assert_frame_equal
 import pytest
 
 from adlfs import core as AIO
@@ -509,3 +511,35 @@ def test_dask_parquet(storage):
         "test/test_group.parquet/_metadata",
         "test/test_group.parquet/part.0.parquet",
     ]
+
+    df_test = dd.read_parquet("abfs://test/test_group.parquet",
+                          storage_options=STORAGE_OPTIONS,
+                          engine="pyarrow").compute()
+    assert_frame_equal(df, df_test)
+    
+    
+    A = np.random.randint(0, 100, size=(10000,4))
+    df2 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf2 = dd.from_pandas(df2, npartitions=4)
+    dd.to_parquet(ddf2, "abfs://test/test_group2.parquet",
+                  storage_options=STORAGE_OPTIONS,
+                  engine="pyarrow")
+    assert fs.ls("test/test_group2.parquet") == [
+        "test/test_group2.parquet/_common_metadata",
+        "test/test_group2.parquet/_metadata",
+        "test/test_group2.parquet/part.0.parquet",
+        "test/test_group2.parquet/part.1.parquet",
+        "test/test_group2.parquet/part.2.parquet",
+        "test/test_group2.parquet/part.3.parquet"
+    ]
+    df2_test = dd.read_parquet(
+        "abfs://test/test_group2.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow"
+    ).compute()
+    assert_frame_equal(df2, df2_test)
+
+
+@pytest.mark.skip
+def test_isidr(storage):
+    pass
