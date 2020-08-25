@@ -1026,7 +1026,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def isfile(self, path):
         future = asyncio.run_coroutine_threadsafe(
-            self._isfile(path), self.concurent_loop
+            self._isfile(path), self.concurrent_loop
         )
         result = future.result()
         return result
@@ -1040,7 +1040,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def isdir(self, path):
         future = asyncio.run_coroutine_threadsafe(
-            self._isdir(path), self.concurent_loop
+            self._isdir(path), self.concurrent_loop
         )
         result = future.result()
         return result
