@@ -284,7 +284,6 @@ def test_rm(storage):
     with pytest.raises(FileNotFoundError):
         fs.ls("/data/root/a/file.txt")
 
-@pytest.mark.skip
 def test_rm_recursive(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -303,7 +302,6 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
-@pytest.mark.skip
 def test_mkdir_rmdir(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name,
@@ -485,9 +483,7 @@ def test_dask_parquet(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    import pdb;pdb.set_trace()
     fs.mkdir("test")
-    import pdb;pdb.set_trace()
     STORAGE_OPTIONS = {
         "account_name": "devstoreaccount1",
         "connection_string": CONN_STR,
@@ -502,13 +498,12 @@ def test_dask_parquet(storage):
     )
 
     dask_dataframe = dd.from_pandas(df, npartitions=1)
-    import pdb;pdb.set_trace()
     dask_dataframe.to_parquet(
         "abfs://test/test_group.parquet",
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
     )
-    import pdb;pdb.set_trace()
+
     fs = AIO.AzureBlobFileSystem(**STORAGE_OPTIONS)
     assert fs.ls("test/test_group.parquet") == [
         "test/test_group.parquet/_common_metadata",

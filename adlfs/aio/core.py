@@ -1512,7 +1512,6 @@ class AzureBlobFile(io.IOBase):
     def close(self):
         future = asyncio.run_coroutine_threadsafe(self._close(), self.fs.concurrent_loop)
         result = future.result()
-        return result
 
     async def _close(self):
         """ Close file
