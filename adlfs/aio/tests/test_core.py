@@ -263,7 +263,6 @@ def test_glob(storage):
     assert fs.glob("data/missing/*") == []
 
 
-# @pytest.mark.skip
 def test_open_file(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -283,6 +282,7 @@ def test_rm(storage):
 
     with pytest.raises(FileNotFoundError):
         fs.ls("/data/root/a/file.txt")
+
 
 def test_rm_recursive(storage):
     fs = AIO.AzureBlobFileSystem(
@@ -355,7 +355,7 @@ def test_mkdir_rmdir(storage):
 
     assert "new-container/" not in fs.ls("")
 
-@pytest.mark.skip
+
 def test_mkdir_rm_recursive(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -384,7 +384,7 @@ def test_mkdir_rm_recursive(storage):
     assert "test_mkdir_rm_recursive/" not in fs.ls("")
     assert fs.find("test_mkdir_rm_recursive") == []
 
-@pytest.mark.skip
+
 def test_deep_paths(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -411,7 +411,6 @@ def test_deep_paths(storage):
     assert fs.find("test_deep") == []
 
 
-@pytest.mark.skip(reason="blocking")
 def test_large_blob(storage):
     import tempfile
     import hashlib
@@ -427,7 +426,7 @@ def test_large_blob(storage):
     # chuncked upload
     blob_size = 120_000_000
     assert blob_size > fs.blocksize
-    assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
+    assert blob_size > AIO.AzureBlobFile.DEFAULT_BLOCK_SIZE
 
     data = b"1" * blob_size
     _hash = hashlib.md5(data)
