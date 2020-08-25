@@ -31,14 +31,13 @@ def spawn_azurite():
     azurite.stop()
 
 
-@pytest.mark.skip
 def test_connect(storage):
     AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_ls(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -94,7 +93,7 @@ def test_ls(storage):
     with pytest.raises(FileNotFoundError):
         fs.ls("data/root/not-a-file.txt")
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_info(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -113,7 +112,7 @@ def test_info(storage):
     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_find(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -174,8 +173,7 @@ def test_find(storage):
     assert fs.find("data/missing") == []
 
 
-# @pytest.mark.xfail
-@pytest.mark.skip
+@pytest.mark.xfail
 def test_find_missing(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -183,7 +181,7 @@ def test_find_missing(storage):
     assert fs.find("data/roo") == []
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_glob(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -265,7 +263,7 @@ def test_glob(storage):
     assert fs.glob("data/missing/*") == []
 
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_open_file(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -276,7 +274,6 @@ def test_open_file(storage):
     assert result == b"0123456789"
 
 
-@pytest.mark.skip
 def test_rm(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -287,13 +284,11 @@ def test_rm(storage):
     with pytest.raises(FileNotFoundError):
         fs.ls("/data/root/a/file.txt")
 
-
-# @pytest.mark.skip(reason="test is blocking")
+@pytest.mark.skip
 def test_rm_recursive(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-
 
     assert "data/root/c/" in fs.ls("/data/root")
 
@@ -301,7 +296,6 @@ def test_rm_recursive(storage):
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
     ]
-    # import pdb;pdb.set_trace()
     fs.rm("data/root/c", recursive=True)
     assert "data/root/c/" not in fs.ls("/data/root")
 
@@ -309,6 +303,7 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
+@pytest.mark.skip
 def test_mkdir_rmdir(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name,
@@ -333,37 +328,36 @@ def test_mkdir_rmdir(storage):
     fs.mkdir("new-container/dir/file.txt", exists_ok=True)
     assert "new-container/" in fs.ls("")
 
-    # fs.mkdir("new-container/file2.txt", exists_ok=True)
-    # with fs.open("new-container/file2.txt", "wb") as f:
-    #     f.write(b"0123456789")
-    # assert "new-container/file2.txt" in fs.ls("new-container")
+    fs.mkdir("new-container/file2.txt", exists_ok=True)
+    with fs.open("new-container/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/file2.txt" in fs.ls("new-container")
 
-    # fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
-    # with fs.open("new-container/dir/file2.txt", "wb") as f:
-    #     f.write(b"0123456789")
-    # assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
+    fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
+    with fs.open("new-container/dir/file2.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
-    # # Also verify you can make a nested directory structure
-    # fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
-    # with fs.open("new-container/dir2/file.txt", "wb") as f:
-    #     f.write(b"0123456789")
-    # assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
-    # fs.rm("new-container/dir2", recursive=True)
+    # Also verify you can make a nested directory structure
+    fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
+    with fs.open("new-container/dir2/file.txt", "wb") as f:
+        f.write(b"0123456789")
+    assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
+    fs.rm("new-container/dir2", recursive=True)
 
-    # fs.rm("new-container/dir", recursive=True)
-    # assert fs.ls("new-container") == [
-    #     "new-container/file.txt",
-    #     "new-container/file2.txt",
-    # ]
+    fs.rm("new-container/dir", recursive=True)
+    assert fs.ls("new-container") == [
+        "new-container/file.txt",
+        "new-container/file2.txt",
+    ]
 
-    # fs.rm("new-container/file.txt")
-    # fs.rm("new-container/file2.txt")
-    # fs.rmdir("new-container")
+    fs.rm("new-container/file.txt")
+    fs.rm("new-container/file2.txt")
+    fs.rmdir("new-container")
 
-    # assert "new-container/" not in fs.ls("")
+    assert "new-container/" not in fs.ls("")
 
-
-@pytest.mark.skip(reason="test is blocking")
+@pytest.mark.skip
 def test_mkdir_rm_recursive(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -486,13 +480,14 @@ def test_large_blob(storage):
         assert local_blob.exists()
         assert local_blob.stat().st_size == blob_size
 
-@pytest.mark.skip
+# @pytest.mark.skip
 def test_dask_parquet(storage):
     fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-
+    import pdb;pdb.set_trace()
     fs.mkdir("test")
+    import pdb;pdb.set_trace()
     STORAGE_OPTIONS = {
         "account_name": "devstoreaccount1",
         "connection_string": CONN_STR,
@@ -507,6 +502,7 @@ def test_dask_parquet(storage):
     )
 
     dask_dataframe = dd.from_pandas(df, npartitions=1)
+    import pdb;pdb.set_trace()
     dask_dataframe.to_parquet(
         "abfs://test/test_group.parquet",
         storage_options=STORAGE_OPTIONS,

@@ -520,7 +520,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         elif len(out1) > 1 or out:
             return {"name": path, "size": 0, "type": "directory"}
         else:
-            raise FileNotFoundError(path)
+            raise FileNotFoundError
 
     def glob(self, path, **kwargs):
         future = asyncio.run_coroutine_threadsafe(self._glob(path, **kwargs),
@@ -664,12 +664,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
             contents = self.service_client.list_containers(include_metadata=True)
             if detail:
-                # contents = self.service_client.list_containers(include_metadata=True)
+                # try:
                 res = [await self._details(c) async for c in contents]
                 return res
+                # except:
+                #     return []
             else:
+                # try:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
+                # except:
+                #     return []
 
         else:
             if container not in ["", delimiter]:
@@ -757,9 +762,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             async for b in page:
                                 outblobs.append(b)
                     else:
-                        raise FileNotFoundError(
-                            f"Unable to identify blobs in {path} for {blobs[0].name}"
-                        )
+                        raise FileNotFoundError
                 elif len(blobs) == 0:
                     if return_glob or (path in ["", delimiter]):
                         return []
@@ -944,13 +947,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If True, raise an exception if the directory already exists. Defaults to False
         """
         container_name, path = self.split_path(path, delimiter=delimiter)
+        _containers = await self._ls("")
+        if _containers is None:
+            _containers = []
         if not exists_ok:
-            if (container_name not in await self._ls("")) and (not path):
+            if (container_name not in _containers) and (not path):
                 # create new container
                 await self.service_client.create_container(name=container_name)
             elif (
                 container_name
-                in [container_path.split("/")[0] for container_path in await self._ls("")]
+                in [container_path.split("/")[0] for container_path in _containers]
             ) and path:
                 ## attempt to create prefix
                 container_client = self.service_client.get_container_client(
@@ -961,7 +967,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ## everything else
                 raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
         else:
-            if container_name in await self._ls("") and path:
+            if (container_name in _containers) and path:
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
@@ -974,7 +980,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.concurrent_loop
         )
         result = future.result()
-
 
     async def _rm(self, path, recursive=False, maxdepth=None):
         """Delete files.
@@ -990,10 +995,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
-        # import pdb;pdb.set_trace()
         path = await self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
         for p in reversed(path):
-            # import pdb;pdb.set_trace()
             await self.rm_file(p)
 
     async def rmdir(self, path: str, delimiter="/", **kwargs):
@@ -1062,6 +1065,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
         except FileNotFoundError:
+            import pdb;pdb.set_trace()
             pass
 
     async def _exists(self, path):
@@ -1091,7 +1095,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # TODO: the following is maybe only necessary if NOT recursive
                 out.add(p)
         if not out:
-            raise FileNotFoundError(path)
+            raise FileNotFoundError
         return list(sorted(out))
 
     # async def __aenter__(self):
