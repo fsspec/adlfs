@@ -4,7 +4,7 @@ import dask.dataframe as dd
 import pandas as pd
 import pytest
 
-import adlfs.aio.core as adlfs
+from adlfs import core as AIO
 from fsspec.asyn import get_loop
 
 URL = "http://127.0.0.1:10000"
@@ -33,14 +33,14 @@ def spawn_azurite():
 
 @pytest.mark.skip
 def test_connect(storage):
-    adlfs.AzureBlobFileSystem(
+    AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
 
 @pytest.mark.skip
 def test_ls(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -96,7 +96,7 @@ def test_ls(storage):
 
 @pytest.mark.skip
 def test_info(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -115,7 +115,7 @@ def test_info(storage):
 
 @pytest.mark.skip
 def test_find(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -177,7 +177,7 @@ def test_find(storage):
 # @pytest.mark.xfail
 @pytest.mark.skip
 def test_find_missing(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     assert fs.find("data/roo") == []
@@ -185,7 +185,7 @@ def test_find_missing(storage):
 
 @pytest.mark.skip
 def test_glob(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -267,7 +267,7 @@ def test_glob(storage):
 
 @pytest.mark.skip
 def test_open_file(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     f = fs.open("/data/root/a/file.txt")
@@ -278,7 +278,7 @@ def test_open_file(storage):
 
 @pytest.mark.skip
 def test_rm(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -290,7 +290,7 @@ def test_rm(storage):
 
 # @pytest.mark.skip(reason="test is blocking")
 def test_rm_recursive(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -310,7 +310,7 @@ def test_rm_recursive(storage):
 
 
 def test_mkdir_rmdir(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
     )
@@ -319,10 +319,10 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []
 
-    with adlfs.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
+    with AIO.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
 
-    with adlfs.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
+    with AIO.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
     with fs.open("new-container/dir/file.txt", "wb") as f:
@@ -365,7 +365,7 @@ def test_mkdir_rmdir(storage):
 
 @pytest.mark.skip(reason="test is blocking")
 def test_mkdir_rm_recursive(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -394,7 +394,7 @@ def test_mkdir_rm_recursive(storage):
 
 @pytest.mark.skip
 def test_deep_paths(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -427,7 +427,7 @@ def test_large_blob(storage):
     import shutil
     from pathlib import Path
 
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -488,7 +488,7 @@ def test_large_blob(storage):
 
 @pytest.mark.skip
 def test_dask_parquet(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AIO.AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -512,7 +512,8 @@ def test_dask_parquet(storage):
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
     )
-    fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
+    import pdb;pdb.set_trace()
+    fs = AIO.AzureBlobFileSystem(**STORAGE_OPTIONS)
     assert fs.ls("test/test_group.parquet") == [
         "test/test_group.parquet/_common_metadata",
         "test/test_group.parquet/_metadata",
