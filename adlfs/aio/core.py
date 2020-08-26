@@ -1389,7 +1389,7 @@ class AzureBlobFile(io.IOBase):
             When closing, write the last block even if it is smaller than
             blocks are allowed to be. Disallows further writing to this file.
         """
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
         if self.closed:
             raise ValueError("Flush on closed file")
         if force and self.forced:
@@ -1415,7 +1415,7 @@ class AzureBlobFile(io.IOBase):
             self.buffer = io.BytesIO()
 
     def write(self, data):
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(self._write(data=data),
                                                   self.fs.concurrent_loop)
         out = future.result()
@@ -1431,6 +1431,7 @@ class AzureBlobFile(io.IOBase):
         data: bytes
             Set of bytes to be written.
         """
+        import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
