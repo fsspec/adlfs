@@ -21,6 +21,7 @@ from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob.aio._models import BlobPrefix
 from azure.storage.blob._models import BlobBlock
+from azure.storage.blob._shared.models import StorageErrorCode
 from fsspec import AbstractFileSystem
 from fsspec.asyn import sync_wrapper, sync, AsyncFileSystem, maybe_sync, async_wrapper, get_loop
 from fsspec.spec import AbstractBufferedFile
@@ -504,7 +505,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        # import pdb;pdb.set_trace()
+
         path = self._strip_protocol(path)
         out = await self._ls(self._parent(path), detail=True, **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
@@ -618,7 +619,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                                         return_glob=return_glob,
                                                         **kwargs
                                                  ), self.concurrent_loop)
-        # import pdb;pdb.set_trace()
         result = future.result()
         return result
 
@@ -651,31 +651,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return_glob: bool
 
         """
-        # import pdb;pdb.set_trace()
         logging.debug(f"abfs.ls() is searching for {path}")
 
         target_path = path.lstrip("/")
         container, path = self.split_path(path)
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
-            # import pdb;pdb.set_trace()
             # This is the case where only the containers are being returned
             logging.info(
                 "Returning a list of containers in the azure blob storage account"
             )
             contents = self.service_client.list_containers(include_metadata=True)
             if detail:
-                # try:
                 res = [await self._details(c) async for c in contents]
                 return res
                 # except:
                 #     return []
             else:
-                # try:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
-                # except:
-                #     return []
-
         else:
             if container not in ["", delimiter]:
                 # This is the case where the container name is passed
@@ -683,12 +676,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container=container
                 )
                 blobs = container_client.walk_blobs(name_starts_with=path)
-                # if isinstance(blobs, BlobPrefix):
-                #     pass
                 try:
                     blobs = [blob async for blob in blobs]
-                except Exception:
-                    raise FileNotFoundError
+                except Exception as e:
+                    raise FileNotFoundError(f"FileNotFoundError for exception {e}")
                 if len(blobs) > 1:
                     if return_glob:
                         res = [await self._details(blob, return_glob=True) for blob in blobs]
@@ -1025,6 +1016,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return size
 
     def isfile(self, path):
+#         import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(
             self._isfile(path), self.concurrent_loop
         )
@@ -1034,7 +1026,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _isfile(self, path):
         """Is this entry file-like?"""
         try:
-            return await self._info(path)["type"] == "file"
+#             import pdb;pdb.set_trace()
+            info = await self._info(path)
+            return info["type"] == "file"
         except:  # noqa: E722
             return False
 
@@ -1048,7 +1042,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _isdir(self, path):
         """Is this entry directory-like?"""
         try:
-            return await self._info(path)["type"] == "directory"
+            info = await self._info(path)
+            return info["type"] == "directory"
         except IOError:
             return False
 
@@ -1086,7 +1081,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
         except FileNotFoundError:
-            import pdb;pdb.set_trace()
+#             import pdb;pdb.set_trace()
             pass
 
     async def _exists(self, path):
@@ -1118,12 +1113,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if not out:
             raise FileNotFoundError
         return list(sorted(out))
-
-    # async def __aenter__(self):
-    #     return self
-
-    # async def __aexit__(self, *args):
-    #     return True
 
     def _open(
         self,
@@ -1389,7 +1378,6 @@ class AzureBlobFile(io.IOBase):
             When closing, write the last block even if it is smaller than
             blocks are allowed to be. Disallows further writing to this file.
         """
-        import pdb;pdb.set_trace()
         if self.closed:
             raise ValueError("Flush on closed file")
         if force and self.forced:
@@ -1415,7 +1403,6 @@ class AzureBlobFile(io.IOBase):
             self.buffer = io.BytesIO()
 
     def write(self, data):
-        import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(self._write(data=data),
                                                   self.fs.concurrent_loop)
         out = future.result()
@@ -1431,7 +1418,6 @@ class AzureBlobFile(io.IOBase):
         data: bytes
             Set of bytes to be written.
         """
-        import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
@@ -1515,7 +1501,6 @@ class AzureBlobFile(io.IOBase):
         length: int (-1)
             Number of bytes to read; if <0, all remaining bytes.
         """
-        # import pdb;pdb.set_trace()
         length = -1 if length is None else int(length)
         if self.mode != "rb":
             raise ValueError("File not in read mode")
@@ -1539,7 +1524,6 @@ class AzureBlobFile(io.IOBase):
         """ Close file
         Finalizes writes, discards cache
         """
-        # import pdb;pdb.set_trace()
         if self.closed:
             return
         if self.mode == "rb":
