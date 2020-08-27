@@ -664,8 +664,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if detail:
                 res = [await self._details(c) async for c in contents]
                 return res
-                # except:
-                #     return []
             else:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
