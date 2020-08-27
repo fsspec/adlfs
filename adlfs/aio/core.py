@@ -1016,7 +1016,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return size
 
     def isfile(self, path):
-#         import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(
             self._isfile(path), self.concurrent_loop
         )
@@ -1026,7 +1025,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _isfile(self, path):
         """Is this entry file-like?"""
         try:
-#             import pdb;pdb.set_trace()
             info = await self._info(path)
             return info["type"] == "file"
         except:  # noqa: E722
@@ -1081,7 +1079,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
         except FileNotFoundError:
-#             import pdb;pdb.set_trace()
             pass
 
     async def _exists(self, path):
