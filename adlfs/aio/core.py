@@ -653,7 +653,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         logging.debug(f"abfs.ls() is searching for {path}")
         target_path = path.strip("/")
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
         container, path = self.split_path(path)
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             # This is the case where only the containers are being returned
@@ -667,15 +667,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
-        elif (container) and (path in ["", delimiter]):
-            contents = self.service_client.list_containers(include_metadata=True)
-            if detail:
-                res = [await self._details(c) async for c in contents]
-                return res
-            else:
-                contents = [f"{c.name}{delimiter}" async for c in contents]
-                return contents
-        
         else:
             if container not in ["", delimiter]:
                 # This is the case where the container name is passed
@@ -687,7 +678,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 
                 # Check the depth that needs to be screened
                 depth = target_path.count("/")
-                import pdb;pdb.set_trace()
+                # import pdb;pdb.set_trace()
                 outblobs = []
                 try:
                     async for next_blob in blobs:
@@ -719,7 +710,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     finalblobs = [await self._details(b) for b in outblobs]
                 if not finalblobs:
-                    raise FileNotFoundError
+                    return []
                 if detail:
                     return finalblobs
                 else:
@@ -900,9 +891,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         exists_ok: bool
             If True, raise an exception if the directory already exists. Defaults to False
         """
-        import pdb;pdb.set_trace()
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
+        import pdb;pdb.set_trace()
         if _containers is None:
             _containers = []
         if not exists_ok:
@@ -1295,14 +1286,12 @@ class AzureBlobFile(io.IOBase):
         
     async def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
-        # import pdb;pdb.set_trace()
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
-
         try:
             await self.container_client.delete_blob(self.blob)
         except ResourceNotFoundError:
-            pass
+            pass      
         else:
             return self.__initiate_upload()
 
@@ -1317,10 +1306,12 @@ class AzureBlobFile(io.IOBase):
             self.autocommit is True.
 
         """
+        import pdb;pdb.set_trace()
         data = self.buffer.getvalue()
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
+        import pdb;pdb.set_trace()
         await self.blob_client.stage_block(block_id=block_id, data=data, length=length)
         self._block_list.append(block_id)
 
@@ -1380,6 +1371,7 @@ class AzureBlobFile(io.IOBase):
         data: bytes
             Set of bytes to be written.
         """
+        import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
