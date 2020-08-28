@@ -20,7 +20,7 @@ from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob.aio._models import BlobPrefix
-from azure.storage.blob._models import BlobBlock
+from azure.storage.blob._models import BlobBlock, BlobProperties
 from azure.storage.blob._shared.models import StorageErrorCode
 from fsspec import AbstractFileSystem
 from fsspec.asyn import sync_wrapper, sync, AsyncFileSystem, maybe_sync, async_wrapper, get_loop
@@ -505,7 +505,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-
+        import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
         out = await self._ls(self._parent(path), detail=True, **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
@@ -652,8 +652,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         """
         logging.debug(f"abfs.ls() is searching for {path}")
-
-        target_path = path.lstrip("/")
+        target_path = path.strip("/")
+        # import pdb;pdb.set_trace()
         container, path = self.split_path(path)
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             # This is the case where only the containers are being returned
@@ -667,98 +667,64 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
+        elif (container) and (path in ["", delimiter]):
+            contents = self.service_client.list_containers(include_metadata=True)
+            if detail:
+                res = [await self._details(c) async for c in contents]
+                return res
+            else:
+                contents = [f"{c.name}{delimiter}" async for c in contents]
+                return contents
+        
         else:
             if container not in ["", delimiter]:
                 # This is the case where the container name is passed
                 container_client = self.service_client.get_container_client(
                     container=container
                 )
+                path = path.strip("/")
                 blobs = container_client.walk_blobs(name_starts_with=path)
+                
+                # Check the depth that needs to be screened
+                depth = target_path.count("/")
+                import pdb;pdb.set_trace()
+                outblobs = []
                 try:
-                    blobs = [blob async for blob in blobs]
-                except Exception as e:
-                    raise FileNotFoundError(f"FileNotFoundError for exception {e}")
-                if len(blobs) > 1:
-                    if return_glob:
-                        res = [await self._details(blob, return_glob=True) for blob in blobs]
-                        return res
-                    if detail:
-                        res = [await self._details(blob) for blob in blobs]
-                        return res
-                    else:
-                        return [
-                            f"{blob.container}{delimiter}{blob.name}" for blob in blobs
-                        ]
-                elif len(blobs) == 1:
-                    # import pdb;pdb.set_trace()
-                    if (blobs[0].name.rstrip(delimiter) == path) and not blobs[
-                        0
-                    ].has_key(  # NOQA
-                        "blob_type"
-                    ):
-
-                        path = blobs[0].name
-                        blobs = container_client.walk_blobs(name_starts_with=path)
-                        if return_glob:
-                            res = [await self._details(blob, return_glob=True) async for blob in blobs]
-                            return res
-                        if detail:
-                            res = [await self._details(blob) async for blob in blobs]
-                            return res
+                    async for next_blob in blobs:
+                        if depth in [0,1] and path=='':
+                            outblobs.append(next_blob)
+                        elif isinstance(next_blob, BlobProperties):
+                            if next_blob['name'].count("/") == depth:
+                                outblobs.append(next_blob)
+                            elif not next_blob['name'].endswith("/") and (
+                                next_blob['name'].count("/") == (depth-1)
+                                ):
+                                outblobs.append(next_blob)
                         else:
-                            res  = [
-                                f"{blob.container}{delimiter}{blob.name}"
-                                async for blob in blobs
-                            ]
-                            return res
-                    elif isinstance(blobs[0], BlobPrefix):
-                        if detail:
-                            for blob_page in blobs:
-                                return await self._details(blob_page)
-                        else:
-                            outblobs = []
-                            depth = target_path.count("/")
-                            if depth == 0:
-                                depth = 2
-                            else:
-                                depth = depth + 1
-                            for blob_page in blobs:
-                                async for blob in blob_page:
-                                    if detail:
-                                        res = await self._details(blob)
-                                        outblobs.append(res)
+                            async for blob_ in next_blob:
+                                if isinstance(blob_, BlobProperties) or isinstance(blob_, BlobPrefix):
+                                    if blob_['name'].endswith("/"):
+                                        if blob_['name'].rstrip("/").count("/") == depth:
+                                            outblobs.append(blob_)
+                                    elif blob_['name'].count('/') == (depth):
+                                        outblobs.append(blob_)
                                     else:
-                                        directory_ = (
-                                            f"{blob.container}{delimiter}{blob.name}"
-                                        )
-                                        dir_parts = directory_.split("/", depth)[0:depth]
-                                        directory = "/".join([d for d in dir_parts])
-                                        directory = f"{directory}/"
-                                        outblobs.append(directory)
-                                    return outblobs
-                    elif blobs[0]["blob_type"] == "BlockBlob":
-                        if detail:
-                            res = [await self._details(blob) for blob in blobs]
-                            return res
-                        else:
-                            return [
-                                f"{blob.container}{delimiter}{blob.name}"
-                                for blob in blobs
-                            ]
-                    elif isinstance(blobs[0], ItemPaged):
-                        outblobs = []
-                        async for page in blobs:
-                            async for b in page:
-                                outblobs.append(b)
-                    else:
-                        raise FileNotFoundError
-                elif len(blobs) == 0:
-                    if return_glob or (path in ["", delimiter]):
-                        return []
-                    else:
-                        raise FileNotFoundError
-                else:
+                                        pass
+                                        # import pdb;pdb.set_trace()
+                except ResourceNotFoundError:
                     raise FileNotFoundError
+                if return_glob:
+                    finalblobs = [await self._details(b, return_glob=True) for b in outblobs]
+                    return finalblobs
+                else:
+                    finalblobs = [await self._details(b) for b in outblobs]
+                if not finalblobs:
+                    raise FileNotFoundError
+                if detail:
+                    return finalblobs
+                else:
+                    return [b['name'] for b in finalblobs]
+ 
 
     async def _details(self, content, delimiter="/", return_glob: bool = False, **kwargs):
         """
@@ -828,7 +794,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         async for path, dirs, files in self._async_walk(path, maxdepth, detail=True, **kwargs):
             if files == []:
-                # import pdb;pdb.set_trace()
                 files = {}
                 dirs = {}
             if withdirs:
@@ -935,6 +900,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         exists_ok: bool
             If True, raise an exception if the directory already exists. Defaults to False
         """
+        import pdb;pdb.set_trace()
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
         if _containers is None:
@@ -942,7 +908,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if not exists_ok:
             if (container_name not in _containers) and (not path):
                 # create new container
-                await self.service_client.create_container(name=container_name)
+                return await self.service_client.create_container(name=container_name)
             elif (
                 container_name
                 in [container_path.split("/")[0] for container_path in _containers]
@@ -984,6 +950,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
+        import pdb;pdb.set_trace()
         path = await self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
         for p in reversed(path):
             await self.rm_file(p)
@@ -1055,7 +1022,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str
             Delimiter to use when splitting the path
         """
-        # import pdb;pdb.set_trace()
+        import pdb;pdb.set_trace()
         try:
             kind = await self._info(path)
             kind = kind["type"]

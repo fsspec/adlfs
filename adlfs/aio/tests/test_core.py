@@ -6,8 +6,8 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
 
-from adlfs import core as AIO
-from fsspec.asyn import get_loop
+from adlfs.aio import core as AIO
+
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
@@ -33,276 +33,276 @@ def spawn_azurite():
     azurite.stop()
 
 
-def test_connect(storage):
-    AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+# def test_connect(storage):
+#     AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
 
 
-def test_ls(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+# def test_ls(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-    ## these are containers
-    assert fs.ls("") == ["data/"]
-    assert fs.ls("/") == ["data/"]
-    assert fs.ls(".") == ["data/"]
+#     ## these are containers
+#     assert fs.ls("") == ["data/"]
+#     assert fs.ls("/") == ["data/"]
+#     assert fs.ls(".") == ["data/"]
 
-    ## these are top-level directories and files
-    assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
-    assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
+#     ## these are top-level directories and files
+#     assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
+#     assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
 
-    # root contains files and directories
-    assert fs.ls("data/root") == [
-        "data/root/a/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/rfile.txt",
-    ]
-    assert fs.ls("data/root/") == [
-        "data/root/a/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/rfile.txt",
-    ]
+#     # root contains files and directories
+#     assert fs.ls("data/root") == [
+#         "data/root/a/",
+#         "data/root/b/",
+#         "data/root/c/",
+#         "data/root/rfile.txt",
+#     ]
+#     assert fs.ls("data/root/") == [
+#         "data/root/a/",
+#         "data/root/b/",
+#         "data/root/c/",
+#         "data/root/rfile.txt",
+#     ]
 
-    ## slashes are not not needed, but accepted
-    assert fs.ls("data/root/a") == ["data/root/a/file.txt"]
-    assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
-    assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
-    assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
+#     ## slashes are not not needed, but accepted
+#     assert fs.ls("data/root/a") == ["data/root/a/file.txt"]
+#     assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
+#     assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
+#     assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
 
-    ## file details
-    assert fs.ls("data/root/a/file.txt", detail=True) == [
-        {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
-    ]
+#     ## file details
+#     assert fs.ls("data/root/a/file.txt", detail=True) == [
+#         {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
+#     ]
 
-    # c has two files
-    assert fs.ls("data/root/c", detail=True) == [
-        {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
-        {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
-    ]
+#     # c has two files
+#     assert fs.ls("data/root/c", detail=True) == [
+#         {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
+#         {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
+#     ]
 
-    ## if not direct match is found throws error
-    with pytest.raises(FileNotFoundError):
-        fs.ls("not-a-container")
+#     ## if not direct match is found throws error
+#     with pytest.raises(FileNotFoundError):
+#         fs.ls("not-a-container")
 
-    with pytest.raises(FileNotFoundError):
-        fs.ls("data/not-a-directory/")
+#     with pytest.raises(FileNotFoundError):
+#         fs.ls("data/not-a-directory/")
 
-    with pytest.raises(FileNotFoundError):
-        fs.ls("data/root/not-a-file.txt")
-
-
-def test_info(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-
-    container_info = fs.info("data")
-    assert container_info == {"name": "data/", "type": "directory", "size": 0}
-
-    container2_info = fs.info("data/root")
-    assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
-
-    dir_info = fs.info("data/root/c")
-    assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
-
-    file_info = fs.info("data/root/a/file.txt")
-    assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
+#     with pytest.raises(FileNotFoundError):
+#         fs.ls("data/root/not-a-file.txt")
 
 
+# def test_info(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-def test_find(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+#     container_info = fs.info("data")
+#     assert container_info == {"name": "data/", "type": "directory", "size": 0}
 
-    ## just the directory name
-    assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
-    assert fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
+#     container2_info = fs.info("data/root")
+#     assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
 
-    assert fs.find("data/root/c") == [
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-    ]
-    assert fs.find("data/root/c/") == [
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-    ]
+#     dir_info = fs.info("data/root/c")
+#     assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
 
-    ## all files
-    assert fs.find("data/root") == [
-        "data/root/a/file.txt",
-        "data/root/b/file.txt",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-    assert fs.find("data/root", withdirs=False) == [
-        "data/root/a/file.txt",
-        "data/root/b/file.txt",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-
-    # all files and directories
-    assert fs.find("data/root", withdirs=True) == [
-        "data/root/a",
-        "data/root/a/file.txt",
-        "data/root/b",
-        "data/root/b/file.txt",
-        "data/root/c",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-    assert fs.find("data/root/", withdirs=True) == [
-        "data/root/a",
-        "data/root/a/file.txt",
-        "data/root/b",
-        "data/root/b/file.txt",
-        "data/root/c",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-
-    ## missing
-    assert fs.find("data/missing") == []
-
-
-@pytest.mark.xfail
-def test_find_missing(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    assert fs.find("data/roo") == []
+#     file_info = fs.info("data/root/a/file.txt")
+#     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
 
-def test_glob(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+# def test_find(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-    ## just the directory name
-    assert fs.glob("data/root") == ["data/root"]
+#     ## just the directory name
+#     assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
+#     assert fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
 
-    # top-level contents of a directory
-    assert fs.glob("data/root/") == [
-        "data/root/a",
-        "data/root/b",
-        "data/root/c",
-        "data/root/rfile.txt",
-    ]
-    assert fs.glob("data/root/*") == [
-        "data/root/a",
-        "data/root/b",
-        "data/root/c",
-        "data/root/rfile.txt",
-    ]
+#     assert fs.find("data/root/c") == [
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#     ]
+#     assert fs.find("data/root/c/") == [
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#     ]
 
-    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
-    assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
+#     ## all files
+#     assert fs.find("data/root") == [
+#         "data/root/a/file.txt",
+#         "data/root/b/file.txt",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
+#     assert fs.find("data/root", withdirs=False) == [
+#         "data/root/a/file.txt",
+#         "data/root/b/file.txt",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
 
-    ## across directories
-    assert fs.glob("data/root/*/file.txt") == [
-        "data/root/a/file.txt",
-        "data/root/b/file.txt",
-    ]
+#     # all files and directories
+#     assert fs.find("data/root", withdirs=True) == [
+#         "data/root/a",
+#         "data/root/a/file.txt",
+#         "data/root/b",
+#         "data/root/b/file.txt",
+#         "data/root/c",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
+#     assert fs.find("data/root/", withdirs=True) == [
+#         "data/root/a",
+#         "data/root/a/file.txt",
+#         "data/root/b",
+#         "data/root/b/file.txt",
+#         "data/root/c",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
 
-    ## regex match
-    assert fs.glob("data/root/*/file[0-9].txt") == [
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-    ]
+#     ## missing
+#     assert fs.find("data/missing") == []
 
-    ## text files
-    assert fs.glob("data/root/*/file*.txt") == [
-        "data/root/a/file.txt",
-        "data/root/b/file.txt",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-    ]
 
-    ## all text files
-    assert fs.glob("data/**/*.txt") == [
-        "data/root/a/file.txt",
-        "data/root/b/file.txt",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-
-    ## all files
-    assert fs.glob("data/root/**") == [
-        "data/root/a",
-        "data/root/a/file.txt",
-        "data/root/b",
-        "data/root/b/file.txt",
-        "data/root/c",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-    assert fs.glob("data/roo**") == [
-        "data/root",
-        "data/root/a",
-        "data/root/a/file.txt",
-        "data/root/b",
-        "data/root/b/file.txt",
-        "data/root/c",
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-        "data/root/rfile.txt",
-    ]
-
-    ## missing
-    assert fs.glob("data/missing/*") == []
+# @pytest.mark.xfail
+# def test_find_missing(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
+#     assert fs.find("data/roo") == []
 
 
 
-def test_open_file(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    f = fs.open("/data/root/a/file.txt")
+# def test_glob(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-    result = f.read()
-    assert result == b"0123456789"
+#     ## just the directory name
+#     assert fs.glob("data/root") == ["data/root"]
+
+#     # top-level contents of a directory
+#     assert fs.glob("data/root/") == [
+#         "data/root/a",
+#         "data/root/b",
+#         "data/root/c",
+#         "data/root/rfile.txt",
+#     ]
+#     assert fs.glob("data/root/*") == [
+#         "data/root/a",
+#         "data/root/b",
+#         "data/root/c",
+#         "data/root/rfile.txt",
+#     ]
+
+#     assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
+#     assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
+
+#     ## across directories
+#     assert fs.glob("data/root/*/file.txt") == [
+#         "data/root/a/file.txt",
+#         "data/root/b/file.txt",
+#     ]
+
+#     ## regex match
+#     assert fs.glob("data/root/*/file[0-9].txt") == [
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#     ]
+
+#     ## text files
+#     assert fs.glob("data/root/*/file*.txt") == [
+#         "data/root/a/file.txt",
+#         "data/root/b/file.txt",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#     ]
+
+#     ## all text files
+#     assert fs.glob("data/**/*.txt") == [
+#         "data/root/a/file.txt",
+#         "data/root/b/file.txt",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
+
+#     ## all files
+#     assert fs.glob("data/root/**") == [
+#         "data/root/a",
+#         "data/root/a/file.txt",
+#         "data/root/b",
+#         "data/root/b/file.txt",
+#         "data/root/c",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
+#     assert fs.glob("data/roo**") == [
+#         "data/root",
+#         "data/root/a",
+#         "data/root/a/file.txt",
+#         "data/root/b",
+#         "data/root/b/file.txt",
+#         "data/root/c",
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#         "data/root/rfile.txt",
+#     ]
+
+#     ## missing
+#     assert fs.glob("data/missing/*") == []
 
 
-def test_rm(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
 
-    fs.rm("/data/root/a/file.txt")
+# def test_open_file(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
+#     f = fs.open("/data/root/a/file.txt")
 
-    with pytest.raises(FileNotFoundError):
-        fs.ls("/data/root/a/file.txt")
+#     result = f.read()
+#     assert result == b"0123456789"
 
 
-def test_rm_recursive(storage):
-    fs = AIO.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+# def test_rm(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
 
-    assert "data/root/c/" in fs.ls("/data/root")
+#     fs.rm("/data/root/a/file.txt")
 
-    assert fs.ls("data/root/c") == [
-        "data/root/c/file1.txt",
-        "data/root/c/file2.txt",
-    ]
-    fs.rm("data/root/c", recursive=True)
-    assert "data/root/c/" not in fs.ls("/data/root")
+#     with pytest.raises(FileNotFoundError):
+#         fs.ls("/data/root/a/file.txt")
 
-    with pytest.raises(FileNotFoundError):
-        fs.ls("data/root/c")
+
+# def test_rm_recursive(storage):
+#     fs = AIO.AzureBlobFileSystem(
+#         account_name=storage.account_name, connection_string=CONN_STR
+#     )
+
+#     assert "data/root/c/" in fs.ls("/data/root")
+
+#     assert fs.ls("data/root/c") == [
+#         "data/root/c/file1.txt",
+#         "data/root/c/file2.txt",
+#     ]
+#     fs.rm("data/root/c", recursive=True)
+#     assert "data/root/c/" not in fs.ls("/data/root")
+
+#     with pytest.raises(FileNotFoundError):
+#         fs.ls("data/root/c")
 
 
 def test_mkdir_rmdir(storage):
