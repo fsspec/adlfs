@@ -18,10 +18,12 @@ from azure.core.paging import ItemPaged
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob.aio import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob import BlobServiceClient
 from azure.storage.blob.aio._models import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties
 from azure.storage.blob._shared.models import StorageErrorCode
+from dask.distributed import get_client as get_dask_client
 from fsspec import AbstractFileSystem
 from fsspec.asyn import sync_wrapper, sync, AsyncFileSystem, maybe_sync, async_wrapper, get_loop
 from fsspec.spec import AbstractBufferedFile
@@ -39,7 +41,6 @@ from adlfs.aio.caching import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
-
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
@@ -425,19 +426,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
         if self.credential is not None:
-            self.service_client = BlobServiceClient(
+            self.service_client = AIOBlobServiceClient(
                 account_url=self.account_url, credential=self.credential
             )
         elif self.connection_string is not None:
-            self.service_client = BlobServiceClient.from_connection_string(
+            self.service_client = AIOBlobServiceClient.from_connection_string(
                 conn_str=self.connection_string
             )
         elif self.account_key is not None:
-            self.service_client = BlobServiceClient(
+            self.service_client = AIOBlobServiceClient(
                 account_url=self.account_url, credential=self.account_key
             )
         elif self.sas_token is not None:
-            self.service_client = BlobServiceClient(
+            self.service_client = AIOBlobServiceClient(
                 account_url=self.account_url + self.sas_token, credential=None
             )
         else:
@@ -653,7 +654,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         logging.debug(f"abfs.ls() is searching for {path}")
         target_path = path.strip("/")
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         container, path = self.split_path(path)
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             # This is the case where only the containers are being returned
@@ -874,7 +875,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         future = asyncio.run_coroutine_threadsafe(self._mkdir(
             path=path, delimiter=delimiter, exists_ok=exists_ok, **kwargs), 
                                                   self.concurrent_loop)
-        result = future.result()
+        res = future.result()
 
     async def _mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         """
@@ -893,11 +894,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
+        # The list of containers will be returned from _ls() in a directory format,
+        # with a trailing "/", but the container_name will not have this.
+        # Need a placeholder that presents the container_name in a directory format
+        container_name_as_dir = f"{container_name}/"
         if _containers is None:
             _containers = []
         if not exists_ok:
-            if (container_name not in _containers) and (not path):
+            if (container_name_as_dir not in _containers) and (not path):
                 # create new container
                 return await self.service_client.create_container(name=container_name)
             elif (
@@ -908,16 +913,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                await container_client.upload_blob(name=path, data="")
+                return await container_client.upload_blob(name=path, data="")
             else:
                 ## everything else
                 raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
         else:
-            if (container_name in _containers) and path:
+            if (container_name_as_dir in _containers) and path:
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                await container_client.upload_blob(name=path, data="")
+                return await container_client.upload_blob(name=path, data="")
 
     def rm(self, path, recursive=False, maxdepth=None):
         # import pdb;pdb.set_trace()
@@ -1029,7 +1034,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                if (container_name + delimiter in await self.ls("")) and (not path):
+                if (container_name + delimiter in await self._ls("")) and (not path):
                     logging.debug(f"Delete container {container_name}")
                     await container_client.delete_container()
             else:
@@ -1170,9 +1175,9 @@ class AzureBlobFile(io.IOBase):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        self.container_client = fs.service_client.get_container_client(
-            self.container_name
-        )
+        # self.container_client = fs.service_client.get_container_client(
+        #     self.container_name
+        # )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1194,7 +1199,7 @@ class AzureBlobFile(io.IOBase):
             cache_options["trim"] = kwargs.pop("trim")
 
         self.kwargs = kwargs
-
+        self.connect_client()
         if self.mode not in {"ab", "rb", "wb"}:
             raise NotImplementedError("File mode not supported")
         if self.mode == "rb":
@@ -1209,6 +1214,34 @@ class AzureBlobFile(io.IOBase):
             self.offset = None
             self.forced = False
             self.location = None
+
+    def connect_client(self):
+        """Connect to the Synchronous BlobServiceClient, using user-specified connection details.
+        Tries credentials first, then connection string and finally account key
+
+        Raises
+        ------
+        ValueError if none of the connection details are available
+        """
+        self.fs.account_url: str = f"https://{self.fs.account_name}.blob.core.windows.net"
+        if self.fs.credential is not None:
+            self.container_client = BlobServiceClient(
+                account_url=self.fs.account_url, credential=self.fs.credential
+            ).get_container_client(self.container_name)
+        elif self.fs.connection_string is not None:
+            self.container_client = BlobServiceClient.from_connection_string(
+                conn_str=self.fs.connection_string
+            ).get_container_client(self.container_name)
+        elif self.fs.account_key is not None:
+            self.container_client = BlobServiceClient(
+                account_url=self.fs.account_url, credential=self.fs.account_key
+            ).get_container_client(self.container_name)
+        elif self.fs.sas_token is not None:
+            self.container_client = BlobServiceClient(
+                account_url=self.fs.account_url + self.fs.sas_token, credential=None
+            ).get_container_client(self.container_name)
+        else:
+            raise ValueError("unable to connect with provided params!!")
 
     @property
     def closed(self):
@@ -1265,7 +1298,7 @@ class AzureBlobFile(io.IOBase):
     def discard(self):
         """Throw away temporary file"""
 
-    async def _fetch_range(self, start: int, end: int, **kwargs):
+    def _fetch_range(self, start: int, end: int, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -1276,26 +1309,26 @@ class AzureBlobFile(io.IOBase):
         end: int
             End byte position to download blob from
         """
-        blob = await self.container_client.download_blob(
+        blob = self.container_client.download_blob(
             blob=self.blob, offset=start, length=end
         )
-        return await blob.readall()
+        return blob.readall()
 
     def __initiate_upload(self, **kwargs):
         pass
         
-    async def _initiate_upload(self, **kwargs):
+    def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
         self._block_list = []
         try:
-            await self.container_client.delete_blob(self.blob)
+            self.container_client.delete_blob(self.blob)
         except ResourceNotFoundError:
             pass      
         else:
             return self.__initiate_upload()
 
-    async def _upload_chunk(self, final: bool = False, **kwargs):
+    def _upload_chunk(self, final: bool = False, **kwargs):
         """
         Write one part of a multi-block file upload
 
@@ -1306,21 +1339,21 @@ class AzureBlobFile(io.IOBase):
             self.autocommit is True.
 
         """
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         data = self.buffer.getvalue()
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
-        import pdb;pdb.set_trace()
-        await self.blob_client.stage_block(block_id=block_id, data=data, length=length)
+        # import pdb;pdb.set_trace()
+        self.blob_client.stage_block(block_id=block_id, data=data, length=length)
         self._block_list.append(block_id)
 
         if final:
             # import pdb;pdb.set_trace()
             block_list = [BlobBlock(_id) for _id in self._block_list]
-            await self.blob_client.commit_block_list(block_list=block_list)
+            self.blob_client.commit_block_list(block_list=block_list)
 
-    async def flush(self, force=False):
+    def flush(self, force=False):
         """
         Write buffered data to backend store.
         Writes the current buffer, if it is larger than the block-size, or if
@@ -1331,6 +1364,7 @@ class AzureBlobFile(io.IOBase):
             When closing, write the last block even if it is smaller than
             blocks are allowed to be. Disallows further writing to this file.
         """
+
         if self.closed:
             raise ValueError("Flush on closed file")
         if force and self.forced:
@@ -1348,20 +1382,13 @@ class AzureBlobFile(io.IOBase):
         if self.offset is None:
             # Initialize a multipart upload
             self.offset = 0
-            await self._initiate_upload()
+            self._initiate_upload()
 
-        future_upload_chunk = await self._upload_chunk(final=force)
-        if future_upload_chunk is not False:
+        if self._upload_chunk(final=force) is not False:
             self.offset += self.buffer.seek(0, 2)
             self.buffer = io.BytesIO()
 
     def write(self, data):
-        future = asyncio.run_coroutine_threadsafe(self._write(data=data),
-                                                  self.fs.concurrent_loop)
-        out = future.result()
-        return out
-
-    async def _write(self, data):
         """
         Write data to buffer.
         Buffer only sent on flush() or if buffer is greater than
@@ -1371,7 +1398,11 @@ class AzureBlobFile(io.IOBase):
         data: bytes
             Set of bytes to be written.
         """
-        import pdb;pdb.set_trace()
+        try:
+            client = get_dask_client()
+        except:
+            pass
+        # import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
         if self.closed:
@@ -1382,7 +1413,10 @@ class AzureBlobFile(io.IOBase):
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
             # import pdb;pdb.set_trace()
-            await self.flush()
+            if client:
+                client.submit(self.flush())
+            else:
+                self.flush()
         return out
 
     def readuntil(self, char=b"\n", blocks=None):
@@ -1442,12 +1476,6 @@ class AzureBlobFile(io.IOBase):
         return self.readinto(b)
 
     def read(self, length=-1):
-        future = asyncio.run_coroutine_threadsafe(self._read(length=length),
-                                                  self.fs.concurrent_loop)
-        result = future.result()
-        return result
-
-    async def _read(self, length=-1):
         """
         Return data from cache, or fetch pieces as necessary
         Parameters
@@ -1455,6 +1483,10 @@ class AzureBlobFile(io.IOBase):
         length: int (-1)
             Number of bytes to read; if <0, all remaining bytes.
         """
+        try:
+            client = get_dask_client()
+        except:
+            pass
         length = -1 if length is None else int(length)
         if self.mode != "rb":
             raise ValueError("File not in read mode")
@@ -1466,15 +1498,14 @@ class AzureBlobFile(io.IOBase):
         if length == 0:
             # don't even bother calling fetch
             return b""
-        out = await self.cache._fetch(self.loc, self.loc + length)
+        if client:
+            future = client.submit(self.cache._fetch(self.loc, self.loc + length))
+            out = future.result()
+        out = self.cache._fetch(self.loc, self.loc + length)
         self.loc += len(out)
         return out
 
     def close(self):
-        future = asyncio.run_coroutine_threadsafe(self._close(), self.fs.concurrent_loop)
-        result = future.result()
-
-    async def _close(self):
         """ Close file
         Finalizes writes, discards cache
         """
@@ -1484,7 +1515,7 @@ class AzureBlobFile(io.IOBase):
             self.cache = None
         else:
             if not self.forced:
-                await self.flush(force=True)
+                self.flush(force=True)
             if self.fs is not None:
                 self.fs.invalidate_cache(self.path)
                 self.fs.invalidate_cache(self.fs._parent(self.path))
@@ -1506,12 +1537,5 @@ class AzureBlobFile(io.IOBase):
     def __exit__(self, *args):
         self.close()
 
-    async def __aexit__(self, *args):
-        print('exiting...')
-        await self._close()
-    
-    async def __aenter__(self):
-        return self
-    
     def __del__(self):
         self.close()

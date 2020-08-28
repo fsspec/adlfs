@@ -5,8 +5,6 @@ import functools
 import logging
 import math
 
-from fsspec.asyn import get_loop
-
 logger = logging.getLogger("fsspec")
 
 
@@ -119,8 +117,13 @@ class ReadAheadCache(BaseCache):
         self.cache = b""
         self.start = 0
         self.end = 0
+        try:
+            from dask.distributed import get_client
+            self.client = get_client()
+        except:
+            pass
 
-    async def _fetch(self, start, end):
+    def _fetch(self, start, end):
         if start is None:
             start = 0
         if end is None or end > self.size:
@@ -141,7 +144,8 @@ class ReadAheadCache(BaseCache):
             part = b""
         end = min(self.size, end + self.blocksize)
         # import pdb;pdb.set_trace()
-        self.cache = await self.fetcher(start, end)
+        future = self.client.submit(self.fetcher(start, end))
+        self.cache = future.result()
         self.start = start
         self.end = self.start + len(self.cache)
         return part + self.cache[:l]

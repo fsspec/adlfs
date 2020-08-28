@@ -318,7 +318,6 @@ def test_mkdir_rmdir(storage):
     with AIO.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
 
-    import pdb;pdb.set_trace()
     with AIO.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
@@ -353,11 +352,11 @@ def test_mkdir_rmdir(storage):
         "new-container/file2.txt",
     ]
 
-    fs.rm("new-container/file.txt")
-    fs.rm("new-container/file2.txt")
-    fs.rmdir("new-container")
+    # fs.rm("new-container/file.txt")
+    # fs.rm("new-container/file2.txt")
+    # fs.rmdir("new-container")
 
-    assert "new-container/" not in fs.ls("")
+    # assert "new-container/" not in fs.ls("")
 
 
 # def test_mkdir_rm_recursive(storage):
