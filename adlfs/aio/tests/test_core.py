@@ -33,276 +33,276 @@ def spawn_azurite():
     azurite.stop()
 
 
-# def test_connect(storage):
-#     AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_connect(storage):
+    AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
 
 
-# def test_ls(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_ls(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     ## these are containers
-#     assert fs.ls("") == ["data/"]
-#     assert fs.ls("/") == ["data/"]
-#     assert fs.ls(".") == ["data/"]
+    ## these are containers
+    assert fs.ls("") == ["data/"]
+    assert fs.ls("/") == ["data/"]
+    assert fs.ls(".") == ["data/"]
 
-#     ## these are top-level directories and files
-#     assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
-#     assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
+    ## these are top-level directories and files
+    assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
+    assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
 
-#     # root contains files and directories
-#     assert fs.ls("data/root") == [
-#         "data/root/a/",
-#         "data/root/b/",
-#         "data/root/c/",
-#         "data/root/rfile.txt",
-#     ]
-#     assert fs.ls("data/root/") == [
-#         "data/root/a/",
-#         "data/root/b/",
-#         "data/root/c/",
-#         "data/root/rfile.txt",
-#     ]
+    # root contains files and directories
+    assert fs.ls("data/root") == [
+        "data/root/a/",
+        "data/root/b/",
+        "data/root/c/",
+        "data/root/rfile.txt",
+    ]
+    assert fs.ls("data/root/") == [
+        "data/root/a/",
+        "data/root/b/",
+        "data/root/c/",
+        "data/root/rfile.txt",
+    ]
 
-#     ## slashes are not not needed, but accepted
-#     assert fs.ls("data/root/a") == ["data/root/a/file.txt"]
-#     assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
-#     assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
-#     assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
+    ## slashes are not not needed, but accepted
+    assert fs.ls("data/root/a") == ["data/root/a/file.txt"]
+    assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
+    assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
+    assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
 
-#     ## file details
-#     assert fs.ls("data/root/a/file.txt", detail=True) == [
-#         {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
-#     ]
+    ## file details
+    assert fs.ls("data/root/a/file.txt", detail=True) == [
+        {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
+    ]
 
-#     # c has two files
-#     assert fs.ls("data/root/c", detail=True) == [
-#         {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
-#         {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
-#     ]
+    # c has two files
+    assert fs.ls("data/root/c", detail=True) == [
+        {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
+        {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
+    ]
 
-#     ## if not direct match is found throws error
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("not-a-container")
+    # ## if not direct match is found throws error
+    # with pytest.raises(FileNotFoundError):
+    #     fs.ls("not-a-container")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("data/not-a-directory/")
+    # with pytest.raises(FileNotFoundError):
+    #     fs.ls("data/not-a-directory/")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("data/root/not-a-file.txt")
-
-
-# def test_info(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-
-#     container_info = fs.info("data")
-#     assert container_info == {"name": "data/", "type": "directory", "size": 0}
-
-#     container2_info = fs.info("data/root")
-#     assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
-
-#     dir_info = fs.info("data/root/c")
-#     assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
-
-#     file_info = fs.info("data/root/a/file.txt")
-#     assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
+    # with pytest.raises(FileNotFoundError):
+    #     fs.ls("data/root/not-a-file.txt")
 
 
+def test_info(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-# def test_find(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+    container_info = fs.info("data")
+    assert container_info == {"name": "data/", "type": "directory", "size": 0}
 
-#     ## just the directory name
-#     assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
-#     assert fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
+    container2_info = fs.info("data/root")
+    assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
 
-#     assert fs.find("data/root/c") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-#     assert fs.find("data/root/c/") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
+    dir_info = fs.info("data/root/c")
+    assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
 
-#     ## all files
-#     assert fs.find("data/root") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert fs.find("data/root", withdirs=False) == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     # all files and directories
-#     assert fs.find("data/root", withdirs=True) == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert fs.find("data/root/", withdirs=True) == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     ## missing
-#     assert fs.find("data/missing") == []
-
-
-# @pytest.mark.xfail
-# def test_find_missing(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-#     assert fs.find("data/roo") == []
+    file_info = fs.info("data/root/a/file.txt")
+    assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
 
 
 
-# def test_glob(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_find(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     ## just the directory name
-#     assert fs.glob("data/root") == ["data/root"]
+    ## just the directory name
+    assert fs.find("data/root/a") == ["data/root/a/file.txt"]  # NOQA
+    assert fs.find("data/root/a/") == ["data/root/a/file.txt"]  # NOQA
 
-#     # top-level contents of a directory
-#     assert fs.glob("data/root/") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
-#     assert fs.glob("data/root/*") == [
-#         "data/root/a",
-#         "data/root/b",
-#         "data/root/c",
-#         "data/root/rfile.txt",
-#     ]
+    assert fs.find("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    assert fs.find("data/root/c/") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
 
-#     assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
-#     assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
+    ## all files
+    assert fs.find("data/root") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert fs.find("data/root", withdirs=False) == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
-#     ## across directories
-#     assert fs.glob("data/root/*/file.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#     ]
+    # all files and directories
+    assert fs.find("data/root", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert fs.find("data/root/", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
 
-#     ## regex match
-#     assert fs.glob("data/root/*/file[0-9].txt") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
+    ## missing
+    assert fs.find("data/missing") == []
 
-#     ## text files
-#     assert fs.glob("data/root/*/file*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
 
-#     ## all text files
-#     assert fs.glob("data/**/*.txt") == [
-#         "data/root/a/file.txt",
-#         "data/root/b/file.txt",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     ## all files
-#     assert fs.glob("data/root/**") == [
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-#     assert fs.glob("data/roo**") == [
-#         "data/root",
-#         "data/root/a",
-#         "data/root/a/file.txt",
-#         "data/root/b",
-#         "data/root/b/file.txt",
-#         "data/root/c",
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#         "data/root/rfile.txt",
-#     ]
-
-#     ## missing
-#     assert fs.glob("data/missing/*") == []
+@pytest.mark.xfail
+def test_find_missing(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    assert fs.find("data/roo") == []
 
 
 
-# def test_open_file(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-#     f = fs.open("/data/root/a/file.txt")
+def test_glob(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     result = f.read()
-#     assert result == b"0123456789"
+    ## just the directory name
+    assert fs.glob("data/root") == ["data/root"]
+
+    # top-level contents of a directory
+    assert fs.glob("data/root/") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
+    assert fs.glob("data/root/*") == [
+        "data/root/a",
+        "data/root/b",
+        "data/root/c",
+        "data/root/rfile.txt",
+    ]
+
+    assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
+    assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
+
+    ## across directories
+    assert fs.glob("data/root/*/file.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+    ]
+
+    ## regex match
+    assert fs.glob("data/root/*/file[0-9].txt") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+
+    ## text files
+    assert fs.glob("data/root/*/file*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+
+    ## all text files
+    assert fs.glob("data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    ## all files
+    assert fs.glob("data/root/**") == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+    assert fs.glob("data/roo**") == [
+        "data/root",
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/b",
+        "data/root/b/file.txt",
+        "data/root/c",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    ## missing
+    assert fs.glob("data/missing/*") == []
 
 
-# def test_rm(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
 
-#     fs.rm("/data/root/a/file.txt")
+def test_open_file(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    f = fs.open("/data/root/a/file.txt")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("/data/root/a/file.txt")
+    result = f.read()
+    assert result == b"0123456789"
 
 
-# def test_rm_recursive(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_rm(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     assert "data/root/c/" in fs.ls("/data/root")
+    fs.rm("/data/root/a/file.txt")
 
-#     assert fs.ls("data/root/c") == [
-#         "data/root/c/file1.txt",
-#         "data/root/c/file2.txt",
-#     ]
-#     fs.rm("data/root/c", recursive=True)
-#     assert "data/root/c/" not in fs.ls("/data/root")
+    # with pytest.raises(FileNotFoundError):
+    #     fs.ls("/data/root/a/file.txt")
 
-#     with pytest.raises(FileNotFoundError):
-#         fs.ls("data/root/c")
+
+def test_rm_recursive(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root/c/" in fs.ls("/data/root")
+
+    assert fs.ls("data/root/c") == [
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+    ]
+    fs.rm("data/root/c", recursive=True)
+    assert "data/root/c/" not in fs.ls("/data/root")
+
+    # with pytest.raises(FileNotFoundError):
+    #     fs.ls("data/root/c")
 
 
 def test_mkdir_rmdir(storage):
@@ -352,266 +352,266 @@ def test_mkdir_rmdir(storage):
         "new-container/file2.txt",
     ]
 
-    # fs.rm("new-container/file.txt")
-    # fs.rm("new-container/file2.txt")
-    # fs.rmdir("new-container")
+    fs.rm("new-container/file.txt")
+    fs.rm("new-container/file2.txt")
+    fs.rmdir("new-container")
 
-    # assert "new-container/" not in fs.ls("")
-
-
-# def test_mkdir_rm_recursive(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-
-#     fs.mkdir("test_mkdir_rm_recursive")
-#     assert "test_mkdir_rm_recursive/" in fs.ls("")
-
-#     with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
-#         f.write(b"0123456789")
-
-#     with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
-#         f.write(b"ABCD")
-
-#     with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
-#         f.write(b"abcdef")
-
-#     assert fs.find("test_mkdir_rm_recursive") == [
-#         "test_mkdir_rm_recursive/dir/file.txt",
-#         "test_mkdir_rm_recursive/dir/file2.txt",
-#         "test_mkdir_rm_recursive/file.txt",
-#     ]
-
-#     fs.rm("test_mkdir_rm_recursive", recursive=True)
-
-#     assert "test_mkdir_rm_recursive/" not in fs.ls("")
-#     assert fs.find("test_mkdir_rm_recursive") == []
+    assert "new-container/" not in fs.ls("")
 
 
-# def test_deep_paths(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
+def test_mkdir_rm_recursive(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     fs.mkdir("test_deep")
-#     assert "test_deep/" in fs.ls("")
+    fs.mkdir("test_mkdir_rm_recursive")
+    assert "test_mkdir_rm_recursive/" in fs.ls("")
 
-#     with fs.open("test_deep/a/b/c/file.txt", "wb") as f:
-#         f.write(b"0123456789")
+    with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
+        f.write(b"0123456789")
 
-#     assert fs.ls("test_deep") == ["test_deep/a/"]
-#     assert fs.ls("test_deep/") == ["test_deep/a/"]
-#     assert fs.ls("test_deep/a") == ["test_deep/a/b/"]
-#     assert fs.ls("test_deep/a/") == ["test_deep/a/b/"]
-#     assert fs.find("test_deep") == ["test_deep/a/b/c/file.txt"]
-#     assert fs.find("test_deep/") == ["test_deep/a/b/c/file.txt"]
-#     assert fs.find("test_deep/a") == ["test_deep/a/b/c/file.txt"]
-#     assert fs.find("test_deep/a/") == ["test_deep/a/b/c/file.txt"]
+    with fs.open("test_mkdir_rm_recursive/dir/file.txt", "wb") as f:
+        f.write(b"ABCD")
 
-#     fs.rm("test_deep", recursive=True)
+    with fs.open("test_mkdir_rm_recursive/dir/file2.txt", "wb") as f:
+        f.write(b"abcdef")
 
-#     assert "test_deep/" not in fs.ls("")
-#     assert fs.find("test_deep") == []
+    assert fs.find("test_mkdir_rm_recursive") == [
+        "test_mkdir_rm_recursive/dir/file.txt",
+        "test_mkdir_rm_recursive/dir/file2.txt",
+        "test_mkdir_rm_recursive/file.txt",
+    ]
 
+    fs.rm("test_mkdir_rm_recursive", recursive=True)
 
-# def test_large_blob(storage):
-#     import tempfile
-#     import hashlib
-#     import io
-#     import shutil
-#     from pathlib import Path
-
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-
-#     # create a 20MB byte array, ensure it's larger than blocksizes to force a
-#     # chuncked upload
-#     blob_size = 120_000_000
-#     assert blob_size > fs.blocksize
-#     assert blob_size > AIO.AzureBlobFile.DEFAULT_BLOCK_SIZE
-
-#     data = b"1" * blob_size
-#     _hash = hashlib.md5(data)
-#     expected = _hash.hexdigest()
-
-#     # create container
-#     fs.mkdir("chunk-container")
-
-#     # upload the data using fs.open
-#     path = "chunk-container/large-blob.bin"
-#     with fs.open(path, "wb") as dst:
-#         dst.write(data)
-
-#     assert fs.exists(path)
-#     assert fs.size(path) == blob_size
-
-#     del data
-
-#     # download with fs.open
-#     bio = io.BytesIO()
-#     with fs.open(path, "rb") as src:
-#         shutil.copyfileobj(src, bio)
-
-#     # read back the data and calculate md5
-#     bio.seek(0)
-#     data = bio.read()
-#     _hash = hashlib.md5(data)
-#     result = _hash.hexdigest()
-
-#     assert expected == result
-
-#     # do the same but using upload/download and a tempdir
-#     path = path = "chunk-container/large_blob2.bin"
-#     with tempfile.TemporaryDirectory() as td:
-#         local_blob: Path = Path(td) / "large_blob2.bin"
-#         with local_blob.open("wb") as fo:
-#             fo.write(data)
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
-
-#         fs.upload(str(local_blob), path)
-#         assert fs.exists(path)
-#         assert fs.size(path) == blob_size
-
-#         # download now
-#         local_blob.unlink()
-#         fs.download(path, str(local_blob))
-#         assert local_blob.exists()
-#         assert local_blob.stat().st_size == blob_size
+    assert "test_mkdir_rm_recursive/" not in fs.ls("")
+    assert fs.find("test_mkdir_rm_recursive") == []
 
 
-# def test_dask_parquet(storage):
-#     fs = AIO.AzureBlobFileSystem(
-#         account_name=storage.account_name, connection_string=CONN_STR
-#     )
-#     fs.mkdir("test")
-#     STORAGE_OPTIONS = {
-#         "account_name": "devstoreaccount1",
-#         "connection_string": CONN_STR,
-#     }
-#     df = pd.DataFrame(
-#         {
-#             "col1": [1, 2, 3, 4],
-#             "col2": [2, 4, 6, 8],
-#             "index_key": [1, 1, 2, 2],
-#             "partition_key": [1, 1, 2, 2],
-#         }
-#     )
+def test_deep_paths(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
 
-#     dask_dataframe = dd.from_pandas(df, npartitions=1)
-#     dask_dataframe.to_parquet(
-#         "abfs://test/test_group.parquet",
-#         storage_options=STORAGE_OPTIONS,
-#         engine="pyarrow",
-#     )
+    fs.mkdir("test_deep")
+    assert "test_deep/" in fs.ls("")
 
-#     fs = AIO.AzureBlobFileSystem(**STORAGE_OPTIONS)
-#     assert fs.ls("test/test_group.parquet") == [
-#         "test/test_group.parquet/_common_metadata",
-#         "test/test_group.parquet/_metadata",
-#         "test/test_group.parquet/part.0.parquet",
-#     ]
+    with fs.open("test_deep/a/b/c/file.txt", "wb") as f:
+        f.write(b"0123456789")
 
-#     df_test = dd.read_parquet("abfs://test/test_group.parquet",
-#                           storage_options=STORAGE_OPTIONS,
-#                           engine="pyarrow").compute()
-#     assert_frame_equal(df, df_test)
+    assert fs.ls("test_deep") == ["test_deep/a/"]
+    assert fs.ls("test_deep/") == ["test_deep/a/"]
+    assert fs.ls("test_deep/a") == ["test_deep/a/b/"]
+    assert fs.ls("test_deep/a/") == ["test_deep/a/b/"]
+    assert fs.find("test_deep") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a") == ["test_deep/a/b/c/file.txt"]
+    assert fs.find("test_deep/a/") == ["test_deep/a/b/c/file.txt"]
+
+    fs.rm("test_deep", recursive=True)
+
+    assert "test_deep/" not in fs.ls("")
+    assert fs.find("test_deep") == []
+
+
+def test_large_blob(storage):
+    import tempfile
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
+
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    # create a 20MB byte array, ensure it's larger than blocksizes to force a
+    # chuncked upload
+    blob_size = 120_000_000
+    assert blob_size > fs.blocksize
+    assert blob_size > AIO.AzureBlobFile.DEFAULT_BLOCK_SIZE
+
+    data = b"1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
+
+    # create container
+    fs.mkdir("chunk-container")
+
+    # upload the data using fs.open
+    path = "chunk-container/large-blob.bin"
+    with fs.open(path, "wb") as dst:
+        dst.write(data)
+
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
+
+    del data
+
+    # download with fs.open
+    bio = io.BytesIO()
+    with fs.open(path, "rb") as src:
+        shutil.copyfileobj(src, bio)
+
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
+
+    assert expected == result
+
+    # do the same but using upload/download and a tempdir
+    path = path = "chunk-container/large_blob2.bin"
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_blob2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
+
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+
+def test_dask_parquet(storage):
+    fs = AIO.AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test")
+    STORAGE_OPTIONS = {
+        "account_name": "devstoreaccount1",
+        "connection_string": CONN_STR,
+    }
+    df = pd.DataFrame(
+        {
+            "col1": [1, 2, 3, 4],
+            "col2": [2, 4, 6, 8],
+            "index_key": [1, 1, 2, 2],
+            "partition_key": [1, 1, 2, 2],
+        }
+    )
+
+    dask_dataframe = dd.from_pandas(df, npartitions=1)
+    dask_dataframe.to_parquet(
+        "abfs://test/test_group.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    )
+
+    fs = AIO.AzureBlobFileSystem(**STORAGE_OPTIONS)
+    assert fs.ls("test/test_group.parquet") == [
+        "test/test_group.parquet/_common_metadata",
+        "test/test_group.parquet/_metadata",
+        "test/test_group.parquet/part.0.parquet",
+    ]
+
+    df_test = dd.read_parquet("abfs://test/test_group.parquet",
+                          storage_options=STORAGE_OPTIONS,
+                          engine="pyarrow").compute()
+    assert_frame_equal(df, df_test)
     
     
-#     A = np.random.randint(0, 100, size=(10000,4))
-#     df2 = pd.DataFrame(data=A, columns=list("ABCD"))
-#     ddf2 = dd.from_pandas(df2, npartitions=4)
-#     dd.to_parquet(ddf2, "abfs://test/test_group2.parquet",
-#                   storage_options=STORAGE_OPTIONS,
-#                   engine="pyarrow")
-#     assert fs.ls("test/test_group2.parquet") == [
-#         "test/test_group2.parquet/_common_metadata",
-#         "test/test_group2.parquet/_metadata",
-#         "test/test_group2.parquet/part.0.parquet",
-#         "test/test_group2.parquet/part.1.parquet",
-#         "test/test_group2.parquet/part.2.parquet",
-#         "test/test_group2.parquet/part.3.parquet"
-#     ]
-#     df2_test = dd.read_parquet(
-#         "abfs://test/test_group2.parquet",
-#         storage_options=STORAGE_OPTIONS,
-#         engine="pyarrow"
-#     ).compute()
-#     assert_frame_equal(df2, df2_test)
+    A = np.random.randint(0, 100, size=(10000,4))
+    df2 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf2 = dd.from_pandas(df2, npartitions=4)
+    dd.to_parquet(ddf2, "abfs://test/test_group2.parquet",
+                  storage_options=STORAGE_OPTIONS,
+                  engine="pyarrow")
+    assert fs.ls("test/test_group2.parquet") == [
+        "test/test_group2.parquet/_common_metadata",
+        "test/test_group2.parquet/_metadata",
+        "test/test_group2.parquet/part.0.parquet",
+        "test/test_group2.parquet/part.1.parquet",
+        "test/test_group2.parquet/part.2.parquet",
+        "test/test_group2.parquet/part.3.parquet"
+    ]
+    df2_test = dd.read_parquet(
+        "abfs://test/test_group2.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow"
+    ).compute()
+    assert_frame_equal(df2, df2_test)
 
-#     a = np.full(shape=(10000,1), fill_value=1)
-#     b = np.full(shape=(10000, 1), fill_value=2)
-#     c = np.full(shape=(10000, 1), fill_value=3)
-#     d = np.full(shape=(10000, 1), fill_value=4)
-#     B = np.concatenate((a,b,c,d), axis=1)
-#     df3 = pd.DataFrame(data=B, columns=list("ABCD"))
-#     ddf3 = dd.from_pandas(df3, npartitions=4)
-#     dd.to_parquet(ddf3, "abfs://test/test_group3.parquet",
-#                   partition_on=["A", "B"],
-#                   storage_options=STORAGE_OPTIONS,
-#                   engine="pyarrow")
-#     assert fs.glob("test/test_group3.parquet/*") == [
-#         "test/test_group3.parquet/A=1",
-#         "test/test_group3.parquet/_common_metadata",
-#         "test/test_group3.parquet/_metadata",
-#     ]
-#     df3_test = dd.read_parquet(
-#         "abfs://test/test_group3.parquet",
-#         filters=[("A", "=", 1)],
-#         storage_options=STORAGE_OPTIONS, 
-#         engine="pyarrow"
-#     ).compute()
-#     df3_test = df3_test[['A', 'B', 'C', 'D']]
-#     df3_test = df3_test[['A', 'B', 'C', 'D']].astype(int)
-#     assert_frame_equal(df3, df3_test)
+    a = np.full(shape=(10000,1), fill_value=1)
+    b = np.full(shape=(10000, 1), fill_value=2)
+    c = np.full(shape=(10000, 1), fill_value=3)
+    d = np.full(shape=(10000, 1), fill_value=4)
+    B = np.concatenate((a,b,c,d), axis=1)
+    df3 = pd.DataFrame(data=B, columns=list("ABCD"))
+    ddf3 = dd.from_pandas(df3, npartitions=4)
+    dd.to_parquet(ddf3, "abfs://test/test_group3.parquet",
+                  partition_on=["A", "B"],
+                  storage_options=STORAGE_OPTIONS,
+                  engine="pyarrow")
+    assert fs.glob("test/test_group3.parquet/*") == [
+        "test/test_group3.parquet/A=1",
+        "test/test_group3.parquet/_common_metadata",
+        "test/test_group3.parquet/_metadata",
+    ]
+    df3_test = dd.read_parquet(
+        "abfs://test/test_group3.parquet",
+        filters=[("A", "=", 1)],
+        storage_options=STORAGE_OPTIONS, 
+        engine="pyarrow"
+    ).compute()
+    df3_test = df3_test[['A', 'B', 'C', 'D']]
+    df3_test = df3_test[['A', 'B', 'C', 'D']].astype(int)
+    assert_frame_equal(df3, df3_test)
 
-#     A = np.random.randint(0, 100, size=(10000,4))
-#     df4 = pd.DataFrame(data=A, columns=list("ABCD"))
-#     ddf4 = dd.from_pandas(df4, npartitions=4)
-#     dd.to_parquet(ddf4, "abfs://test/test_group4.parquet",
-#                   storage_options=STORAGE_OPTIONS,
-#                   engine="pyarrow", flavor="spark",
-#                   write_statistics=False)
-#     fs.rmdir("test/test_group4.parquet/_common_metadata", recursive=True)
-#     fs.rmdir("test/test_group4.parquet/_metadata", recursive=True)
-#     fs.rm("test/test_group4.parquet/_common_metadata")
-#     fs.rm("test/test_group4.parquet/_metadata")
-#     assert fs.ls("test/test_group4.parquet") == [
-#         "test/test_group4.parquet/part.0.parquet",
-#         "test/test_group4.parquet/part.1.parquet",
-#         "test/test_group4.parquet/part.2.parquet",
-#         "test/test_group4.parquet/part.3.parquet"
-#     ]
-#     df4_test = dd.read_parquet(
-#         "abfs://test/test_group4.parquet",
-#         storage_options=STORAGE_OPTIONS,
-#         engine="pyarrow"
-#     ).compute()
-#     assert_frame_equal(df4, df4_test)
+    A = np.random.randint(0, 100, size=(10000,4))
+    df4 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf4 = dd.from_pandas(df4, npartitions=4)
+    dd.to_parquet(ddf4, "abfs://test/test_group4.parquet",
+                  storage_options=STORAGE_OPTIONS,
+                  engine="pyarrow", flavor="spark",
+                  write_statistics=False)
+    fs.rmdir("test/test_group4.parquet/_common_metadata", recursive=True)
+    fs.rmdir("test/test_group4.parquet/_metadata", recursive=True)
+    fs.rm("test/test_group4.parquet/_common_metadata")
+    fs.rm("test/test_group4.parquet/_metadata")
+    assert fs.ls("test/test_group4.parquet") == [
+        "test/test_group4.parquet/part.0.parquet",
+        "test/test_group4.parquet/part.1.parquet",
+        "test/test_group4.parquet/part.2.parquet",
+        "test/test_group4.parquet/part.3.parquet"
+    ]
+    df4_test = dd.read_parquet(
+        "abfs://test/test_group4.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow"
+    ).compute()
+    assert_frame_equal(df4, df4_test)
 
-#     A = np.random.randint(0, 100, size=(10000,4))
-#     df5 = pd.DataFrame(data=A, columns=list("ABCD"))
-#     ddf5 = dd.from_pandas(df5, npartitions=4)
-#     dd.to_parquet(ddf5, "abfs://test/test group5.parquet",
-#                   storage_options=STORAGE_OPTIONS,
-#                   engine="pyarrow")
-#     assert fs.ls("test/test group5.parquet") == [
-#         "test/test group5.parquet/_common_metadata",
-#         "test/test group5.parquet/_metadata",
-#         "test/test group5.parquet/part.0.parquet",
-#         "test/test group5.parquet/part.1.parquet",
-#         "test/test group5.parquet/part.2.parquet",
-#         "test/test group5.parquet/part.3.parquet"
-#     ]
-#     df5_test = dd.read_parquet(
-#         "abfs://test/test group5.parquet",
-#         storage_options=STORAGE_OPTIONS,
-#         engine="pyarrow"
-#     ).compute()
-#     assert_frame_equal(df5, df5_test)
+    A = np.random.randint(0, 100, size=(10000,4))
+    df5 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf5 = dd.from_pandas(df5, npartitions=4)
+    dd.to_parquet(ddf5, "abfs://test/test group5.parquet",
+                  storage_options=STORAGE_OPTIONS,
+                  engine="pyarrow")
+    assert fs.ls("test/test group5.parquet") == [
+        "test/test group5.parquet/_common_metadata",
+        "test/test group5.parquet/_metadata",
+        "test/test group5.parquet/part.0.parquet",
+        "test/test group5.parquet/part.1.parquet",
+        "test/test group5.parquet/part.2.parquet",
+        "test/test group5.parquet/part.3.parquet"
+    ]
+    df5_test = dd.read_parquet(
+        "abfs://test/test group5.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow"
+    ).compute()
+    assert_frame_equal(df5, df5_test)
 
 
-# @pytest.mark.skip
-# def test_isidr(storage):
+@pytest.mark.skip
+def test_isidr(storage):
     pass

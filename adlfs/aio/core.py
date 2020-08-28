@@ -28,7 +28,7 @@ from fsspec import AbstractFileSystem
 from fsspec.asyn import sync_wrapper, sync, AsyncFileSystem, maybe_sync, async_wrapper, get_loop
 from fsspec.spec import AbstractBufferedFile
 from fsspec.implementations.http import get_client
-from fsspec.utils import infer_storage_options, tokenize
+from fsspec.utils import infer_storage_options, tokenize, other_paths
 
 
 from adlfs.aio.caching import (  # noqa: F401
@@ -506,7 +506,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
         out = await self._ls(self._parent(path), detail=True, **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
@@ -702,7 +702,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                         outblobs.append(blob_)
                                     else:
                                         pass
-                                        # import pdb;pdb.set_trace()
                 except ResourceNotFoundError:
                     raise FileNotFoundError
                 if return_glob:
@@ -711,6 +710,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     finalblobs = [await self._details(b) for b in outblobs]
                 if not finalblobs:
+                    # import pdb;pdb.set_trace()
+                    # if target_path not in outblobs:
+                    #     raise FileNotFoundError
                     return []
                 if detail:
                     return finalblobs
@@ -745,7 +747,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data["size"] = content.size
             else:
                 data["size"] = 0
-            if data["size"] == 0:
+            if data["size"] == 0 and data['name'].endswith(delimiter):
                 data["type"] = "directory"
             else:
                 data["type"] = "file"
@@ -946,12 +948,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
-        import pdb;pdb.set_trace()
-        path = await self.expand_path(path, recursive=recursive, maxdepth=maxdepth)
+        # import pdb;pdb.set_trace()
+        path = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth)
         for p in reversed(path):
             await self.rm_file(p)
 
-    async def rmdir(self, path: str, delimiter="/", **kwargs):
+    def rmdir(self, path: str, delimiter="/", **kwargs):
+        future = asyncio.run_coroutine_threadsafe(self._rmdir(
+            path=path, delimiter=delimiter, **kwargs),
+            self.concurrent_loop
+        )
+        result = future.result()
+
+    async def _rmdir(self, path: str, delimiter="/", **kwargs):
         """
         Remove a directory, if empty
 
@@ -968,9 +977,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(path, delimiter=delimiter)
         if (container_name + delimiter in await self._ls("")) and (not path):
             # delete container
-            await self.service_client.delete_container(container_name)
+            return await self.service_client.delete_container(container_name)
 
-    async def size(self, path):
+    def size(self, path):
+        future = asyncio.run_coroutine_threadsafe(self._size(path),
+                                                  self.concurrent_loop)
+        result = future.result()
+        return result
+
+    async def _size(self, path):
         """Size in bytes of file"""
         res = await self._info(path)
         size = res.get("size", None)
@@ -1018,7 +1033,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str
             Delimiter to use when splitting the path
         """
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         try:
             kind = await self._info(path)
             kind = kind["type"]
@@ -1030,6 +1045,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 logging.debug(f"Delete blob {path} in {container_name}")
                 await container_client.delete_blob(path)
             elif kind == "directory":
+                # import pdb;pdb.set_trace()
                 container_name, path = self.split_path(path, delimiter=delimiter)
                 container_client = self.service_client.get_container_client(
                     container=container_name
@@ -1042,6 +1058,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
 
+    def exists(self, path):
+        future = asyncio.run_coroutine_threadsafe(
+            self._exists(path), self.concurrent_loop
+        )
+        result = future.result()
+        return result
+
     async def _exists(self, path):
         """Is there a file at the given path"""
         try:
@@ -1050,11 +1073,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
             return False
-        
-    async def expand_path(self, path, recursive=False, maxdepth=None):
+    def expand_path(self, path, recursive=False, maxdepth=None):
+        future = asyncio.run_coroutine_threadsafe(
+            self._expand_path(path, recursive, maxdepth),
+            self.concurrent_loop
+        )
+        result = future.result()
+        return result
+
+    async def _expand_path(self, path, recursive=False, maxdepth=None):
         """Turn one or more globs or directories into a list of all matching files"""
         if isinstance(path, str):
-            out = await self.expand_path([path], recursive, maxdepth)
+            out = await self._expand_path([path], recursive, maxdepth)
         else:
             out = set()
             for p in path:
@@ -1062,7 +1092,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
-                        out += await self.expand_path(p)
+                        out += await self._expand_path(p)
                     continue
                 elif recursive:
                     out |= set(await self._find(p, withdirs=True))
@@ -1071,6 +1101,65 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if not out:
             raise FileNotFoundError
         return list(sorted(out))
+
+    def put(self, lpath, rpath, recursive=False, **kwargs):
+        """Copy file(s) from local.
+        Copies a specific file or tree of files (if recursive=True). If rpath
+        ends with a "/", it will be assumed to be a directory, and target files
+        will go within.
+        Calls put_file for each source.
+        """
+        from fsspec.implementations.local import make_path_posix, LocalFileSystem
+        # import pdb;pdb.set_trace()
+        rpath = self._strip_protocol(rpath)
+        if isinstance(lpath, str):
+            lpath = make_path_posix(lpath)
+        fs = LocalFileSystem()
+        lpaths = fs.expand_path(lpath, recursive=recursive)
+        rpaths = other_paths(lpaths, rpath)
+
+        for lpath, rpath in zip(lpaths, rpaths):
+            self.put_file(lpath, rpath, **kwargs)
+
+    def upload(self, lpath, rpath, recursive=False, **kwargs):
+        """Alias of :ref:`FilesystemSpec.put`."""
+        return self.put(lpath, rpath, recursive=recursive, **kwargs)
+
+    def download(self, rpath, lpath, recursive=False, **kwargs):
+        """Alias of :ref:`FilesystemSpec.get`."""
+        return self.get(rpath, lpath, recursive=recursive, **kwargs)
+
+    def get(self, rpath, lpath, recursive=False, **kwargs):
+        """Copy file(s) to local.
+        Copies a specific file or tree of files (if recursive=True). If lpath
+        ends with a "/", it will be assumed to be a directory, and target files
+        will go within. Can submit a list of paths, which may be glob-patterns
+        and will be expanded.
+        Calls get_file for each source.
+        """
+        from fsspec.implementations.local import make_path_posix
+        # import pdb;pdb.set_trace()
+        rpath = self._strip_protocol(rpath)
+        if isinstance(lpath, str):
+            lpath = make_path_posix(lpath)
+        rpaths = self.expand_path(rpath, recursive=recursive)
+        lpaths = other_paths(rpaths, lpath)
+        for lpath, rpath in zip(lpaths, rpaths):
+            self.get_file(rpath, lpath, **kwargs)
+
+    # def get_file(self, rpath, lpath, **kwargs):
+    #     """Copy single remote file to local"""
+    #     import pdb;pdb.set_trace()
+
+    #     if self.isdir(rpath):
+    #         os.makedirs(lpath, exist_ok=True)
+    #     else:
+    #         with self.open(rpath, "rb", **kwargs) as f1:
+    #             with open(lpath, "wb") as f2:
+    #                 data = True
+    #                 while data:
+    #                     data = f1.read(self.blocksize)
+    #                     f2.write(data)
 
     def _open(
         self,
@@ -1398,10 +1487,7 @@ class AzureBlobFile(io.IOBase):
         data: bytes
             Set of bytes to be written.
         """
-        try:
-            client = get_dask_client()
-        except:
-            pass
+
         # import pdb;pdb.set_trace()
         if self.mode not in {"wb", "ab"}:
             raise ValueError("File not in write mode")
@@ -1413,9 +1499,10 @@ class AzureBlobFile(io.IOBase):
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
             # import pdb;pdb.set_trace()
-            if client:
+            try:
+                client = get_dask_client()
                 client.submit(self.flush())
-            else:
+            except:
                 self.flush()
         return out
 
@@ -1483,10 +1570,7 @@ class AzureBlobFile(io.IOBase):
         length: int (-1)
             Number of bytes to read; if <0, all remaining bytes.
         """
-        try:
-            client = get_dask_client()
-        except:
-            pass
+    
         length = -1 if length is None else int(length)
         if self.mode != "rb":
             raise ValueError("File not in read mode")
@@ -1498,11 +1582,13 @@ class AzureBlobFile(io.IOBase):
         if length == 0:
             # don't even bother calling fetch
             return b""
-        if client:
+        try:
+            client = get_dask_client()
             future = client.submit(self.cache._fetch(self.loc, self.loc + length))
             out = future.result()
-        out = self.cache._fetch(self.loc, self.loc + length)
-        self.loc += len(out)
+        except:
+            out = self.cache._fetch(self.loc, self.loc + length)
+            self.loc += len(out)
         return out
 
     def close(self):

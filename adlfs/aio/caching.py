@@ -117,11 +117,7 @@ class ReadAheadCache(BaseCache):
         self.cache = b""
         self.start = 0
         self.end = 0
-        try:
-            from dask.distributed import get_client
-            self.client = get_client()
-        except:
-            pass
+
 
     def _fetch(self, start, end):
         if start is None:
@@ -143,9 +139,13 @@ class ReadAheadCache(BaseCache):
             # miss
             part = b""
         end = min(self.size, end + self.blocksize)
-        # import pdb;pdb.set_trace()
-        future = self.client.submit(self.fetcher(start, end))
-        self.cache = future.result()
+        try:
+            from dask.distributed import get_client
+            client = get_client()
+            future = self.client.submit(self.fetcher(start, end))
+            self.cache = future.result()
+        except:
+            self.cache = self.fetcher(start, end)
         self.start = start
         self.end = self.start + len(self.cache)
         return part + self.cache[:l]
