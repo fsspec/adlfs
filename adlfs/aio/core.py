@@ -710,10 +710,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     finalblobs = [await self._details(b) for b in outblobs]
                 if not finalblobs:
-                    # import pdb;pdb.set_trace()
-                    # if target_path not in outblobs:
-                    #     raise FileNotFoundError
-                    return []
+                    if not target_path in await self._find(target_path):
+                        raise FileNotFoundError
+                    else:
+                        return []
                 if detail:
                     return finalblobs
                 else:
