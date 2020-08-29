@@ -710,7 +710,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     finalblobs = [await self._details(b) for b in outblobs]
                 if not finalblobs:
-                    if not target_path in await self._find(target_path):
+                    if not await self._exists(target_path):
                         raise FileNotFoundError
                     else:
                         return []

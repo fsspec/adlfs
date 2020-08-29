@@ -313,7 +313,7 @@ def test_mkdir_rmdir(storage):
         
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
-    # assert fs.ls("new-container") == []
+    assert fs.ls("new-container") == []
 
     with AIO.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
