@@ -85,15 +85,15 @@ def test_ls(storage):
         {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
     ]
 
-    # ## if not direct match is found throws error
-    # with pytest.raises(FileNotFoundError):
-    #     fs.ls("not-a-container")
+    ## if not direct match is found throws error
+    with pytest.raises(FileNotFoundError):
+        fs.ls("not-a-container")
 
-    # with pytest.raises(FileNotFoundError):
-    #     fs.ls("data/not-a-directory/")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/not-a-directory/")
 
-    # with pytest.raises(FileNotFoundError):
-    #     fs.ls("data/root/not-a-file.txt")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root/not-a-file.txt")
 
 
 def test_info(storage):
@@ -283,8 +283,8 @@ def test_rm(storage):
 
     fs.rm("/data/root/a/file.txt")
 
-    # with pytest.raises(FileNotFoundError):
-    #     fs.ls("/data/root/a/file.txt")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("/data/root/a/file.txt")
 
 
 def test_rm_recursive(storage):
@@ -301,8 +301,8 @@ def test_rm_recursive(storage):
     fs.rm("data/root/c", recursive=True)
     assert "data/root/c/" not in fs.ls("/data/root")
 
-    # with pytest.raises(FileNotFoundError):
-    #     fs.ls("data/root/c")
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root/c")
 
 
 def test_mkdir_rmdir(storage):
@@ -313,7 +313,7 @@ def test_mkdir_rmdir(storage):
         
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
-    assert fs.ls("new-container") == []
+    # assert fs.ls("new-container") == []
 
     with AIO.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
