@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
 
-from adlfs.aio import core as AIO
+from adlfs.aio import spec as AIO
 
 
 URL = "http://127.0.0.1:10000"
