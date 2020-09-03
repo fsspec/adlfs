@@ -635,8 +635,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
             contents = self.service_client.list_containers(include_metadata=True)
             if detail:
-                res = [await self._details(c) async for c in contents]
-                return res
+                containers = [c async for c in contents]
+                return await self._details(containers)
             else:
                 contents = [f"{c.name}{delimiter}" async for c in contents]
                 return contents
@@ -677,10 +677,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 except ResourceNotFoundError:
                     raise FileNotFoundError
                 if return_glob:
-                    finalblobs = [await self._details(b, return_glob=True) for b in outblobs]
+                    finalblobs = await self._details(outblobs, return_glob=True)
                     return finalblobs
                 else:
-                    finalblobs = [await self._details(b) for b in outblobs]
+                    finalblobs = await self._details(outblobs)
                 if not finalblobs:
                     if not await self._exists(target_path):
                         raise FileNotFoundError
@@ -691,7 +691,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     return [b['name'] for b in finalblobs]
  
-    async def _details(self, content, delimiter="/", return_glob: bool = False, **kwargs):
+    async def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
         """
         Return a list of dictionaries of specifying details about the contents
 
@@ -704,31 +704,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return_glob: bool
 
-
         Returns
         -------
         List of dicts
             Returns details about the contents, such as name, size and type
         """
         # import pdb;pdb.set_trace()
-        data = {}
-        if content.has_key("container"):  # NOQA
-            data["name"] = f"{content.container}{delimiter}{content.name}"
-            if content.has_key("size"):  # NOQA
-                data["size"] = content.size
+        output = []
+        for content in contents:
+            data = {}
+            if content.has_key("container"):  # NOQA
+                data["name"] = f"{content.container}{delimiter}{content.name}"
+                if content.has_key("size"):  # NOQA
+                    data["size"] = content.size
+                else:
+                    data["size"] = 0
+                if data["size"] == 0 and data['name'].endswith(delimiter):
+                    data["type"] = "directory"
+                else:
+                    data["type"] = "file"
             else:
+                data["name"] = f"{content.name}{delimiter}"
                 data["size"] = 0
-            if data["size"] == 0 and data['name'].endswith(delimiter):
                 data["type"] = "directory"
-            else:
-                data["type"] = "file"
-        else:
-            data["name"] = f"{content.name}{delimiter}"
-            data["size"] = 0
-            data["type"] = "directory"
-        if return_glob:
-            data["name"] = data["name"].rstrip("/")
-        return data
+            if return_glob:
+                data["name"] = data["name"].rstrip("/")
+            output.append(data)
+        return output
 
     def find(self, path, maxdepth=None, withdirs=False, **kwargs):
         return sync(self.loop, self._find, path, maxdepth, withdirs)
