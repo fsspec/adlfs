@@ -475,10 +475,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return path.split(delimiter, 1)
 
     def info(self, path, **kwargs):
-        future = asyncio.run_coroutine_threadsafe(self._info(path=path, **kwargs),
-                                                  self.loop)
-        result = future.result()
-        return result
+        return sync(self.loop, self._info, path)
 
     async def _info(self, path, **kwargs):
         """Give details of entry at path
@@ -512,10 +509,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
 
     def glob(self, path, **kwargs):
-        future = asyncio.run_coroutine_threadsafe(self._glob(path, **kwargs),
-                                                  self.loop)
-        result = future.result()
-        return result
+        return sync(self.loop, self._glob, path)
 
     async def _glob(self, path, **kwargs):
         """
@@ -600,15 +594,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
            **kwargs
     ):
 
-        future = asyncio.run_coroutine_threadsafe(self._ls(path=path,
-                                                        detail=detail,
-                                                        invalidate_cache=invalidate_cache,
-                                                        delimiter=delimiter,
-                                                        return_glob=return_glob,
-                                                        **kwargs
-                                                 ), self.loop)
-        result = future.result()
-        return result
+        return sync(self.loop, self._ls, path, detail, invalidate_cache, delimiter, return_glob)
 
     async def _ls(
         self,
@@ -705,7 +691,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 else:
                     return [b['name'] for b in finalblobs]
  
-
     async def _details(self, content, delimiter="/", return_glob: bool = False, **kwargs):
         """
         Return a list of dictionaries of specifying details about the contents
@@ -746,13 +731,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return data
 
     def find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        future = asyncio.run_coroutine_threadsafe(self._find(path=path,
-                                                             maxdepth=maxdepth,
-                                                             withdirs=withdirs,
-                                                             **kwargs),
-                                                  self.loop)
-        result = future.result()
-        return result
+        return sync(self.loop, self._find, path, maxdepth, withdirs)
 
     async def _find(self, path, maxdepth=None, withdirs=False, **kwargs):
         """List all files below path.
@@ -793,6 +772,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # import pdb;pdb.set_trace()
         for p, d, f in zip([path], [dirs], [files]):
             yield p, d, f
+
+    def walk(self, path: str, maxdepth=None, **kwargs):
+        return sync(self.loop, self._async_walk, path, maxdepth)
 
     async def _async_walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path
@@ -860,10 +842,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 yield path, dirs, files
 
     def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
-        future = asyncio.run_coroutine_threadsafe(self._mkdir(
-            path=path, delimiter=delimiter, exists_ok=exists_ok, **kwargs), 
-                                                  self.loop)
-        res = future.result()
+        sync(self.loop, self._mkdir, path, delimiter, exists_ok)
 
     async def _mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         """
@@ -912,15 +891,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
                 return await container_client.upload_blob(name=path, data="")
 
-    def rm(self, path, recursive=False, maxdepth=None):
-        # import pdb;pdb.set_trace()
-        future = asyncio.run_coroutine_threadsafe(
-            self._rm(path=path, recursive=recursive, maxdepth=maxdepth),
-            self.loop
-        )
-        result = future.result()
+    def rm(self, path, recursive=False, maxdepth=None, **kwargs):
+        # path = self.expand_path(path, recursive=recursive)
+        sync(self.loop, self._rm, path, recursive, **kwargs)
 
-    async def _rm(self, path, recursive=False, maxdepth=None):
+    async def _rm(self, path, recursive=False, maxdepth=None, **kwargs):
         """Delete files.
         Parameters
         ----------
@@ -966,10 +941,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return await self.service_client.delete_container(container_name)
 
     def size(self, path):
-        future = asyncio.run_coroutine_threadsafe(self._size(path),
-                                                  self.loop)
-        result = future.result()
-        return result
+        return sync(self.loop, self._size, path)
 
     async def _size(self, path):
         """Size in bytes of file"""
@@ -978,11 +950,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return size
 
     def isfile(self, path):
-        future = asyncio.run_coroutine_threadsafe(
-            self._isfile(path), self.loop
-        )
-        result = future.result()
-        return result
+        return sync(self.loop, self._isfile, path)
 
     async def _isfile(self, path):
         """Is this entry file-like?"""
@@ -993,11 +961,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
 
     def isdir(self, path):
-        future = asyncio.run_coroutine_threadsafe(
-            self._isdir(path), self.loop
-        )
-        result = future.result()
-        return result
+        return sync(self.loop, self._isdir, path)
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
@@ -1045,11 +1009,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             pass
 
     def exists(self, path):
-        future = asyncio.run_coroutine_threadsafe(
-            self._exists(path), self.loop
-        )
-        result = future.result()
-        return result
+        return sync(self.loop, self._exists, path)
 
     async def _exists(self, path):
         """Is there a file at the given path"""
@@ -1059,13 +1019,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
             return False
+
     def expand_path(self, path, recursive=False, maxdepth=None):
-        future = asyncio.run_coroutine_threadsafe(
-            self._expand_path(path, recursive, maxdepth),
-            self.loop
-        )
-        result = future.result()
-        return result
+        return sync(self.loop, self._expand_path, path, recursive, maxdepth)
 
     async def _expand_path(self, path, recursive=False, maxdepth=None):
         """Turn one or more globs or directories into a list of all matching files"""
@@ -1236,9 +1192,9 @@ class AzureBlobFile(io.IOBase):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        # self.container_client = fs.service_client.get_container_client(
-        #     self.container_name
-        # )
+        self.container_client = fs.service_client.get_container_client(
+            self.container_name
+        )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
