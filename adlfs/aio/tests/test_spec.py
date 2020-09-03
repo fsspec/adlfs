@@ -613,5 +613,5 @@ def test_dask_parquet(storage):
 
 
 @pytest.mark.skip
-def test_isidr(storage):
+def test_isdir(storage):
     pass

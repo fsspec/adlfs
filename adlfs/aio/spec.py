@@ -359,8 +359,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id
         self.client_secret = client_secret
         self.tenant_id = tenant_id
-        self.loop = loop
-        self.concurrent_loop = None
+        self.loop = loop or get_loop()
         if (
             self.credential is None
             and self.account_key is None
@@ -443,18 +442,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
         else:
             raise ValueError("unable to connect with provided params!!")
-        
-        # import pdb;pdb.set_trace()
-        if self.loop is None:
-            if self.service_client._loop is None:
-                self.service_client._loop = asyncio.get_event_loop()
-                self.loop = self.service_client._loop
-            else:
-                self.loop = self.service_client._loop
-        else:
-            self.service_client._loop = self.loop
-        if self.concurrent_loop is None:
-            self.concurrent_loop = get_loop()
 
     def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
@@ -489,7 +476,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def info(self, path, **kwargs):
         future = asyncio.run_coroutine_threadsafe(self._info(path=path, **kwargs),
-                                                  self.concurrent_loop)
+                                                  self.loop)
         result = future.result()
         return result
 
@@ -526,7 +513,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def glob(self, path, **kwargs):
         future = asyncio.run_coroutine_threadsafe(self._glob(path, **kwargs),
-                                                  self.concurrent_loop)
+                                                  self.loop)
         result = future.result()
         return result
 
@@ -619,7 +606,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                                         delimiter=delimiter,
                                                         return_glob=return_glob,
                                                         **kwargs
-                                                 ), self.concurrent_loop)
+                                                 ), self.loop)
         result = future.result()
         return result
 
@@ -763,7 +750,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                                              maxdepth=maxdepth,
                                                              withdirs=withdirs,
                                                              **kwargs),
-                                                  self.concurrent_loop)
+                                                  self.loop)
         result = future.result()
         return result
 
@@ -875,7 +862,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
         future = asyncio.run_coroutine_threadsafe(self._mkdir(
             path=path, delimiter=delimiter, exists_ok=exists_ok, **kwargs), 
-                                                  self.concurrent_loop)
+                                                  self.loop)
         res = future.result()
 
     async def _mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
@@ -929,7 +916,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # import pdb;pdb.set_trace()
         future = asyncio.run_coroutine_threadsafe(
             self._rm(path=path, recursive=recursive, maxdepth=maxdepth),
-            self.concurrent_loop
+            self.loop
         )
         result = future.result()
 
@@ -955,7 +942,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def rmdir(self, path: str, delimiter="/", **kwargs):
         future = asyncio.run_coroutine_threadsafe(self._rmdir(
             path=path, delimiter=delimiter, **kwargs),
-            self.concurrent_loop
+            self.loop
         )
         result = future.result()
 
@@ -980,7 +967,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def size(self, path):
         future = asyncio.run_coroutine_threadsafe(self._size(path),
-                                                  self.concurrent_loop)
+                                                  self.loop)
         result = future.result()
         return result
 
@@ -992,7 +979,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def isfile(self, path):
         future = asyncio.run_coroutine_threadsafe(
-            self._isfile(path), self.concurrent_loop
+            self._isfile(path), self.loop
         )
         result = future.result()
         return result
@@ -1007,7 +994,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def isdir(self, path):
         future = asyncio.run_coroutine_threadsafe(
-            self._isdir(path), self.concurrent_loop
+            self._isdir(path), self.loop
         )
         result = future.result()
         return result
@@ -1059,7 +1046,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def exists(self, path):
         future = asyncio.run_coroutine_threadsafe(
-            self._exists(path), self.concurrent_loop
+            self._exists(path), self.loop
         )
         result = future.result()
         return result
@@ -1075,7 +1062,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def expand_path(self, path, recursive=False, maxdepth=None):
         future = asyncio.run_coroutine_threadsafe(
             self._expand_path(path, recursive, maxdepth),
-            self.concurrent_loop
+            self.loop
         )
         result = future.result()
         return result
