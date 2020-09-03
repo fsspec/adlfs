@@ -654,7 +654,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         logging.debug(f"abfs.ls() is searching for {path}")
         target_path = path.strip("/")
-        # import pdb;pdb.set_trace()
         container, path = self.split_path(path)
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             # This is the case where only the containers are being returned
@@ -1485,11 +1484,7 @@ class AzureBlobFile(io.IOBase):
         self.loc += out
         if self.buffer.tell() >= self.blocksize:
             # import pdb;pdb.set_trace()
-            try:
-                client = get_dask_client()
-                client.submit(self.flush())
-            except:
-                self.flush()
+            self.flush()
         return out
 
     def readuntil(self, char=b"\n", blocks=None):
@@ -1568,13 +1563,8 @@ class AzureBlobFile(io.IOBase):
         if length == 0:
             # don't even bother calling fetch
             return b""
-        try:
-            client = get_dask_client()
-            future = client.submit(self.cache._fetch(self.loc, self.loc + length))
-            out = future.result()
-        except:
-            out = self.cache._fetch(self.loc, self.loc + length)
-            self.loc += len(out)
+        out = self.cache._fetch(self.loc, self.loc + length)
+        self.loc += len(out)
         return out
 
     def close(self):
