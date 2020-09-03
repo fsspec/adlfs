@@ -1147,20 +1147,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for lpath, rpath in zip(lpaths, rpaths):
             self.get_file(rpath, lpath, **kwargs)
 
-    # def get_file(self, rpath, lpath, **kwargs):
-    #     """Copy single remote file to local"""
-    #     import pdb;pdb.set_trace()
-
-    #     if self.isdir(rpath):
-    #         os.makedirs(lpath, exist_ok=True)
-    #     else:
-    #         with self.open(rpath, "rb", **kwargs) as f1:
-    #             with open(lpath, "wb") as f2:
-    #                 data = True
-    #                 while data:
-    #                     data = f1.read(self.blocksize)
-    #                     f2.write(data)
-
     def _open(
         self,
         path: str,
