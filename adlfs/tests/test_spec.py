@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
 
-from adlfs.aio import spec as AIO
+from adlfs import AzureBlobFileSystem, AzureBlobFile
 
 
 URL = "http://127.0.0.1:10000"
@@ -34,14 +34,14 @@ def spawn_azurite():
 
 
 def test_connect(storage):
-    AIO.AzureBlobFileSystem(
+    AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
 
 
 def test_ls(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -97,7 +97,7 @@ def test_ls(storage):
 
 
 def test_info(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -116,7 +116,7 @@ def test_info(storage):
 
 
 def test_find(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -177,7 +177,7 @@ def test_find(storage):
 
 @pytest.mark.xfail
 def test_find_missing(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     assert fs.find("data/roo") == []
@@ -185,7 +185,7 @@ def test_find_missing(storage):
 
 
 def test_glob(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -267,7 +267,7 @@ def test_glob(storage):
 
 
 def test_open_file(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     f = fs.open("/data/root/a/file.txt")
@@ -277,7 +277,7 @@ def test_open_file(storage):
 
 
 def test_rm(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -288,7 +288,7 @@ def test_rm(storage):
 
 
 def test_rm_recursive(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -306,7 +306,7 @@ def test_rm_recursive(storage):
 
 
 def test_mkdir_rmdir(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
     )
@@ -315,10 +315,10 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []
 
-    with AIO.AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
+    with AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
 
-    with AIO.AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
+    with AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
     with fs.open("new-container/dir/file.txt", "wb") as f:
@@ -360,7 +360,7 @@ def test_mkdir_rmdir(storage):
 
 
 def test_mkdir_rm_recursive(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -389,7 +389,7 @@ def test_mkdir_rm_recursive(storage):
 
 
 def test_deep_paths(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -421,7 +421,7 @@ def test_large_blob(storage):
     import shutil
     from pathlib import Path
 
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -429,7 +429,7 @@ def test_large_blob(storage):
     # chuncked upload
     blob_size = 120_000_000
     assert blob_size > fs.blocksize
-    assert blob_size > AIO.AzureBlobFile.DEFAULT_BLOCK_SIZE
+    assert blob_size > AzureBlobFile.DEFAULT_BLOCK_SIZE
 
     data = b"1" * blob_size
     _hash = hashlib.md5(data)
@@ -482,7 +482,7 @@ def test_large_blob(storage):
 
 
 def test_dask_parquet(storage):
-    fs = AIO.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("test")
@@ -506,7 +506,7 @@ def test_dask_parquet(storage):
         engine="pyarrow",
     )
 
-    fs = AIO.AzureBlobFileSystem(**STORAGE_OPTIONS)
+    fs = AzureBlobFileSystem(**STORAGE_OPTIONS)
     assert fs.ls("test/test_group.parquet") == [
         "test/test_group.parquet/_common_metadata",
         "test/test_group.parquet/_metadata",

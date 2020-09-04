@@ -1,5 +1,5 @@
-from .core import AzureDatalakeFileSystem
-from .core import AzureBlobFileSystem, AzureBlobFile
+from .spec import AzureDatalakeFileSystem
+from .spec import AzureBlobFileSystem, AzureBlobFile
 from ._version import get_versions
 
 __all__ = ["AzureBlobFileSystem", "AzureBlobFile", "AzureDatalakeFileSystem"]

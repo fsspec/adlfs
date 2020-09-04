@@ -28,15 +28,6 @@ from fsspec.implementations.http import get_client
 from fsspec.utils import infer_storage_options, tokenize, other_paths
 
 
-from adlfs.aio.caching import (  # noqa: F401
-    BaseCache,
-    MMapCache,
-    ReadAheadCache,
-    BytesCache,
-    BlockCache,
-    caches,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -1233,8 +1224,8 @@ class AzureBlobFile(io.IOBase):
         kwargs: dict
             Passed to AbstractBufferedFile
         """
-
-        from adlfs.aio.caching import caches
+    
+        from fsspec.core import caches
 
         container_name, blob = fs.split_path(path)
         self.fs = fs
@@ -1243,9 +1234,9 @@ class AzureBlobFile(io.IOBase):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        self.container_client = fs.service_client.get_container_client(
-            self.container_name
-        )
+        # self.container_client = fs.service_client.get_container_client(
+        #     self.container_name
+        # )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1274,7 +1265,7 @@ class AzureBlobFile(io.IOBase):
             if not hasattr(self, "details"):
                 self.details = self.fs.info(self.path)
             self.size = self.details["size"]
-            self.cache = ReadAheadCache(
+            self.cache = caches[cache_type](
                 self.blocksize, self._fetch_range, self.size, **cache_options
             )
         else:
