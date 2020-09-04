@@ -302,6 +302,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Client secret to use when authenticating using an AD Service Principal client/secret.
     tenant_id: str
         Tenant ID to use when authenticating using an AD Service Principal client/secret.
+    default_fill_cache: bool = True
+        Whether to use cache filling with opoen by default
+    default_cache_type: string ('bytes')
+        If given, the default cache_type value used for "open()".  Set to none if no caching
+        is desired.  Docs in fsspec
+    
+    Pass on to fsspec:
+    
+    skip_instance_cache:  to control reuse of instances
+    use_listings_cache, listings_expiry_time, max_paths: to control reuse of directory listings
 
     Examples
     --------
@@ -346,8 +356,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_secret: str = None,
         tenant_id: str = None,
         loop = None,
+        asynchronous: bool = False,
+        default_fill_cache: bool = True,
+        default_cache_type: str = 'bytes',
+        **kwargs
     ):
-        AsyncFileSystem.__init__(self)
+        super_kwargs = {k: kwargs.pop(k)
+                        for k in ['use_listings_cache', 'listings_expiry_time', 'max_paths']
+                        if k in kwargs
+                        }  # pass on to fsspec superclass
+        super().__init__(asynchronous=asynchronous, **super_kwargs)
         self.account_name = account_name
         self.account_key = account_key
         self.connection_string = connection_string
@@ -360,6 +378,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_secret = client_secret
         self.tenant_id = tenant_id
         self.loop = loop or get_loop()
+        self.default_fill_cache = default_fill_cache
+        self.default_cache_type = default_cache_type
         if (
             self.credential is None
             and self.account_key is None
@@ -474,8 +494,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    def info(self, path, **kwargs):
-        return sync(self.loop, self._info, path)
+    def info(self, path, refresh = False, **kwargs):
+        print(path)
+        print(self._ls_from_cache(""))
+        print(refresh)
+        fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
+        print(fetch_from_azure)
+        if fetch_from_azure:
+            return sync(self.loop, self._info, path)
+        return super().info(path)
 
     async def _info(self, path, **kwargs):
         """Give details of entry at path
@@ -492,6 +519,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         # import pdb;pdb.set_trace()
         path = self._strip_protocol(path)
+        # if self._ls_from_cache(path) is None or refresh:
+            
         out = await self._ls(self._parent(path), detail=True, **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
         if out:
@@ -591,10 +620,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
            invalidate_cache: bool = True,
            delimiter: str = "/",
            return_glob: bool = False,
+           refresh: bool = False,
            **kwargs
     ):
 
-        return sync(self.loop, self._ls, path, detail, invalidate_cache, delimiter, return_glob)
+        return sync(self.loop, self._ls, path, detail, invalidate_cache, delimiter, return_glob, refresh)
 
     async def _ls(
         self,
@@ -603,6 +633,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         invalidate_cache: bool = True,
         delimiter: str = "/",
         return_glob: bool = False,
+        refresh: bool = False,
         **kwargs
     ):
         """
@@ -714,21 +745,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for content in contents:
             data = {}
             if content.has_key("container"):  # NOQA
-                data["name"] = f"{content.container}{delimiter}{content.name}"
+                fname = f"{content.container}{delimiter}{content.name}"
+                data.update({"name": fname})
                 if content.has_key("size"):  # NOQA
-                    data["size"] = content.size
+                    data.update({"size": content.size})
                 else:
-                    data["size"] = 0
+                    data.update({"size": 0})
                 if data["size"] == 0 and data['name'].endswith(delimiter):
-                    data["type"] = "directory"
+                    data.update({"type": "directory"})
                 else:
-                    data["type"] = "file"
+                    data.update({"type": "file"})
             else:
-                data["name"] = f"{content.name}{delimiter}"
-                data["size"] = 0
-                data["type"] = "directory"
+                fname = f"{content.name}{delimiter}"
+                data.update({"name": fname})
+                data.update({"size": 0})
+                data.update({"type": "directory"})
             if return_glob:
-                data["name"] = data["name"].rstrip("/")
+                data.update({"name": data["name"].rstrip("/")})
             output.append(data)
         return output
 
