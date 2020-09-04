@@ -284,7 +284,7 @@ def test_rm(storage):
     fs.rm("/data/root/a/file.txt")
 
     with pytest.raises(FileNotFoundError):
-        fs.ls("/data/root/a/file.txt")
+        fs.ls("/data/root/a/file.txt", refresh=True)
 
 
 def test_rm_recursive(storage):
