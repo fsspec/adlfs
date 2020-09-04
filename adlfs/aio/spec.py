@@ -4,12 +4,9 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-import concurrent.futures
-import functools
 import io
 from glob import has_magic
 import logging
-from threading import Thread
 import weakref
 import warnings
 
@@ -517,9 +514,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        path = self._strip_protocol(path)
-        # if self._ls_from_cache(path) is None or refresh:
-            
+        path = self._strip_protocol(path)            
         out = await self._ls(self._parent(path), **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
         if out:
@@ -1031,6 +1026,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _isfile(self, path):
         """Is this entry file-like?"""
         try:
+            path_ = path.split("/")[:-1]
+            path_ = "/".join([p for p in path_])
+            if self.dircache[path_]:
+                for fp in self.dircache[path_]:
+                    if fp['name'] == path and fp['type'] == 'file':
+                        return True
+        except KeyError:
+            pass
+        try:
             info = await self._info(path)
             return info["type"] == "file"
         except:  # noqa: E722
@@ -1041,6 +1045,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
+        
+        if path in self.dircache:
+            for fp in self.dircache[path]:
+                # Files will contain themselves in the cache, but
+                # a directory can not contain itself
+                if fp['name'] != path:
+                    return True
         try:
             info = await self._info(path)
             return info["type"] == "directory"
@@ -1052,12 +1063,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _exists(self, path):
         """Is there a file at the given path"""
-        try:
-            await self._info(path)
+        if self._ls_from_cache(path):
             return True
-        except:  # noqa: E722
-            # any exception allowed bar FileNotFoundError?
-            return False
+        else:
+            try:
+                await self._info(path)
+                return True
+            except:  # noqa: E722
+                # any exception allowed bar FileNotFoundError?
+                return False
 
     def expand_path(self, path, recursive=False, maxdepth=None):
         return sync(self.loop, self._expand_path, path, recursive, maxdepth)
