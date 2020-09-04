@@ -10,6 +10,7 @@ import logging
 import weakref
 import warnings
 
+from adlfs.aio import utils
 from azure.core.exceptions import ResourceNotFoundError
 from azure.core.paging import ItemPaged
 from azure.storage.blob._shared.base_client import create_configuration
@@ -801,7 +802,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             yield p, d, f
 
     def walk(self, path: str, maxdepth=None, **kwargs):
-        return sync(self.loop, self._async_walk, path, maxdepth)
+        import pdb;pdb.set_trace()
+        result = utils.sync_generator(self.loop, self._async_walk, path, maxdepth)
+        result = result[0]
+        path, dirs, files = result[0], result[1], result[2]
+        yield path, dirs, files
 
     async def _async_walk(self, path: str, maxdepth=None, **kwargs):
         """ Return all files belows path
@@ -1054,15 +1059,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _exists(self, path):
         """Is there a file at the given path"""
-        if self._ls_from_cache(path):
-            return True
-        else:
-            try:
-                await self._info(path)
+        try:
+            if self._ls_from_cache(path):
                 return True
-            except:  # noqa: E722
-                # any exception allowed bar FileNotFoundError?
-                return False
+        except FileNotFoundError:
+            pass
+        try:
+            await self._info(path)
+            return True
+        except:  # noqa: E722
+            # any exception allowed bar FileNotFoundError?
+            return False
 
     def expand_path(self, path, recursive=False, maxdepth=None):
         return sync(self.loop, self._expand_path, path, recursive, maxdepth)
