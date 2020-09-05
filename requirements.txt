@@ -1,3 +1,4 @@
+aiohttp
 azure-core>=1.5.0
 azure-datalake-store>=0.0.46,<0.1
 azure-identity

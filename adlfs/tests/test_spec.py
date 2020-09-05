@@ -1,14 +1,25 @@
+import asyncio
 import docker
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
+from pandas.testing import assert_frame_equal
 import pytest
 
-import adlfs
+from adlfs import AzureBlobFileSystem, AzureBlobFile
+
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
 KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
 CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -24,13 +35,11 @@ def spawn_azurite():
 
 
 def test_connect(storage):
-    adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
+    AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
 
 
 def test_ls(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -68,7 +77,7 @@ def test_ls(storage):
         {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
     ]
 
-    ## c has two files
+    # c has two files
     assert fs.ls("data/root/c", detail=True) == [
         {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
         {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
@@ -86,7 +95,7 @@ def test_ls(storage):
 
 
 def test_info(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -104,7 +113,7 @@ def test_info(storage):
 
 
 def test_find(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -165,19 +174,20 @@ def test_find(storage):
 
 @pytest.mark.xfail
 def test_find_missing(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     assert fs.find("data/roo") == []
 
 
 def test_glob(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
     ## just the directory name
     assert fs.glob("data/root") == ["data/root"]
+
     # top-level contents of a directory
     assert fs.glob("data/root/") == [
         "data/root/a",
@@ -252,7 +262,7 @@ def test_glob(storage):
 
 
 def test_open_file(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     f = fs.open("/data/root/a/file.txt")
@@ -262,22 +272,23 @@ def test_open_file(storage):
 
 
 def test_rm(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
     fs.rm("/data/root/a/file.txt")
 
     with pytest.raises(FileNotFoundError):
-        fs.ls("/data/root/a/file.txt")
+        fs.ls("/data/root/a/file.txt", refresh=True)
 
 
 def test_rm_recursive(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
     assert "data/root/c/" in fs.ls("/data/root")
+
     assert fs.ls("data/root/c") == [
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
@@ -290,18 +301,19 @@ def test_rm_recursive(storage):
 
 
 def test_mkdir_rmdir(storage):
-    fs = adlfs.AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
     )
 
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []
 
-    with fs.open("new-container/file.txt", "wb") as f:
+    with AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
 
-    with fs.open("new-container/dir/file.txt", "wb") as f:
+    with AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
     with fs.open("new-container/dir/file.txt", "wb") as f:
@@ -343,7 +355,7 @@ def test_mkdir_rmdir(storage):
 
 
 def test_mkdir_rm_recursive(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -371,9 +383,8 @@ def test_mkdir_rm_recursive(storage):
     assert fs.find("test_mkdir_rm_recursive") == []
 
 
-# @pytest.mark.xfail
 def test_deep_paths(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -405,7 +416,7 @@ def test_large_blob(storage):
     import shutil
     from pathlib import Path
 
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
@@ -413,7 +424,7 @@ def test_large_blob(storage):
     # chuncked upload
     blob_size = 120_000_000
     assert blob_size > fs.blocksize
-    assert blob_size > adlfs.AzureBlobFile.DEFAULT_BLOCK_SIZE
+    assert blob_size > AzureBlobFile.DEFAULT_BLOCK_SIZE
 
     data = b"1" * blob_size
     _hash = hashlib.md5(data)
@@ -466,7 +477,7 @@ def test_large_blob(storage):
 
 
 def test_dask_parquet(storage):
-    fs = adlfs.AzureBlobFileSystem(
+    fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("test")
@@ -489,9 +500,127 @@ def test_dask_parquet(storage):
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
     )
-    fs = adlfs.AzureBlobFileSystem(**STORAGE_OPTIONS)
+
+    fs = AzureBlobFileSystem(**STORAGE_OPTIONS)
     assert fs.ls("test/test_group.parquet") == [
         "test/test_group.parquet/_common_metadata",
         "test/test_group.parquet/_metadata",
         "test/test_group.parquet/part.0.parquet",
     ]
+
+    df_test = dd.read_parquet(
+        "abfs://test/test_group.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    ).compute()
+    assert_frame_equal(df, df_test)
+
+    A = np.random.randint(0, 100, size=(10000, 4))
+    df2 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf2 = dd.from_pandas(df2, npartitions=4)
+    dd.to_parquet(
+        ddf2,
+        "abfs://test/test_group2.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    )
+    assert fs.ls("test/test_group2.parquet") == [
+        "test/test_group2.parquet/_common_metadata",
+        "test/test_group2.parquet/_metadata",
+        "test/test_group2.parquet/part.0.parquet",
+        "test/test_group2.parquet/part.1.parquet",
+        "test/test_group2.parquet/part.2.parquet",
+        "test/test_group2.parquet/part.3.parquet",
+    ]
+    df2_test = dd.read_parquet(
+        "abfs://test/test_group2.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    ).compute()
+    assert_frame_equal(df2, df2_test)
+
+    a = np.full(shape=(10000, 1), fill_value=1)
+    b = np.full(shape=(10000, 1), fill_value=2)
+    c = np.full(shape=(10000, 1), fill_value=3)
+    d = np.full(shape=(10000, 1), fill_value=4)
+    B = np.concatenate((a, b, c, d), axis=1)
+    df3 = pd.DataFrame(data=B, columns=list("ABCD"))
+    ddf3 = dd.from_pandas(df3, npartitions=4)
+    dd.to_parquet(
+        ddf3,
+        "abfs://test/test_group3.parquet",
+        partition_on=["A", "B"],
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    )
+    assert fs.glob("test/test_group3.parquet/*") == [
+        "test/test_group3.parquet/A=1",
+        "test/test_group3.parquet/_common_metadata",
+        "test/test_group3.parquet/_metadata",
+    ]
+    df3_test = dd.read_parquet(
+        "abfs://test/test_group3.parquet",
+        filters=[("A", "=", 1)],
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    ).compute()
+    df3_test = df3_test[["A", "B", "C", "D"]]
+    df3_test = df3_test[["A", "B", "C", "D"]].astype(int)
+    assert_frame_equal(df3, df3_test)
+
+    A = np.random.randint(0, 100, size=(10000, 4))
+    df4 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf4 = dd.from_pandas(df4, npartitions=4)
+    dd.to_parquet(
+        ddf4,
+        "abfs://test/test_group4.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+        flavor="spark",
+        write_statistics=False,
+    )
+    fs.rmdir("test/test_group4.parquet/_common_metadata", recursive=True)
+    fs.rmdir("test/test_group4.parquet/_metadata", recursive=True)
+    fs.rm("test/test_group4.parquet/_common_metadata")
+    fs.rm("test/test_group4.parquet/_metadata")
+    assert fs.ls("test/test_group4.parquet") == [
+        "test/test_group4.parquet/part.0.parquet",
+        "test/test_group4.parquet/part.1.parquet",
+        "test/test_group4.parquet/part.2.parquet",
+        "test/test_group4.parquet/part.3.parquet",
+    ]
+    df4_test = dd.read_parquet(
+        "abfs://test/test_group4.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    ).compute()
+    assert_frame_equal(df4, df4_test)
+
+    A = np.random.randint(0, 100, size=(10000, 4))
+    df5 = pd.DataFrame(data=A, columns=list("ABCD"))
+    ddf5 = dd.from_pandas(df5, npartitions=4)
+    dd.to_parquet(
+        ddf5,
+        "abfs://test/test group5.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    )
+    assert fs.ls("test/test group5.parquet") == [
+        "test/test group5.parquet/_common_metadata",
+        "test/test group5.parquet/_metadata",
+        "test/test group5.parquet/part.0.parquet",
+        "test/test group5.parquet/part.1.parquet",
+        "test/test group5.parquet/part.2.parquet",
+        "test/test group5.parquet/part.3.parquet",
+    ]
+    df5_test = dd.read_parquet(
+        "abfs://test/test group5.parquet",
+        storage_options=STORAGE_OPTIONS,
+        engine="pyarrow",
+    ).compute()
+    assert_frame_equal(df5, df5_test)
+
+
+@pytest.mark.skip
+def test_isdir(storage):
+    pass
