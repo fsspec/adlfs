@@ -3,16 +3,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-import asyncio
 import io
 from glob import has_magic
 import logging
-import weakref
 import warnings
 
-from adlfs.aio import utils
 from azure.core.exceptions import ResourceNotFoundError
-from azure.core.paging import ItemPaged
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -20,12 +16,12 @@ from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob.aio._models import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties
-from azure.storage.blob._shared.models import StorageErrorCode
-from dask.distributed import get_client as get_dask_client
 from fsspec import AbstractFileSystem
-from fsspec.asyn import sync_wrapper, sync, AsyncFileSystem, maybe_sync, async_wrapper, get_loop
-from fsspec.spec import AbstractBufferedFile
-from fsspec.implementations.http import get_client
+from fsspec.asyn import (
+    sync,
+    AsyncFileSystem,
+    get_loop,
+)
 from fsspec.utils import infer_storage_options, tokenize, other_paths
 
 
@@ -168,7 +164,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         block_size=None,
         autocommit=True,
         cache_options: dict = {},
-        **kwargs
+        **kwargs,
     ):
         return AzureDatalakeFile(self, path, mode=mode)
 
@@ -207,7 +203,7 @@ class AzureDatalakeFile(AzureDLFile):
         cache_options=None,
         *,
         delimiter=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             azure=fs.azure_fs,
@@ -221,7 +217,7 @@ class AzureDatalakeFile(AzureDLFile):
         self.mode = mode
 
     def seek(self, loc: int, whence: int = 0, **kwargs):
-        """ Set current file location
+        """Set current file location
 
         Parameters
         ----------
@@ -296,9 +292,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     default_cache_type: string ('bytes')
         If given, the default cache_type value used for "open()".  Set to none if no caching
         is desired.  Docs in fsspec
-    
+
     Pass on to fsspec:
-    
+
     skip_instance_cache:  to control reuse of instances
     use_listings_cache, listings_expiry_time, max_paths: to control reuse of directory listings
 
@@ -344,16 +340,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
-        loop = None,
+        loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
-        default_cache_type: str = 'bytes',
-        **kwargs
+        default_cache_type: str = "bytes",
+        **kwargs,
     ):
-        super_kwargs = {k: kwargs.pop(k)
-                        for k in ['use_listings_cache', 'listings_expiry_time', 'max_paths']
-                        if k in kwargs
-                        }  # pass on to fsspec superclass
+        super_kwargs = {
+            k: kwargs.pop(k)
+            for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
+            if k in kwargs
+        }  # pass on to fsspec superclass
         super().__init__(asynchronous=asynchronous, **super_kwargs)
         self.account_name = account_name
         self.account_key = account_key
@@ -483,7 +480,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return path.split(delimiter, 1)
 
-    def info(self, path, refresh = False, **kwargs):
+    def info(self, path, refresh=False, **kwargs):
         # print(path)
         # print(self._ls_from_cache(""))
         # print(refresh)
@@ -506,7 +503,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        path = self._strip_protocol(path)            
+        path = self._strip_protocol(path)
         out = await self._ls(self._parent(path), **kwargs)
         out = [o for o in out if o["name"].rstrip("/") == path]
         if out:
@@ -570,7 +567,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             root = ""
             depth = 20 if "**" in path else 1
 
-        allpaths = await self._find(root, maxdepth=depth, withdirs=True, detail=True, **kwargs)
+        allpaths = await self._find(
+            root, maxdepth=depth, withdirs=True, detail=True, **kwargs
+        )
         pattern = (
             "^"
             + (
@@ -599,26 +598,28 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return list(out)
 
-    def ls(self, 
-           path: str, 
-           detail: bool = False, 
-           invalidate_cache: bool = False,
-           delimiter: str = "/",
-           return_glob: bool = False,
-           **kwargs
+    def ls(
+        self,
+        path: str,
+        detail: bool = False,
+        invalidate_cache: bool = False,
+        delimiter: str = "/",
+        return_glob: bool = False,
+        **kwargs,
     ):
 
-        files = sync(self.loop,
-                    self._ls,
-                    path=path,
-                    invalidate_cache=invalidate_cache,
-                    delimiter=delimiter,
-                    return_glob=return_glob,
-                    )
+        files = sync(
+            self.loop,
+            self._ls,
+            path=path,
+            invalidate_cache=invalidate_cache,
+            delimiter=delimiter,
+            return_glob=return_glob,
+        )
         if detail:
             return files
         else:
-            return list(sorted(set([f['name'] for f in files])))
+            return list(sorted(set([f["name"] for f in files])))
 
     async def _ls(
         self,
@@ -626,7 +627,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Create a list of blob names from a blob container
@@ -676,28 +677,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
                     path = path.strip("/")
                     blobs = container_client.walk_blobs(name_starts_with=path)
-                    
+
                     # Check the depth that needs to be screened
                     depth = target_path.count("/")
                     outblobs = []
                     try:
                         async for next_blob in blobs:
-                            if depth in [0,1] and path=='':
+                            if depth in [0, 1] and path == "":
                                 outblobs.append(next_blob)
                             elif isinstance(next_blob, BlobProperties):
-                                if next_blob['name'].count("/") == depth:
+                                if next_blob["name"].count("/") == depth:
                                     outblobs.append(next_blob)
-                                elif not next_blob['name'].endswith("/") and (
-                                    next_blob['name'].count("/") == (depth-1)
-                                    ):
+                                elif not next_blob["name"].endswith("/") and (
+                                    next_blob["name"].count("/") == (depth - 1)
+                                ):
                                     outblobs.append(next_blob)
                             else:
                                 async for blob_ in next_blob:
-                                    if isinstance(blob_, BlobProperties) or isinstance(blob_, BlobPrefix):
-                                        if blob_['name'].endswith("/"):
-                                            if blob_['name'].rstrip("/").count("/") == depth:
+                                    if isinstance(blob_, BlobProperties) or isinstance(
+                                        blob_, BlobPrefix
+                                    ):
+                                        if blob_["name"].endswith("/"):
+                                            if (
+                                                blob_["name"].rstrip("/").count("/")
+                                                == depth
+                                            ):
                                                 outblobs.append(blob_)
-                                        elif blob_['name'].count('/') == (depth):
+                                        elif blob_["name"].count("/") == (depth):
                                             outblobs.append(blob_)
                                         else:
                                             pass
@@ -716,8 +722,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     self.dircache[target_path] = finalblobs
                     return finalblobs
             return self.dircache[target_path]
-    
-    async def _details(self, contents, delimiter="/", return_glob: bool = False, **kwargs):
+
+    async def _details(
+        self, contents, delimiter="/", return_glob: bool = False, **kwargs
+    ):
         """
         Return a list of dictionaries of specifying details about the contents
 
@@ -735,7 +743,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         List of dicts
             Returns details about the contents, such as name, size and type
         """
-        
+
         output = []
         for content in contents:
             data = {}
@@ -746,7 +754,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     data.update({"size": content.size})
                 else:
                     data.update({"size": 0})
-                if data["size"] == 0 and data['name'].endswith(delimiter):
+                if data["size"] == 0 and data["name"].endswith(delimiter):
                     data.update({"type": "directory"})
                 else:
                     data.update({"type": "file"})
@@ -780,7 +788,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
-        async for path, dirs, files in self._async_walk(path, maxdepth, detail=True, **kwargs):
+        async for path, dirs, files in self._async_walk(
+            path, maxdepth, detail=True, **kwargs
+        ):
             if files == []:
                 files = {}
                 dirs = {}
@@ -796,20 +806,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return names
         else:
             return {name: out[name] for name in names}
-    
+
     def _walk(self, path, dirs, files):
         for p, d, f in zip([path], [dirs], [files]):
             yield p, d, f
 
-    def walk(self, path: str, maxdepth=None, **kwargs):
-        import pdb;pdb.set_trace()
-        result = utils.sync_generator(self.loop, self._async_walk, path, maxdepth)
-        result = result[0]
-        path, dirs, files = result[0], result[1], result[2]
-        yield path, dirs, files
-
     async def _async_walk(self, path: str, maxdepth=None, **kwargs):
-        """ Return all files belows path
+        """Return all files belows path
 
         List all files, recursing into subdirectories; output is iterator-style,
         like ``os.walk()``. For a simple list of files, ``find()`` is available.
@@ -868,7 +871,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return
 
         for d in full_dirs:
-            async for path, dirs, files in self._async_walk(d, maxdepth=maxdepth, detail=detail, **kwargs):
+            async for path, dirs, files in self._async_walk(
+                d, maxdepth=maxdepth, detail=detail, **kwargs
+            ):
                 yield path, dirs, files
 
     def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
@@ -891,7 +896,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
-        _containers = [c['name'] for c in _containers]
+        _containers = [c["name"] for c in _containers]
         # The list of containers will be returned from _ls() in a directory format,
         # with a trailing "/", but the container_name will not have this.
         # Need a placeholder that presents the container_name in a directory format
@@ -971,14 +976,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container=container_name
                 )
                 _containers = await self._ls("")
-                _containers = [c['name'] for c in _containers]
+                _containers = [c["name"] for c in _containers]
                 if (container_name + delimiter in _containers) and (not path):
                     logging.debug(f"Delete container {container_name}")
                     await container_client.delete_container()
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
             _ = await self._ls("", invalidate_cache=True)
-            
+
         except FileNotFoundError:
             pass
 
@@ -1001,7 +1006,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
-        _containers = [c['name'] for c in _containers]
+        _containers = [c["name"] for c in _containers]
         if (container_name + delimiter in _containers) and (not path):
             # delete container
             await self.service_client.delete_container(container_name)
@@ -1026,7 +1031,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             path_ = "/".join([p for p in path_])
             if self.dircache[path_]:
                 for fp in self.dircache[path_]:
-                    if fp['name'] == path and fp['type'] == 'file':
+                    if fp["name"] == path and fp["type"] == "file":
                         return True
         except KeyError:
             pass
@@ -1041,12 +1046,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
-        
+
         if path in self.dircache:
             for fp in self.dircache[path]:
                 # Files will contain themselves in the cache, but
                 # a directory can not contain itself
-                if fp['name'] != path:
+                if fp["name"] != path:
                     return True
         try:
             info = await self._info(path)
@@ -1103,6 +1108,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Calls put_file for each source.
         """
         from fsspec.implementations.local import make_path_posix, LocalFileSystem
+
         rpath = self._strip_protocol(rpath)
         if isinstance(lpath, str):
             lpath = make_path_posix(lpath)
@@ -1130,6 +1136,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Calls get_file for each source.
         """
         from fsspec.implementations.local import make_path_posix
+
         rpath = self._strip_protocol(rpath)
         if isinstance(lpath, str):
             lpath = make_path_posix(lpath)
@@ -1146,7 +1153,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         autocommit: bool = True,
         cache_options: dict = {},
         cache_type="readahead",
-        **kwargs
+        **kwargs,
     ):
         """Open a file on the datalake, or a block blob
 
@@ -1179,7 +1186,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             autocommit=autocommit,
             cache_options=cache_options,
             cache_type=cache_type,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -1231,7 +1238,7 @@ class AzureBlobFile(io.IOBase):
         kwargs: dict
             Passed to AbstractBufferedFile
         """
-    
+
         from fsspec.core import caches
 
         container_name, blob = fs.split_path(path)
@@ -1289,7 +1296,9 @@ class AzureBlobFile(io.IOBase):
         ------
         ValueError if none of the connection details are available
         """
-        self.fs.account_url: str = f"https://{self.fs.account_name}.blob.core.windows.net"
+        self.fs.account_url: str = (
+            f"https://{self.fs.account_name}.blob.core.windows.net"
+        )
         if self.fs.credential is not None:
             self.container_client = BlobServiceClient(
                 account_url=self.fs.account_url, credential=self.fs.credential
@@ -1337,7 +1346,7 @@ class AzureBlobFile(io.IOBase):
         return self.loc
 
     def seek(self, loc, whence=0):
-        """ Set current file location
+        """Set current file location
         Parameters
         ----------
         loc: int
@@ -1382,7 +1391,7 @@ class AzureBlobFile(io.IOBase):
 
     def __initiate_upload(self, **kwargs):
         pass
-        
+
     def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
@@ -1390,7 +1399,7 @@ class AzureBlobFile(io.IOBase):
         try:
             self.container_client.delete_blob(self.blob)
         except ResourceNotFoundError:
-            pass      
+            pass
         else:
             return self.__initiate_upload()
 
@@ -1538,7 +1547,7 @@ class AzureBlobFile(io.IOBase):
         length: int (-1)
             Number of bytes to read; if <0, all remaining bytes.
         """
-    
+
         length = -1 if length is None else int(length)
         if self.mode != "rb":
             raise ValueError("File not in read mode")
@@ -1555,7 +1564,7 @@ class AzureBlobFile(io.IOBase):
         return out
 
     def close(self):
-        """ Close file
+        """Close file
         Finalizes writes, discards cache
         """
         if self.closed:
@@ -1582,7 +1591,7 @@ class AzureBlobFile(io.IOBase):
     def writable(self):
         """Whether opened for writing"""
         return self.mode in {"wb", "ab"} and not self.closed
-    
+
     def __exit__(self, *args):
         self.close()
 
