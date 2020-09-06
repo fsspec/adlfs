@@ -316,7 +316,7 @@ def test_mkdir_rmdir(storage):
     with AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
-    with fs.open("new-container/dir/file.txt", "wb") as f:
+    with fs.open("new-container/dir/file2.txt", "wb") as f:
         f.write(b"0123456789")
 
     # Check to verify you can skip making a directory if the container
