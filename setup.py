@@ -19,6 +19,7 @@ setup(
     long_description_content_type="text/markdown",
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
+        "aiohttp",
         "azure-core>=1.5.0",
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
