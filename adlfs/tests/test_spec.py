@@ -310,10 +310,10 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []
 
-    with AzureBlobFile(fs=fs, path="new-container/file.txt", mode="wb") as f:
+    with fs.open(path="new-container/file.txt", mode="wb") as f:
         f.write(b"0123456789")
 
-    with AzureBlobFile(fs, "new-container/dir/file.txt", "wb") as f:
+    with fs.open("new-container/dir/file.txt", "wb") as f:
         f.write(b"0123456789")
 
     with fs.open("new-container/dir/file2.txt", "wb") as f:
