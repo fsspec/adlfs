@@ -302,8 +302,7 @@ def test_rm_recursive(storage):
 
 def test_mkdir_rmdir(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
     fs.mkdir("new-container")
