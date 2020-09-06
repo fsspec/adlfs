@@ -8,7 +8,7 @@ from glob import has_magic
 import logging
 import warnings
 
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -920,11 +920,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ## everything else
                 raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
         else:
-            if (container_name_as_dir in _containers) and path:
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                await container_client.upload_blob(name=path, data="")
+            try:
+                if (container_name_as_dir in _containers) and path:
+                    container_client = self.service_client.get_container_client(
+                        container=container_name
+                    )
+                    await container_client.upload_blob(name=path, data="")
+            except ResourceExistsError:
+                pass
         _ = await self._ls("", invalidate_cache=True)
 
     def rm(self, path, recursive=False, maxdepth=None, **kwargs):
