@@ -19,7 +19,7 @@ jobs:
     displayName: 'Install dependencies'
 
   - script: |
-      pytest --host="localhost:10000" adlfs --junitxml=junit/test-results.xml --cov=. --cov-report=xml
+      pytest --host="localhost:10000" adlfs/tests --junitxml=junit/test-results.xml --cov=. --cov-report=xml
     displayName: 'Run Tests'
 
   - script: |
