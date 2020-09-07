@@ -1,4 +1,3 @@
-import asyncio
 import os
 import io
 import functools
@@ -118,7 +117,6 @@ class ReadAheadCache(BaseCache):
         self.start = 0
         self.end = 0
 
-
     def _fetch(self, start, end):
         if start is None:
             start = 0
@@ -139,13 +137,8 @@ class ReadAheadCache(BaseCache):
             # miss
             part = b""
         end = min(self.size, end + self.blocksize)
-        try:
-            from dask.distributed import get_client
-            client = get_client()
-            future = self.client.submit(self.fetcher(start, end))
-            self.cache = future.result()
-        except:
-            self.cache = self.fetcher(start, end)
+
+        self.cache = self.fetcher(start, end)
         self.start = start
         self.end = self.start + len(self.cache)
         return part + self.cache[:l]
