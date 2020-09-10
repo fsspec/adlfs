@@ -1539,8 +1539,16 @@ class AzureBlobFile(io.IOBase):
             return out + [lines[-1]]
         # return list(self)  ???
 
-    def readinto(self, b):
+    def readinto1(self, b):
         return self.readinto(b)
+
+    def readinto(self, b):
+        """mirrors builtin file's readinto method
+        https://docs.python.org/3/library/io.html#io.RawIOBase.readinto
+        """
+        data = self.read(len(b))
+        memoryview(b).cast("B")[: len(data)] = data
+        return len(data)
 
     def read(self, length=-1):
         """
