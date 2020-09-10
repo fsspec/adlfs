@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
+import xarray as xr
 
 from adlfs import AzureBlobFileSystem, AzureBlobFile
 
@@ -623,3 +624,19 @@ def test_dask_parquet(storage):
 @pytest.mark.skip
 def test_isdir(storage):
     pass
+
+
+def test_xarray_read(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("majodata")
+    da = xr.DataArray(1)
+    da.to_netcdf("test.nc")
+    loc = "majodata/test.nc"
+    fs.put("test.nc", loc)
+    def open_da(loc):
+        with fs.open("abfs://" + loc) as f:
+            return xr.open_dataset(f).load()
+    assert (open_da(loc)) == xarray.core.dataset.Dataset
+    assert (open_da(loc)) == xarray.core.dataset.Dataset

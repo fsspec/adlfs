@@ -1603,6 +1603,9 @@ class AzureBlobFile(io.IOBase):
         """Whether opened for writing"""
         return self.mode in {"wb", "ab"} and not self.closed
 
+    def __enter__(self):
+        return self
+
     def __exit__(self, *args):
         self.close()
 
