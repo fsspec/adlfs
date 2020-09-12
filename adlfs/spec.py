@@ -14,7 +14,7 @@ from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob import BlobServiceClient
-from azure.storage.blob.aio._models import BlobPrefix
+from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties
 from fsspec import AbstractFileSystem
 from fsspec.asyn import (
