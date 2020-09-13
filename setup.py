@@ -9,10 +9,12 @@ def is_ignored(line):
     line = line.strip()
     return (not line) or (line[0] == "#")
 
+
 def load_deps(path):
     """Load dependencies from requirements file"""
     with open(path) as fp:
         return [line.strip() for line in fp if not is_ignored(line)]
+
 
 with open("README.md") as fp:
     long_desc = fp.read()
