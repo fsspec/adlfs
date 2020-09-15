@@ -28,7 +28,7 @@ setup(
         "pytest>=5.0,<6.0",
         "msrestazure",
         "requests>=2.22.0,<3.0",
-        ],
+    ],
     tests_require=["pytest>5.0,<6.0", "docker"],
     zip_safe=False,
 )
