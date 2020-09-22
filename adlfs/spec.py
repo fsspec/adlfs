@@ -429,25 +429,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ------
         ValueError if none of the connection details are available
         """
-        self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
-        if self.credential is not None:
-            self.service_client = AIOBlobServiceClient(
-                account_url=self.account_url, credential=self.credential
-            )
-        elif self.connection_string is not None:
-            self.service_client = AIOBlobServiceClient.from_connection_string(
-                conn_str=self.connection_string
-            )
-        elif self.account_key is not None:
-            self.service_client = AIOBlobServiceClient(
-                account_url=self.account_url, credential=self.account_key
-            )
-        elif self.sas_token is not None:
-            self.service_client = AIOBlobServiceClient(
-                account_url=self.account_url + self.sas_token, credential=None
-            )
-        else:
-            raise ValueError("unable to connect with provided params!!")
+        try:
+            self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
+            if self.credential is not None:
+                self.service_client = AIOBlobServiceClient(
+                    account_url=self.account_url, credential=self.credential
+                )
+            elif self.connection_string is not None:
+                self.service_client = AIOBlobServiceClient.from_connection_string(
+                    conn_str=self.connection_string
+                )
+            elif self.account_key is not None:
+                self.service_client = AIOBlobServiceClient(
+                    account_url=self.account_url, credential=self.account_key
+                )
+            elif self.sas_token is not None:
+                self.service_client = AIOBlobServiceClient(
+                    account_url=self.account_url + self.sas_token, credential=None
+                )
+            else:
+                self.service_client = AIOBlobServiceClient(account_url=self.account_url)
+
+        except Exception as e:
+            raise ValueError(f"unable to connect to account for {e}")
 
     def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
         """
