@@ -1325,7 +1325,8 @@ class AzureBlobFile(io.IOBase):
                 ).get_container_client(self.container_name)
             else:
                 self.container_client = BlobServiceClient(
-                    account_url=self.fs.account_url).get_container_client(self.container_name)
+                    account_url=self.fs.account_url
+                ).get_container_client(self.container_name)
 
         except Exception as e:
             raise ValueError(f"Unable to connect with provided params for {e}!!")
