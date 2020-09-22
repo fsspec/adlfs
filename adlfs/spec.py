@@ -1303,27 +1303,33 @@ class AzureBlobFile(io.IOBase):
         ------
         ValueError if none of the connection details are available
         """
-        self.fs.account_url: str = (
-            f"https://{self.fs.account_name}.blob.core.windows.net"
-        )
-        if self.fs.credential is not None:
-            self.container_client = BlobServiceClient(
-                account_url=self.fs.account_url, credential=self.fs.credential
-            ).get_container_client(self.container_name)
-        elif self.fs.connection_string is not None:
-            self.container_client = BlobServiceClient.from_connection_string(
-                conn_str=self.fs.connection_string
-            ).get_container_client(self.container_name)
-        elif self.fs.account_key is not None:
-            self.container_client = BlobServiceClient(
-                account_url=self.fs.account_url, credential=self.fs.account_key
-            ).get_container_client(self.container_name)
-        elif self.fs.sas_token is not None:
-            self.container_client = BlobServiceClient(
-                account_url=self.fs.account_url + self.fs.sas_token, credential=None
-            ).get_container_client(self.container_name)
-        else:
-            raise ValueError("unable to connect with provided params!!")
+        try:
+            self.fs.account_url: str = (
+                f"https://{self.fs.account_name}.blob.core.windows.net"
+            )
+            if self.fs.credential is not None:
+                self.container_client = BlobServiceClient(
+                    account_url=self.fs.account_url, credential=self.fs.credential
+                ).get_container_client(self.container_name)
+            elif self.fs.connection_string is not None:
+                self.container_client = BlobServiceClient.from_connection_string(
+                    conn_str=self.fs.connection_string
+                ).get_container_client(self.container_name)
+            elif self.fs.account_key is not None:
+                self.container_client = BlobServiceClient(
+                    account_url=self.fs.account_url, credential=self.fs.account_key
+                ).get_container_client(self.container_name)
+            elif self.fs.sas_token is not None:
+                self.container_client = BlobServiceClient(
+                    account_url=self.fs.account_url + self.fs.sas_token, credential=None
+                ).get_container_client(self.container_name)
+            else:
+                self.container_client = BlobServiceClient(
+                    account_url=self.fs.account_url
+                ).get_container_client(self.container_name)
+
+        except Exception as e:
+            raise ValueError(f"Unable to connect with provided params for {e}!!")
 
     @property
     def closed(self):
