@@ -25,7 +25,6 @@ setup(
         "azure-identity",
         "azure-storage-blob>=12.5.0",
         "fsspec>=0.8.0",
-        "pytest>=5.0,<6.0",
         "msrestazure",
         "requests>=2.22.0,<3.0",
     ],
