@@ -1327,8 +1327,8 @@ class AzureBlobFile(io.IOBase):
                 self.container_client = BlobServiceClient(
                     account_url=self.fs.account_url).get_container_client(self.container_name)
 
-        except:
-            raise ValueError("unable to connect with provided params!!")
+        except Exception as e:
+            raise ValueError(f"Unable to connect with provided params for {e}!!")
 
     @property
     def closed(self):
