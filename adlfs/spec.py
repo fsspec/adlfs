@@ -1444,9 +1444,9 @@ class AzureBlobFile(io.IOBase):
                 block_list = [BlobBlock(_id) for _id in self._block_list]
                 self.blob_client.commit_block_list(block_list=block_list)
         except Exception as e:
-            import pdb
-
-            pdb.set_trace()
+            # This step handles the situation where data="" and length=0
+            # which is throws an InvalidHeader error from Azure, so instead
+            # of staging a block, we directly upload the empty blob
             if block_id == "0000000" and length == 0 and final:
                 self.blob_client.upload_blob(data=data)
             else:
