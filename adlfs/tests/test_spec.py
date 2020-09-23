@@ -1,6 +1,7 @@
 import asyncio
 import docker
 import dask.dataframe as dd
+from fsspec.implementations.local import LocalFileSystem
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal
@@ -324,13 +325,15 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" in fs.ls("")
 
     fs.mkdir("new-container/file2.txt", exists_ok=True)
-    with fs.open("new-container/file2.txt", "wb") as f:
-        f.write(b"0123456789")
     assert "new-container/file2.txt" in fs.ls("new-container")
 
+    # Test to verify that the file contains expected contents
+    with fs.open("new-container/file2.txt", "rb") as f:
+        outfile = f.read()
+    assert outfile == b""
+
+    # Check that trying to overwrite an existing nested file in append mode works as expected
     fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
-    with fs.open("new-container/dir/file2.txt", "wb") as f:
-        f.write(b"0123456789")
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
@@ -351,6 +354,28 @@ def test_mkdir_rmdir(storage):
     fs.rmdir("new-container")
 
     assert "new-container/" not in fs.ls("")
+
+
+@pytest.mark.skip
+def test_append_operation(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("new-container")
+    fs.mkdir("new-container/dir")
+
+    # Check that appending to an existing file works as expected
+    with fs.open("new-container/file2.txt", "ab") as f:
+        f.write(b"0123456789")
+    with fs.open("new-container/dir/file2.txt", "ab") as f:
+        f.write(b"0123456789")
+    with fs.open("new-container/dir/file2.txt", "ab") as f:
+        f.write(b"0123456789")
+    with fs.open("new-container/dir/file2.txt", "rb") as f:
+        outfile = f.read()
+    assert outfile == b"01234567890123456789"
+
+    fs.rm("new-container", recursive=True)
 
 
 def test_mkdir_rm_recursive(storage):
@@ -618,6 +643,29 @@ def test_dask_parquet(storage):
         engine="pyarrow",
     ).compute()
     assert_frame_equal(df5, df5_test)
+
+
+def test_put_empty_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    lfs = LocalFileSystem()
+
+    fs.mkdir("putdir")
+    with open("sample.txt", "wb") as f:
+        f.write(b"")
+    fs.put("sample.txt", "putdir/sample.txt")
+    fs.get("putdir/sample.txt", "sample2.txt")
+
+    with open("sample.txt", "rb") as f:
+        f1 = f.read()
+    with open("sample2.txt", "rb") as f:
+        f2 = f.read()
+    assert f1 == f2
+
+    lfs.rm("sample.txt")
+    lfs.rm("sample2.txt")
+    fs.rm("putdir", recursive=True)
 
 
 @pytest.mark.skip

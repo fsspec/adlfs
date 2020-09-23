@@ -1408,13 +1408,18 @@ class AzureBlobFile(io.IOBase):
     def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self.blob_client = self.container_client.get_blob_client(blob=self.blob)
-        self._block_list = []
-        try:
-            self.container_client.delete_blob(self.blob)
-        except ResourceNotFoundError:
-            pass
+        if self.mode == "wb":
+            self._block_list = []
+            try:
+                self.container_client.delete_blob(self.blob)
+            except ResourceNotFoundError:
+                pass
+            else:
+                return self.__initiate_upload()
         else:
-            return self.__initiate_upload()
+            raise ValueError(
+                "File operation modes other than wb are not yet supported for writing"
+            )
 
     def _upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -1431,12 +1436,21 @@ class AzureBlobFile(io.IOBase):
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
-        self.blob_client.stage_block(block_id=block_id, data=data, length=length)
-        self._block_list.append(block_id)
+        try:
+            self.blob_client.stage_block(block_id=block_id, data=data, length=length)
+            self._block_list.append(block_id)
 
-        if final:
-            block_list = [BlobBlock(_id) for _id in self._block_list]
-            self.blob_client.commit_block_list(block_list=block_list)
+            if final:
+                block_list = [BlobBlock(_id) for _id in self._block_list]
+                self.blob_client.commit_block_list(block_list=block_list)
+        except Exception as e:
+            import pdb
+
+            pdb.set_trace()
+            if block_id == "0000000" and length == 0 and final:
+                self.blob_client.upload_blob(data=data)
+            else:
+                raise RuntimeError(f"Failed to upload block with {e}!!")
 
     def flush(self, force=False):
         """
