@@ -11,7 +11,7 @@ $ conda activate adlfs-dev
 $ pip install -r dev-requirements.txt
 ```
 
-You can run tests from the main dask directory as follows:
+You can run tests from the main directory as follows:
 ```bash
 $ py.test adlfs/tests
 ```
