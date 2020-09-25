@@ -1083,6 +1083,37 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # any exception allowed bar FileNotFoundError?
             return False
 
+    def cat(self, path, recursive=False, on_error="raise", **kwargs):
+        """Fetch (potentially multiple) paths' contents
+        Returns a dict of {path: contents} if there are multiple paths
+        or the path has been otherwise expanded
+        on_error : "raise", "omit", "return"
+            If raise, an underlying exception will be raised (converted to KeyError
+            if the type is in self.missing_exceptions); if omit, keys with exception
+            will simply not be included in the output; if "return", all keys are
+            included in the output, but the value will be bytes or an exception
+            instance.
+        """
+        # import pdb;pdb.set_trace()
+        paths = self.expand_path(path, recursive=recursive)
+        if (
+            len(paths) > 1
+            or isinstance(path, list)
+            or paths[0] != self._strip_protocol(path)
+        ):
+            out = {}
+            for path in paths:
+                try:
+                    out[path] = self.cat_file(path, **kwargs)
+                except Exception as e:
+                    if on_error == "raise":
+                        raise
+                    if on_error == "return":
+                        out[path] = e
+            return out
+        else:
+            return self.cat_file(paths[0])
+
     def expand_path(self, path, recursive=False, maxdepth=None):
         return sync(self.loop, self._expand_path, path, recursive, maxdepth)
 
@@ -1092,6 +1123,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             out = await self._expand_path([path], recursive, maxdepth)
         else:
             out = set()
+            path = [self._strip_protocol(p) for p in path]
             for p in path:
                 if has_magic(p):
                     bit = set(await self._glob(p))
@@ -1100,9 +1132,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         out += await self._expand_path(p)
                     continue
                 elif recursive:
-                    out |= set(await self._find(p, withdirs=True))
-                # TODO: the following is maybe only necessary if NOT recursive
-                out.add(p)
+                    rec = set(await self._find(p, withdirs=True))
+                    out |= rec
+                if p not in out and (recursive is False or await self._exists(p)):
+                    # only check once for root
+                    out.add(p)
         if not out:
             raise FileNotFoundError
         return list(sorted(out))
