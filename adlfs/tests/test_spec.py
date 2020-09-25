@@ -677,10 +677,10 @@ def test_isdir(storage):
 
 def test_cat(storage):
     fs = AzureBlobFileSystem(
-    account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("catdir")
-    data=b"0123456789"
+    data = b"0123456789"
     with fs.open("catdir/catfile.txt", "wb") as f:
         f.write(data)
     assert fs.cat("catdir/catfile.txt") == data
