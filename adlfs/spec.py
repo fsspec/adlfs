@@ -485,11 +485,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return path.split(delimiter, 1)
 
     def info(self, path, refresh=False, **kwargs):
-        # print(path)
-        # print(self._ls_from_cache(""))
-        # print(refresh)
         fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
-        # print(fetch_from_azure)
         if fetch_from_azure:
             return sync(self.loop, self._info, path)
         return super().info(path)

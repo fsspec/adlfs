@@ -356,7 +356,6 @@ def test_mkdir_rmdir(storage):
     assert "new-container/" not in fs.ls("")
 
 
-@pytest.mark.skip
 def test_append_operation(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
