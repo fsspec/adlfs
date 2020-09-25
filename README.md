@@ -25,7 +25,7 @@ STORAGE_OPTIONS={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret'
 dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)
 ```
 
-To use the Gen2 filesystem:
+To use the Gen2 filesystem you can use the protocol `abfs` or `az`:
 
 ```python
 import dask.dataframe as dd
@@ -33,7 +33,18 @@ import dask.dataframe as dd
 STORAGE_OPTIONS={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 
 ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=STORAGE_OPTIONS)
-ddf = dd.read_parquet('abfs://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS)
+ddf = dd.read_parquet('az://{CONTAINER}/folder.parquet', storage_options=STORAGE_OPTIONS)
+```
+
+To read from a public storage blob you are required to specify the `'account_name'`.
+For example, you can access [GOES-16 data](https://azure.microsoft.com/en-us/services/open-datasets/catalog/goes-16/) as:
+
+```python
+import adlfs
+
+storage_options = {'account_name': 'goes'}
+fs = adlfs.AzureBlobFileSystem(**storage_options)
+fs.ls("noaa-goes16")
 ```
 
 Details

@@ -5,7 +5,7 @@ azure-storage-blob>=12.5.0
 azure-identity
 dask[dataframe]
 docker>=4.1.0,<5.0.0
-fsspec>=0.8.0
+fsspec>=0.8.2
 msrestazure
 pyarrow
 pytest>=5.0,<6.0
