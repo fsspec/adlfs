@@ -1141,10 +1141,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """ Copy single file to remote """
 
         container_name, path = self.split_path(rpath, delimiter=delimiter)
-        # creds = self.service_client.credential
-        # sc = BlobServiceClient(self.account_url, creds)
-        # cc = sc.get_container_client(container_name)
-        # bc = cc.get_blob_client(blob=path)
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
         try:
