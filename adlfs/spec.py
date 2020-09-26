@@ -1464,7 +1464,6 @@ class AzureBlobFile(io.IOBase):
         elif self.mode == "ab":
             self.blob_client = self.container_client.get_blob_client(blob=self.blob)
             if not self.fs.exists(self.path):
-                print("Blob does not exist")
                 self.blob_client.create_append_blob()
         else:
             raise ValueError(
@@ -1505,7 +1504,6 @@ class AzureBlobFile(io.IOBase):
                 else:
                     raise RuntimeError(f"Failed to upload block with {e}!!")
         elif self.mode == "ab":
-            print("Uploading to blob...")
             self.blob_client.upload_blob(
                 data=data, length=length, blob_type=BlobType.AppendBlob
             )
