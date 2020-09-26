@@ -321,10 +321,10 @@ def test_mkdir_rmdir(storage):
 
     # Check to verify you can skip making a directory if the container
     # already exists, but still create a file in that directory
-    fs.mkdir("new-container/dir/file.txt", exists_ok=True)
+    fs.mkdir("new-container/dir/file.txt", exist_ok=True)
     assert "new-container/" in fs.ls("")
 
-    fs.mkdir("new-container/file2.txt", exists_ok=True)
+    fs.mkdir("new-container/file2.txt", exist_ok=True)
     assert "new-container/file2.txt" in fs.ls("new-container")
 
     # Test to verify that the file contains expected contents
@@ -333,11 +333,11 @@ def test_mkdir_rmdir(storage):
     assert outfile == b""
 
     # Check that trying to overwrite an existing nested file in append mode works as expected
-    fs.mkdir("new-container/dir/file2.txt", exists_ok=True)
+    fs.mkdir("new-container/dir/file2.txt", exist_ok=True)
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
-    fs.mkdir("new-container/dir2/file.txt", exists_ok=True)
+    fs.mkdir("new-container/dir2/file.txt", exist_ok=True)
     with fs.open("new-container/dir2/file.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
@@ -361,21 +361,18 @@ def test_append_operation(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    fs.mkdir("new-container")
-    fs.mkdir("new-container/dir")
+    fs.mkdir("append-container")
 
     # Check that appending to an existing file works as expected
-    with fs.open("new-container/file2.txt", "ab") as f:
+    with fs.open("append-container/append_file.txt", "ab") as f:
         f.write(b"0123456789")
-    with fs.open("new-container/dir/file2.txt", "ab") as f:
-        f.write(b"0123456789")
-    with fs.open("new-container/dir/file2.txt", "ab") as f:
+    with fs.open("append-container/append_file.txt", "ab") as f:
         f.write(b"0123456789")
     with fs.open("new-container/dir/file2.txt", "rb") as f:
         outfile = f.read()
     assert outfile == b"01234567890123456789"
 
-    fs.rm("new-container", recursive=True)
+    fs.rm("append-container", recursive=True)
 
 
 def test_mkdir_rm_recursive(storage):
@@ -446,7 +443,8 @@ def test_large_blob(storage):
 
     # create a 20MB byte array, ensure it's larger than blocksizes to force a
     # chuncked upload
-    blob_size = 120_000_000
+    # blob_size = 120_000_000
+    blob_size = 2_684_354_560
     assert blob_size > fs.blocksize
     assert blob_size > AzureBlobFile.DEFAULT_BLOCK_SIZE
 
@@ -459,7 +457,7 @@ def test_large_blob(storage):
 
     # upload the data using fs.open
     path = "chunk-container/large-blob.bin"
-    with fs.open(path, "wb") as dst:
+    with fs.open(path, "ab") as dst:
         dst.write(data)
 
     assert fs.exists(path)
@@ -647,13 +645,15 @@ def test_dask_parquet(storage):
     assert_frame_equal(df5, df5_test)
 
 
-def test_put_empty_file(storage):
+def test_put_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     lfs = LocalFileSystem()
 
     fs.mkdir("putdir")
+
+    # Check that put on an empty file works
     with open("sample.txt", "wb") as f:
         f.write(b"")
     fs.put("sample.txt", "putdir/sample.txt")
@@ -667,6 +667,17 @@ def test_put_empty_file(storage):
 
     lfs.rm("sample.txt")
     lfs.rm("sample2.txt")
+
+    # Check that put on a file with data works
+    with open("sample3.txt", "wb") as f:
+        f.write(b"01234567890")
+    fs.put("sample3.txt", "putdir/sample3.txt")
+    fs.get("putdir/sample3.txt", "sample4.txt")
+    with open("sample3.txt", "rb") as f:
+        f3 = f.read()
+    with open("sample4.txt", "rb") as f:
+        f4 = f.read()
+    assert f3 == f4
     fs.rm("putdir", recursive=True)
 
 

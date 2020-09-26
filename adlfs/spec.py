@@ -15,10 +15,10 @@ from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
-from azure.storage.blob._models import BlobBlock, BlobProperties
+from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
 from fsspec.asyn import (
-    sync,
+    maybe_sync,
     AsyncFileSystem,
     get_loop,
 )
@@ -485,13 +485,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return path.split(delimiter, 1)
 
     def info(self, path, refresh=False, **kwargs):
-        # print(path)
-        # print(self._ls_from_cache(""))
-        # print(refresh)
         fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
-        # print(fetch_from_azure)
         if fetch_from_azure:
-            return sync(self.loop, self._info, path)
+            return maybe_sync(self._info, self, path)
         return super().info(path)
 
     async def _info(self, path, **kwargs):
@@ -525,7 +521,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
 
     def glob(self, path, **kwargs):
-        return sync(self.loop, self._glob, path)
+        return maybe_sync(self._glob, self, path)
 
     async def _glob(self, path, **kwargs):
         """
@@ -612,9 +608,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         **kwargs,
     ):
 
-        files = sync(
-            self.loop,
+        files = maybe_sync(
             self._ls,
+            self,
             path=path,
             invalidate_cache=invalidate_cache,
             delimiter=delimiter,
@@ -773,7 +769,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return output
 
     def find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        return sync(self.loop, self._find, path, maxdepth, withdirs)
+        return maybe_sync(self._find, self, path, maxdepth, withdirs)
 
     async def _find(self, path, maxdepth=None, withdirs=False, **kwargs):
         """List all files below path.
@@ -880,10 +876,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ):
                 yield path, dirs, files
 
-    def mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
-        sync(self.loop, self._mkdir, path, delimiter, exists_ok)
+    def mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
+        maybe_sync(self._mkdir, self, path, delimiter, exist_ok)
 
-    async def _mkdir(self, path, delimiter="/", exists_ok=False, **kwargs):
+    async def _mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
         """
         Create directory entry at path
 
@@ -895,7 +891,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str
             Delimiter to use when splitting the path
 
-        exists_ok: bool
+        exist_ok: bool
             If True, raise an exception if the directory already exists. Defaults to False
         """
         container_name, path = self.split_path(path, delimiter=delimiter)
@@ -907,7 +903,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name_as_dir = f"{container_name}/"
         if _containers is None:
             _containers = []
-        if not exists_ok:
+        if not exist_ok:
             if (container_name_as_dir not in _containers) and (not path):
                 # create new container
                 await self.service_client.create_container(name=container_name)
@@ -935,7 +931,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         _ = await self._ls("", invalidate_cache=True)
 
     def rm(self, path, recursive=False, maxdepth=None, **kwargs):
-        sync(self.loop, self._rm, path, recursive, **kwargs)
+        maybe_sync(self._rm, self, path, recursive, **kwargs)
 
     async def _rm(self, path, recursive=False, maxdepth=None, **kwargs):
         """Delete files.
@@ -995,7 +991,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             pass
 
     def rmdir(self, path: str, delimiter="/", **kwargs):
-        sync(self.loop, self._rmdir, path, delimiter=delimiter, **kwargs)
+        maybe_sync(self._rmdir, self, path, delimiter=delimiter, **kwargs)
 
     async def _rmdir(self, path: str, delimiter="/", **kwargs):
         """
@@ -1020,7 +1016,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             _ = await self._ls("", invalidate_cache=True)
 
     def size(self, path):
-        return sync(self.loop, self._size, path)
+        return maybe_sync(self._size, self, path)
 
     async def _size(self, path):
         """Size in bytes of file"""
@@ -1029,7 +1025,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return size
 
     def isfile(self, path):
-        return sync(self.loop, self._isfile, path)
+        return maybe_sync(self._isfile, self, path)
 
     async def _isfile(self, path):
         """Is this entry file-like?"""
@@ -1049,7 +1045,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
 
     def isdir(self, path):
-        return sync(self.loop, self._isdir, path)
+        return maybe_sync(self._isdir, self, path)
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
@@ -1067,7 +1063,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
 
     def exists(self, path):
-        return sync(self.loop, self._exists, path)
+        return maybe_sync(self._exists, self, path)
 
     async def _exists(self, path):
         """Is there a file at the given path"""
@@ -1115,7 +1111,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return self.cat_file(paths[0])
 
     def expand_path(self, path, recursive=False, maxdepth=None):
-        return sync(self.loop, self._expand_path, path, recursive, maxdepth)
+        return maybe_sync(self._expand_path, self, path, recursive, maxdepth)
 
     async def _expand_path(self, path, recursive=False, maxdepth=None):
         """Turn one or more globs or directories into a list of all matching files"""
@@ -1141,6 +1137,21 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
+    async def put_file(self, lpath, rpath, delimiter="/", **kwargws):
+        """ Copy single file to remote """
+
+        container_name, path = self.split_path(rpath, delimiter=delimiter)
+        cc = self.service_client.get_container_client(container_name)
+        bc = cc.get_blob_client(blob=path)
+        try:
+            with open(lpath, "rb") as f1:
+                await bc.upload_blob(f1)
+        except ResourceExistsError:
+            raise FileExistsError("File already exists!!")
+        except ResourceNotFoundError:
+            await cc.create_container()
+            await self.put_file(lpath, rpath, delimiter)
+
     def put(self, lpath, rpath, recursive=False, **kwargs):
         """Copy file(s) from local.
         Copies a specific file or tree of files (if recursive=True). If rpath
@@ -1158,7 +1169,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         rpaths = other_paths(lpaths, rpath)
 
         for lpath, rpath in zip(lpaths, rpaths):
-            self.put_file(lpath, rpath, **kwargs)
+            maybe_sync(self.put_file, self, lpath, rpath, **kwargs)
 
     def upload(self, lpath, rpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.put`."""
@@ -1441,15 +1452,19 @@ class AzureBlobFile(io.IOBase):
 
     def _initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
-        self.blob_client = self.container_client.get_blob_client(blob=self.blob)
+        self._block_list = []
         if self.mode == "wb":
-            self._block_list = []
+            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
             try:
                 self.container_client.delete_blob(self.blob)
             except ResourceNotFoundError:
                 pass
             else:
                 return self.__initiate_upload()
+        elif self.mode == "ab":
+            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
+            if not self.fs.exists(self.path):
+                self.blob_client.create_append_blob()
         else:
             raise ValueError(
                 "File operation modes other than wb are not yet supported for writing"
@@ -1470,21 +1485,28 @@ class AzureBlobFile(io.IOBase):
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
-        try:
-            self.blob_client.stage_block(block_id=block_id, data=data, length=length)
-            self._block_list.append(block_id)
+        if self.mode == "wb":
+            try:
+                self.blob_client.stage_block(
+                    block_id=block_id, data=data, length=length
+                )
+                self._block_list.append(block_id)
 
-            if final:
-                block_list = [BlobBlock(_id) for _id in self._block_list]
-                self.blob_client.commit_block_list(block_list=block_list)
-        except Exception as e:
-            # This step handles the situation where data="" and length=0
-            # which is throws an InvalidHeader error from Azure, so instead
-            # of staging a block, we directly upload the empty blob
-            if block_id == "0000000" and length == 0 and final:
-                self.blob_client.upload_blob(data=data)
-            else:
-                raise RuntimeError(f"Failed to upload block with {e}!!")
+                if final:
+                    block_list = [BlobBlock(_id) for _id in self._block_list]
+                    self.blob_client.commit_block_list(block_list=block_list)
+            except Exception as e:
+                # This step handles the situation where data="" and length=0
+                # which is throws an InvalidHeader error from Azure, so instead
+                # of staging a block, we directly upload the empty blob
+                if block_id == "0000000" and length == 0 and final:
+                    self.blob_client.upload_blob(data=data)
+                else:
+                    raise RuntimeError(f"Failed to upload block with {e}!!")
+        elif self.mode == "ab":
+            self.blob_client.upload_blob(
+                data=data, length=length, blob_type=BlobType.AppendBlob
+            )
 
     def flush(self, force=False):
         """
