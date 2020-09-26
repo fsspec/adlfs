@@ -47,6 +47,7 @@ fs = adlfs.AzureBlobFileSystem(**storage_options)
 fs.ls("noaa-goes16")
 ```
 
+
 Details
 -------
 The package includes pythonic filesystem implementations for both 
@@ -59,3 +60,5 @@ with suitable credentials to perform operations on the resources of choice.
 
 Operations against the Gen2 Datalake are implemented by leveraging [multi-protocol access](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-multi-protocol-access), using the Azure Blob Storage Python SDK.
 The AzureBlobFileSystem accepts [all of the BlockBlobService arguments](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blockblobservice.blockblobservice?view=azure-python-previous).
+
+    By default, write operations create BlockBlobs in Azure, which, once written can not be appended.  It is possible to create an AppendBlob using an `mode="ab"` when creating, and then when operating on blobs.  Currently AppendBlobs are not available if hierarchical namespaces are enabled.
