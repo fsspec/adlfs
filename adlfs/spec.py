@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 import io
 from glob import has_magic
 import logging
+import os
 import warnings
 
 from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
@@ -1137,7 +1138,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def put_file(self, lpath, rpath, delimiter="/", **kwargws):
+    async def _put_file(self, lpath, rpath, delimiter="/", **kwargws):
         """ Copy single file to remote """
 
         container_name, path = self.split_path(rpath, delimiter=delimiter)
@@ -1151,6 +1152,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except ResourceNotFoundError:
             await cc.create_container()
             await self.put_file(lpath, rpath, delimiter)
+
+    def put_file(self, lpath, rpath, delimiter="/", **kwargs):
+        """ Synchronous call to async version """
+        self.put(lpath, rpath, recursive=False, delimiter="/")
 
     def put(self, lpath, rpath, recursive=False, **kwargs):
         """Copy file(s) from local.
@@ -1169,7 +1174,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         rpaths = other_paths(lpaths, rpath)
 
         for lpath, rpath in zip(lpaths, rpaths):
-            maybe_sync(self.put_file, self, lpath, rpath, **kwargs)
+            maybe_sync(self._put_file, self, lpath, rpath, **kwargs)
 
     def upload(self, lpath, rpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.put`."""
@@ -1178,6 +1183,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def download(self, rpath, lpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
+
+    async def get_file(self, rpath, lpath, recursive=False, **kwargs):
+        """ Copy single file remote to local """
+        container_name, path = self.split_path(rpath, delimiter=delimiter)
+        cc = self.service_client.get_container_client(container_name)
+        bc = cc.get_blob_client(blob=path)
+
+        if await self.isdir(rpath):
+            os.makedirs(lpath, exist_ok=True)
+        else:
+            with open(lpath, "wb") as my_blob:
+                stream = await bc.download_blob()
+                data = await stream.readall()
+                my_blob.write(data)
 
     def get(self, rpath, lpath, recursive=False, **kwargs):
         """Copy file(s) to local.
@@ -1195,7 +1214,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         rpaths = self.expand_path(rpath, recursive=recursive)
         lpaths = other_paths(rpaths, lpath)
         for lpath, rpath in zip(lpaths, rpaths):
-            self.get_file(rpath, lpath, **kwargs)
+            maybe_sync(self.get_file, self, rpath, lpath, **kwargs)
 
     def _open(
         self,
