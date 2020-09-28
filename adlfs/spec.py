@@ -1155,7 +1155,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def put_file(self, lpath, rpath, delimiter="/", **kwargs):
         """ Alias synchronous call to async version """
-        self.put(lpath, rpath, recursive=False, delimiter="/")
+        maybe_sync(self._put_file, self, lpath, rpath, recursive=False, delimiter="/")
 
     def put(self, lpath, rpath, recursive=False, **kwargs):
         """Copy file(s) from local.
@@ -1190,7 +1190,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
 
-        if await self.isdir(rpath):
+        if await self._isdir(rpath):
             os.makedirs(lpath, exist_ok=True)
         else:
             with open(lpath, "wb") as my_blob:
@@ -1200,7 +1200,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def get_file(self, rpath, lpath, recursive=False, **kwargs):
         """ Alias synchronous call to async version """
-        self.get(rpath, lpath, recursive=False, **kwargs)
+        maybe_sync(self._get_file, self, rpath, lpath, recursive, **kwargs)
 
     def get(self, rpath, lpath, recursive=False, **kwargs):
         """Copy file(s) to local.
