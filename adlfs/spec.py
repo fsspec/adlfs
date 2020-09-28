@@ -1154,7 +1154,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             await self.put_file(lpath, rpath, delimiter)
 
     def put_file(self, lpath, rpath, delimiter="/", **kwargs):
-        """ Synchronous call to async version """
+        """ Alias synchronous call to async version """
         self.put(lpath, rpath, recursive=False, delimiter="/")
 
     def put(self, lpath, rpath, recursive=False, **kwargs):
@@ -1184,7 +1184,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
 
-    async def get_file(self, rpath, lpath, recursive=False, **kwargs):
+    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
         """ Copy single file remote to local """
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         cc = self.service_client.get_container_client(container_name)
@@ -1197,6 +1197,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 stream = await bc.download_blob()
                 data = await stream.readall()
                 my_blob.write(data)
+
+    def get_file(self, rpath, lpath, recursive=False, **kwargs):
+        """ Alias synchronous call to async version """
+        self.get(rpath, lpath, recursive=False, **kwargs)
 
     def get(self, rpath, lpath, recursive=False, **kwargs):
         """Copy file(s) to local.
@@ -1214,7 +1218,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         rpaths = self.expand_path(rpath, recursive=recursive)
         lpaths = other_paths(rpaths, lpath)
         for lpath, rpath in zip(lpaths, rpaths):
-            maybe_sync(self.get_file, self, rpath, lpath, **kwargs)
+            maybe_sync(self._get_file, self, rpath, lpath, **kwargs)
 
     def _open(
         self,
