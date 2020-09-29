@@ -1186,17 +1186,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
         """ Copy single file remote to local """
+        files = await self._ls(rpath)
+        if rpath not in files:
+            raise FileNotFoundError
         container_name, path = self.split_path(rpath, delimiter=delimiter)
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob=path)
+        try:
+            cc = self.service_client.get_container_client(container_name)
+            bc = cc.get_blob_client(blob=path)
 
-        if await self._isdir(rpath):
-            os.makedirs(lpath, exist_ok=True)
-        else:
-            with open(lpath, "wb") as my_blob:
-                stream = await bc.download_blob()
-                data = await stream.readall()
-                my_blob.write(data)
+            if await self._isdir(rpath):
+                os.makedirs(lpath, exist_ok=True)
+            else:
+                with open(lpath, "wb") as my_blob:
+                    stream = await bc.download_blob()
+                    data = await stream.readall()
+                    my_blob.write(data)
+        except Exception as e:
+            raise FileNotFoundError(f"File not found for {e}")
 
     def get_file(self, rpath, lpath, recursive=False, **kwargs):
         """ Alias synchronous call to async version """
