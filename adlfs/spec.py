@@ -1157,29 +1157,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             await self._put_file(lpath, rpath, delimiter)
             self.invalidate_cache()
 
-    # def put(self, lpath, rpath, recursive=False, **kwargs):
-    #     """Copy file(s) from local.
-    #     Copies a specific file or tree of files (if recursive=True). If rpath
-    #     ends with a "/", it will be assumed to be a directory, and target files
-    #     will go within.
-    #     Calls put_file for each source.
-    #     """
-    #     from fsspec.implementations.local import make_path_posix, LocalFileSystem
-
-    #     rpath = self._strip_protocol(rpath)
-    #     if isinstance(lpath, str):
-    #         lpath = make_path_posix(lpath)
-    #     fs = LocalFileSystem()
-    #     lpaths = fs.expand_path(lpath, recursive=recursive)
-    #     rpaths = other_paths(lpaths, rpath)
-
-    #     for lpath, rpath in zip(lpaths, rpaths):
-    #         maybe_sync(self._put_file, self, lpath, rpath, **kwargs)
-
     put_file = sync_wrapper(_put_file)
-    # def put_file(self, lpath, rpath, delimiter="/", **kwargs):
-    #     """ Alias synchronous call to async version """
-    #     maybe_sync(self._put_file, self, lpath, rpath, recursive=False, delimiter="/")
 
     async def _cp_file(self, path1, path2, *kwargs):
         """ Copy the file at path1 to path2 """
@@ -1230,29 +1208,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
 
-    # def get_file(self, rpath, lpath, recursive=False, **kwargs):
-    #     """ Alias synchronous call to async version """
-    #     maybe_sync(self._get_file, self, rpath, lpath, recursive, **kwargs)
-
     get_file = sync_wrapper(_get_file)
-
-    # def get(self, rpath, lpath, recursive=False, **kwargs):
-    #     """Copy file(s) to local.
-    #     Copies a specific file or tree of files (if recursive=True). If lpath
-    #     ends with a "/", it will be assumed to be a directory, and target files
-    #     will go within. Can submit a list of paths, which may be glob-patterns
-    #     and will be expanded.
-    #     Calls get_file for each source.
-    #     """
-    #     from fsspec.implementations.local import make_path_posix
-
-    #     rpath = self._strip_protocol(rpath)
-    #     if isinstance(lpath, str):
-    #         lpath = make_path_posix(lpath)
-    #     rpaths = self.expand_path(rpath, recursive=recursive)
-    #     lpaths = other_paths(rpaths, lpath)
-    #     for lpath, rpath in zip(lpaths, rpaths):
-    #         maybe_sync(self._get_file, self, rpath, lpath, **kwargs)
 
     def invalidate_cache(self, path=None):
         if path is None:
