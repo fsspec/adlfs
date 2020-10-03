@@ -480,22 +480,22 @@ def test_large_blob(storage):
 
     # do the same but using upload/download and a tempdir
     path = path = "chunk-container/large_blob2.bin"
-    with tempfile.TemporaryDirectory() as td:
-        local_blob: Path = Path(td) / "large_blob2.bin"
-        with local_blob.open("wb") as fo:
-            fo.write(data)
-        assert local_blob.exists()
-        assert local_blob.stat().st_size == blob_size
+    # with tempfile.TemporaryDirectory() as td:
+    #     local_blob: Path = Path(td) / "large_blob2.bin"
+    #     with local_blob.open("wb") as fo:
+    #         fo.write(data)
+    #     assert local_blob.exists()
+    #     assert local_blob.stat().st_size == blob_size
 
-        fs.upload(str(local_blob), path)
-        assert fs.exists(path)
-        assert fs.size(path) == blob_size
+    #     fs.upload(str(local_blob), path)
+    #     assert fs.exists(path)
+    #     assert fs.size(path) == blob_size
 
-        # download now
-        local_blob.unlink()
-        fs.download(path, str(local_blob))
-        assert local_blob.exists()
-        assert local_blob.stat().st_size == blob_size
+    #     # download now
+    #     local_blob.unlink()
+    #     fs.download(path, str(local_blob))
+    #     assert local_blob.exists()
+    #     assert local_blob.stat().st_size == blob_size
 
 
 def test_dask_parquet(storage):
@@ -696,3 +696,18 @@ def test_cat(storage):
         f.write(data)
     assert fs.cat("catdir/catfile.txt") == data
     fs.rm("catdir/catfile.txt")
+
+
+def test_cp_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("homedir")
+    fs.mkdir("homedir/enddir")
+    fs.touch("homedir/startdir/test_file.txt")
+    fs.cp_file("homedir/startdir/test_file.txt", "homedir/enddir/test_file.txt")
+    files = fs.ls("homedir/enddir")
+    assert "homedir/enddir/test_file.txt" in files
+
+    fs.rm("homedir", recursive=True)
+    
