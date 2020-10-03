@@ -443,8 +443,8 @@ def test_large_blob(storage):
 
     # create a 20MB byte array, ensure it's larger than blocksizes to force a
     # chuncked upload
-    # blob_size = 120_000_000
-    blob_size = 2_684_354_560
+    blob_size = 120_000_000
+    # blob_size = 2_684_354_560
     assert blob_size > fs.blocksize
     assert blob_size > AzureBlobFile.DEFAULT_BLOCK_SIZE
 
@@ -696,3 +696,17 @@ def test_cat(storage):
         f.write(data)
     assert fs.cat("catdir/catfile.txt") == data
     fs.rm("catdir/catfile.txt")
+
+
+def test_cp_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("homedir")
+    fs.mkdir("homedir/enddir")
+    fs.touch("homedir/startdir/test_file.txt")
+    fs.cp_file("homedir/startdir/test_file.txt", "homedir/enddir/test_file.txt")
+    files = fs.ls("homedir/enddir")
+    assert "homedir/enddir/test_file.txt" in files
+
+    fs.rm("homedir", recursive=True)

@@ -6,6 +6,7 @@ from __future__ import absolute_import, division, print_function
 import io
 from glob import has_magic
 import logging
+import os
 import warnings
 
 from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
@@ -21,8 +22,9 @@ from fsspec.asyn import (
     maybe_sync,
     AsyncFileSystem,
     get_loop,
+    sync_wrapper,
 )
-from fsspec.utils import infer_storage_options, tokenize, other_paths
+from fsspec.utils import infer_storage_options, tokenize
 
 
 logger = logging.getLogger(__name__)
@@ -928,7 +930,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     await container_client.upload_blob(name=path, data="")
             except ResourceExistsError:
                 pass
-        _ = await self._ls("", invalidate_cache=True)
+        # _ = await self._ls("", invalidate_cache=True)
+        self.invalidate_cache(self._parent(path))
 
     def rm(self, path, recursive=False, maxdepth=None, **kwargs):
         maybe_sync(self._rm, self, path, recursive, **kwargs)
@@ -950,6 +953,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth)
         for p in reversed(path):
             await self.rm_file(p)
+        self.invalidate_cache()
 
     async def rm_file(self, path, delimiter="/", **kwargs):
         """
@@ -985,7 +989,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     await container_client.delete_container()
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
-            _ = await self._ls("", invalidate_cache=True)
+            self.invalidate_cache(self._parent(path))
 
         except FileNotFoundError:
             pass
@@ -1013,7 +1017,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if (container_name + delimiter in _containers) and (not path):
             # delete container
             await self.service_client.delete_container(container_name)
-            _ = await self._ls("", invalidate_cache=True)
+            self.invalidate_cache(self._parent(path))
 
     def size(self, path):
         return maybe_sync(self._size, self, path)
@@ -1090,7 +1094,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             included in the output, but the value will be bytes or an exception
             instance.
         """
-        # import pdb;pdb.set_trace()
         paths = self.expand_path(path, recursive=recursive)
         if (
             len(paths) > 1
@@ -1137,39 +1140,43 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def put_file(self, lpath, rpath, delimiter="/", **kwargws):
+    async def _put_file(self, lpath, rpath, delimiter="/", **kwargws):
         """ Copy single file to remote """
-
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
         try:
             with open(lpath, "rb") as f1:
                 await bc.upload_blob(f1)
+            # self.invalidate_cache(self._parent(path))
+            self.invalidate_cache()
         except ResourceExistsError:
             raise FileExistsError("File already exists!!")
         except ResourceNotFoundError:
             await cc.create_container()
-            await self.put_file(lpath, rpath, delimiter)
+            await self._put_file(lpath, rpath, delimiter)
+            self.invalidate_cache()
 
-    def put(self, lpath, rpath, recursive=False, **kwargs):
-        """Copy file(s) from local.
-        Copies a specific file or tree of files (if recursive=True). If rpath
-        ends with a "/", it will be assumed to be a directory, and target files
-        will go within.
-        Calls put_file for each source.
-        """
-        from fsspec.implementations.local import make_path_posix, LocalFileSystem
+    put_file = sync_wrapper(_put_file)
 
-        rpath = self._strip_protocol(rpath)
-        if isinstance(lpath, str):
-            lpath = make_path_posix(lpath)
-        fs = LocalFileSystem()
-        lpaths = fs.expand_path(lpath, recursive=recursive)
-        rpaths = other_paths(lpaths, rpath)
+    async def _cp_file(self, path1, path2, *kwargs):
+        """ Copy the file at path1 to path2 """
+        # import pdb;pdb.set_trace()
+        container1, path1 = self.split_path(path1, delimiter="/")
+        container2, path2 = self.split_path(path2, delimiter="/")
 
-        for lpath, rpath in zip(lpaths, rpaths):
-            maybe_sync(self.put_file, self, lpath, rpath, **kwargs)
+        cc1 = self.service_client.get_container_client(container1)
+        blobclient1 = cc1.get_blob_client(blob=path1)
+        if container1 == container2:
+            blobclient2 = cc1.get_blob_client(blob=path2)
+        else:
+            cc2 = self.service_client.get_container_client(container2)
+            blobclient2 = cc2.get_blob_client(blob=path2)
+        await blobclient2.start_copy_from_url(blobclient1.url)
+        self.invalidate_cache(container1)
+        self.invalidate_cache(container2)
+
+    cp_file = sync_wrapper(_cp_file)
 
     def upload(self, lpath, rpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.put`."""
@@ -1179,23 +1186,36 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
 
-    def get(self, rpath, lpath, recursive=False, **kwargs):
-        """Copy file(s) to local.
-        Copies a specific file or tree of files (if recursive=True). If lpath
-        ends with a "/", it will be assumed to be a directory, and target files
-        will go within. Can submit a list of paths, which may be glob-patterns
-        and will be expanded.
-        Calls get_file for each source.
-        """
-        from fsspec.implementations.local import make_path_posix
+    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
+        """ Copy single file remote to local """
+        files = await self._ls(rpath)
+        files = [f["name"] for f in files]
+        print(files)
+        if rpath not in files:
+            raise FileNotFoundError
+        container_name, path = self.split_path(rpath, delimiter=delimiter)
+        try:
+            cc = self.service_client.get_container_client(container_name)
+            bc = cc.get_blob_client(blob=path)
 
-        rpath = self._strip_protocol(rpath)
-        if isinstance(lpath, str):
-            lpath = make_path_posix(lpath)
-        rpaths = self.expand_path(rpath, recursive=recursive)
-        lpaths = other_paths(rpaths, lpath)
-        for lpath, rpath in zip(lpaths, rpaths):
-            self.get_file(rpath, lpath, **kwargs)
+            if await self._isdir(rpath):
+                os.makedirs(lpath, exist_ok=True)
+            else:
+                with open(lpath, "wb") as my_blob:
+                    stream = await bc.download_blob()
+                    data = await stream.readall()
+                    my_blob.write(data)
+        except Exception as e:
+            raise FileNotFoundError(f"File not found for {e}")
+
+    get_file = sync_wrapper(_get_file)
+
+    def invalidate_cache(self, path=None):
+        if path is None:
+            self.dircache.clear()
+        else:
+            self.dircache.pop(path, None)
+        super(AzureBlobFileSystem, self).invalidate_cache(path)
 
     def _open(
         self,
