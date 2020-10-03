@@ -443,8 +443,8 @@ def test_large_blob(storage):
 
     # create a 20MB byte array, ensure it's larger than blocksizes to force a
     # chuncked upload
-    # blob_size = 120_000_000
-    blob_size = 2_684_354_560
+    blob_size = 120_000_000
+    # blob_size = 2_684_354_560
     assert blob_size > fs.blocksize
     assert blob_size > AzureBlobFile.DEFAULT_BLOCK_SIZE
 
@@ -480,22 +480,22 @@ def test_large_blob(storage):
 
     # do the same but using upload/download and a tempdir
     path = path = "chunk-container/large_blob2.bin"
-    # with tempfile.TemporaryDirectory() as td:
-    #     local_blob: Path = Path(td) / "large_blob2.bin"
-    #     with local_blob.open("wb") as fo:
-    #         fo.write(data)
-    #     assert local_blob.exists()
-    #     assert local_blob.stat().st_size == blob_size
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_blob2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
 
-    #     fs.upload(str(local_blob), path)
-    #     assert fs.exists(path)
-    #     assert fs.size(path) == blob_size
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
 
-    #     # download now
-    #     local_blob.unlink()
-    #     fs.download(path, str(local_blob))
-    #     assert local_blob.exists()
-    #     assert local_blob.stat().st_size == blob_size
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
 
 
 def test_dask_parquet(storage):
@@ -710,4 +710,3 @@ def test_cp_file(storage):
     assert "homedir/enddir/test_file.txt" in files
 
     fs.rm("homedir", recursive=True)
-    

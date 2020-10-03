@@ -24,7 +24,7 @@ from fsspec.asyn import (
     get_loop,
     sync_wrapper,
 )
-from fsspec.utils import infer_storage_options, tokenize, other_paths
+from fsspec.utils import infer_storage_options, tokenize
 
 
 logger = logging.getLogger(__name__)
@@ -1186,7 +1186,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # import pdb;pdb.set_trace()
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
-        
+
         cc1 = self.service_client.get_container_client(container1)
         blobclient1 = cc1.get_blob_client(blob=path1)
         if container1 == container2:
@@ -1211,7 +1211,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
         """ Copy single file remote to local """
         files = await self._ls(rpath)
-        files = [f['name'] for f in files]
+        files = [f["name"] for f in files]
         print(files)
         if rpath not in files:
             raise FileNotFoundError
