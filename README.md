@@ -40,8 +40,6 @@ To read from a public storage blob you are required to specify the `'account_nam
 For example, you can access [NYC Taxi & Limousine Commission](https://azure.microsoft.com/en-us/services/open-datasets/catalog/nyc-taxi-limousine-commission-green-taxi-trip-records/) as:
 
 ```python
-import adlfs
-
 storage_options = {'account_name': 'azureopendatastorage'}
 ddf = dd.read_parquet('az://nyctlc/green/puYear=2019/puMonth=*/*.parquet', storage_options=storage_options)
 ```
