@@ -1128,8 +1128,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
-                        bit = set(await self._expand_path(p))
-                        out |= bit
+                        bit2 = set(await self._expand_path(p))
+                        out |= bit2
                     continue
                 elif recursive:
                     rec = set(await self._find(p, withdirs=True))
