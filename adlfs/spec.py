@@ -1128,7 +1128,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
-                        out += await self._expand_path(p)
+                        bit = set(await self._expand_path(p))
+                        out |= bit
                     continue
                 elif recursive:
                     rec = set(await self._find(p, withdirs=True))
@@ -1190,9 +1191,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """ Copy single file remote to local """
         files = await self._ls(rpath)
         files = [f["name"] for f in files]
-        print(files)
-        if rpath not in files:
-            raise FileNotFoundError
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
             cc = self.service_client.get_container_client(container_name)
