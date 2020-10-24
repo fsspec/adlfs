@@ -1144,13 +1144,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, **kwargws):
         """
         Copy single file to remote
-        
+
         :param lpath: Path to local file
         :param rpath: Path to remote file
         :param delimitier: Filepath delimiter
         :param overwrite: Boolean (False).  If True, overwrite the existing file present
         """
-        
+
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
