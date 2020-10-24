@@ -1141,15 +1141,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def _put_file(self, lpath, rpath, delimiter="/", **kwargws):
-        """ Copy single file to remote """
+    async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, **kwargws):
+        """
+        Copy single file to remote
+        
+        :param lpath: Path to local file
+        :param rpath: Path to remote file
+        :param delimitier: Filepath delimiter
+        :param overwrite: Boolean (False).  If True, overwrite the existing file present
+        """
+        
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
         try:
             with open(lpath, "rb") as f1:
-                await bc.upload_blob(f1)
-            # self.invalidate_cache(self._parent(path))
+                await bc.upload_blob(f1, overwrite=overwrite)
             self.invalidate_cache()
         except ResourceExistsError:
             raise FileExistsError("File already exists!!")
