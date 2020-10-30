@@ -917,20 +917,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                await container_client.upload_blob(name=path, data="")
+                await container_client.upload_blob(name=path, data="", overwrite=True)
             else:
                 ## everything else
-                raise RuntimeError(f"Cannot create {container_name}{delimiter}{path}.")
+                raise FileExistsError(
+                    f"Cannot overwrite existing Azure container -- {container_name} already exists."
+                )
         else:
             try:
                 if (container_name_as_dir in _containers) and path:
                     container_client = self.service_client.get_container_client(
                         container=container_name
                     )
-                    await container_client.upload_blob(name=path, data="")
+                    await container_client.upload_blob(
+                        name=path, data="", overwrite=False
+                    )
             except ResourceExistsError:
-                pass
-        # _ = await self._ls("", invalidate_cache=True)
+                raise FileExistsError(f"{container_name_as_dir}{path} already exists!!")
         self.invalidate_cache(self._parent(path))
 
     def rm(self, path, recursive=False, maxdepth=None, **kwargs):
@@ -1154,16 +1157,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         cc = self.service_client.get_container_client(container_name)
         bc = cc.get_blob_client(blob=path)
-        try:
-            with open(lpath, "rb") as f1:
-                await bc.upload_blob(f1, overwrite=overwrite)
-            self.invalidate_cache()
-        except ResourceExistsError:
-            raise FileExistsError("File already exists!!")
-        except ResourceNotFoundError:
-            await cc.create_container()
-            await self._put_file(lpath, rpath, delimiter)
-            self.invalidate_cache()
+        if os.path.isdir(lpath):
+            self.makedirs(rpath, exist_ok=True)
+        else:
+            try:
+                with open(lpath, "rb") as f1:
+                    await bc.upload_blob(f1, overwrite=overwrite)
+                self.invalidate_cache()
+            except ResourceExistsError:
+                raise FileExistsError("File already exists!!")
+            except ResourceNotFoundError:
+                if not await self._exists(container_name):
+                    raise FileNotFoundError("Container does not exist.")
+                await self._put_file(lpath, rpath, delimiter, overwrite)
+                self.invalidate_cache()
 
     put_file = sync_wrapper(_put_file)
 
