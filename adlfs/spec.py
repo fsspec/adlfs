@@ -374,7 +374,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.sas_token is None
             and self.client_id is not None
         ):
-            self.credential = self._get_credential_from_service_principal()
+            (
+                self.credential,
+                self.sync_credential,
+            ) = self._get_credential_from_service_principal()
+        else:
+            self.sync_credential = None
         self.do_connect()
 
     @classmethod
@@ -412,16 +417,26 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         Returns
         -------
-        Credential
+        Tuple of (Async Credential, Sync Credential).
         """
         from azure.identity import ClientSecretCredential
+        from azure.identity.aio import (
+            ClientSecretCredential as AIOClientSecretCredential,
+        )
 
-        sp_token = ClientSecretCredential(
+        async_credential = AIOClientSecretCredential(
             tenant_id=self.tenant_id,
             client_id=self.client_id,
             client_secret=self.client_secret,
         )
-        return sp_token
+
+        sync_credential = ClientSecretCredential(
+            tenant_id=self.tenant_id,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )
+
+        return (async_credential, sync_credential)
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
@@ -1384,9 +1399,9 @@ class AzureBlobFile(io.IOBase):
             self.fs.account_url: str = (
                 f"https://{self.fs.account_name}.blob.core.windows.net"
             )
-            if self.fs.credential is not None:
+            if self.fs.sync_credential is not None:
                 self.container_client = BlobServiceClient(
-                    account_url=self.fs.account_url, credential=self.fs.credential
+                    account_url=self.fs.account_url, credential=self.fs.sync_credential
                 ).get_container_client(self.container_name)
             elif self.fs.connection_string is not None:
                 self.container_client = BlobServiceClient.from_connection_string(
