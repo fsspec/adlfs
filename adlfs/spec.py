@@ -786,7 +786,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return output
 
     def find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        return maybe_sync(self._find, self, path, maxdepth, withdirs)
+        return maybe_sync(
+            self._find, self, path=path, maxdepth=maxdepth, withdirs=withdirs, **kwargs
+        )
 
     async def _find(self, path, maxdepth=None, withdirs=False, **kwargs):
         """List all files below path.
@@ -894,7 +896,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 yield path, dirs, files
 
     def mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
-        maybe_sync(self._mkdir, self, path, delimiter, exist_ok)
+        maybe_sync(
+            self._mkdir,
+            self,
+            path=path,
+            delimiter=delimiter,
+            exist_ok=exist_ok,
+            **kwargs,
+        )
 
     async def _mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
         """
