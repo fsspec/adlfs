@@ -397,7 +397,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         str
             Returns a path without the protocol
         """
-        logging.debug(f"_strip_protocol for {path}")
+        logger.debug(f"_strip_protocol for {path}")
         ops = infer_storage_options(path)
 
         # we need to make sure that the path retains
@@ -407,7 +407,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ops["path"] = ops["host"] + ops["path"]
         ops["path"] = ops["path"].lstrip("/")
 
-        logging.debug(f"_strip_protocol({path}) = {ops}")
+        logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
     def _get_credential_from_service_principal(self):
@@ -666,7 +666,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return_glob: bool
 
         """
-        logging.debug(f"abfs.ls() is searching for {path}")
+        logger.debug(f"abfs.ls() is searching for {path}")
         target_path = path.strip("/")
         container, path = self.split_path(path)
 
@@ -676,7 +676,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             if path not in self.dircache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
-                logging.info(
+                logger.info(
                     "Returning a list of containers in the azure blob storage account"
                 )
                 contents = self.service_client.list_containers(include_metadata=True)
@@ -1002,7 +1002,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
-                logging.debug(f"Delete blob {path} in {container_name}")
+                logger.debug(f"Delete blob {path} in {container_name}")
                 await container_client.delete_blob(path)
             elif kind == "directory":
                 container_name, path = self.split_path(path, delimiter=delimiter)
@@ -1012,7 +1012,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 _containers = await self._ls("")
                 _containers = [c["name"] for c in _containers]
                 if (container_name + delimiter in _containers) and (not path):
-                    logging.debug(f"Delete container {container_name}")
+                    logger.debug(f"Delete container {container_name}")
                     await container_client.delete_container()
             else:
                 raise RuntimeError(f"Unable to delete {path}!")
@@ -1285,7 +1285,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             See the definitions here:
             https://filesystem-spec.readthedocs.io/en/latest/api.html#readbuffering
         """
-        logging.debug(f"_open:  {path}")
+        logger.debug(f"_open:  {path}")
         return AzureBlobFile(
             fs=self,
             path=path,
