@@ -1,3 +1,4 @@
+import datetime
 import pytest
 
 from azure.storage.blob import BlobServiceClient
@@ -8,6 +9,7 @@ ACCOUNT_NAME = "devstoreaccount1"
 KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
 CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
 data = b"0123456789"
+metadata = {"meta": "data"}
 
 
 def pytest_addoption(parser):
@@ -36,10 +38,16 @@ def storage(host):
     bbs = BlobServiceClient.from_connection_string(conn_str=conn_str)
     bbs.create_container("data")
     container_client = bbs.get_container_client(container="data")
+    bbs.insert_time = datetime.datetime.utcnow().replace(
+        microsecond=0, tzinfo=datetime.timezone.utc
+    )
     container_client.upload_blob("top_file.txt", data)
     container_client.upload_blob("root/rfile.txt", data)
     container_client.upload_blob("root/a/file.txt", data)
     container_client.upload_blob("root/b/file.txt", data)
     container_client.upload_blob("root/c/file1.txt", data)
     container_client.upload_blob("root/c/file2.txt", data)
+    container_client.upload_blob(
+        "root/d/file_with_metadata.txt", data, metadata=metadata
+    )
     yield bbs

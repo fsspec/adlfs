@@ -29,6 +29,21 @@ from fsspec.utils import infer_storage_options, tokenize
 
 logger = logging.getLogger(__name__)
 
+FORWARDED_BLOB_PROPERTIES = [
+    "metadata",
+    "creation_time",
+    "deleted",
+    "deleted_time",
+    "last_modified",
+    "content_time",
+    "content_settings",
+    "remaining_retention_days",
+    "archive_status",
+    "last_accessed_on",
+    "tags",
+    "tag_count",
+]
+
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
     """
@@ -693,7 +708,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         container=container
                     )
                     path = path.strip("/")
-                    blobs = container_client.walk_blobs(name_starts_with=path)
+                    blobs = container_client.walk_blobs(
+                        include=["metadata"], name_starts_with=path
+                    )
 
                     # Check the depth that needs to be screened
                     depth = target_path.count("/")
@@ -763,7 +780,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         output = []
         for content in contents:
-            data = {}
+            data = {
+                key: content[key]
+                for key in FORWARDED_BLOB_PROPERTIES
+                if content.has_key(key)  # NOQA
+            }
             if content.has_key("container"):  # NOQA
                 fname = f"{content.container}{delimiter}{content.name}"
                 data.update({"name": fname})

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import docker
 import dask.dataframe as dd
 from fsspec.implementations.local import LocalFileSystem
@@ -14,6 +15,12 @@ URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
 KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
 CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
+
+
+def assert_almost_equal(x, y, threshold, prop_name=None):
+    if x is None and y is None:
+        return
+    assert abs(x - y) <= threshold
 
 
 @pytest.fixture(scope="session")
@@ -39,6 +46,38 @@ def test_connect(storage):
     AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
 
 
+def assert_blob_equals(blob, expected_blob):
+    time_based_props = [
+        "last_modified",
+        "creation_time",
+        "deleted_time",
+        "last_accessed_on",
+    ]
+    # creating a shallow copy since we are going to pop properties
+    shallow_copy = {**blob}
+    for time_based_prop in time_based_props:
+        time_value = shallow_copy.pop(time_based_prop, None)
+        expected_time_value = expected_blob.pop(time_based_prop, None)
+        assert_almost_equal(
+            time_value,
+            expected_time_value,
+            datetime.timedelta(minutes=1),
+            prop_name=time_based_prop,
+        )
+    content_settings = dict(sorted(shallow_copy.pop("content_settings", {}).items()))
+    expected_content_settings = dict(
+        sorted(expected_blob.pop("content_settings", {}).items())
+    )
+    assert content_settings == expected_content_settings
+    assert shallow_copy == expected_blob
+
+
+def assert_blobs_equals(blobs, expected_blobs):
+    assert len(blobs) == len(expected_blobs)
+    for blob, expected_blob in zip(blobs, expected_blobs):
+        assert_blob_equals(blob, expected_blob)
+
+
 def test_ls(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -58,12 +97,14 @@ def test_ls(storage):
         "data/root/a/",
         "data/root/b/",
         "data/root/c/",
+        "data/root/d/",
         "data/root/rfile.txt",
     ]
     assert fs.ls("data/root/") == [
         "data/root/a/",
         "data/root/b/",
         "data/root/c/",
+        "data/root/d/",
         "data/root/rfile.txt",
     ]
 
@@ -74,15 +115,126 @@ def test_ls(storage):
     assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
 
     ## file details
-    assert fs.ls("data/root/a/file.txt", detail=True) == [
-        {"name": "data/root/a/file.txt", "size": 10, "type": "file"}
-    ]
+    files = fs.ls("data/root/a/file.txt", detail=True)
+    assert_blobs_equals(
+        files,
+        [
+            {
+                "name": "data/root/a/file.txt",
+                "size": 10,
+                "type": "file",
+                "archive_status": None,
+                "deleted": None,
+                "creation_time": storage.insert_time,
+                "last_modified": storage.insert_time,
+                "deleted_time": None,
+                "last_accessed_on": None,
+                "remaining_retention_days": None,
+                "tag_count": None,
+                "tags": None,
+                "metadata": {},
+                "content_settings": {
+                    "content_type": "application/octet-stream",
+                    "content_encoding": None,
+                    "content_language": None,
+                    "content_md5": bytearray(
+                        b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                    ),
+                    "content_disposition": None,
+                    "cache_control": None,
+                },
+            }
+        ],
+    )
 
     # c has two files
-    assert fs.ls("data/root/c", detail=True) == [
-        {"name": "data/root/c/file1.txt", "size": 10, "type": "file"},
-        {"name": "data/root/c/file2.txt", "size": 10, "type": "file"},
-    ]
+    assert_blobs_equals(
+        fs.ls("data/root/c", detail=True),
+        [
+            {
+                "name": "data/root/c/file1.txt",
+                "size": 10,
+                "type": "file",
+                "archive_status": None,
+                "deleted": None,
+                "creation_time": storage.insert_time,
+                "last_modified": storage.insert_time,
+                "deleted_time": None,
+                "last_accessed_on": None,
+                "remaining_retention_days": None,
+                "tag_count": None,
+                "tags": None,
+                "metadata": {},
+                "content_settings": {
+                    "content_type": "application/octet-stream",
+                    "content_encoding": None,
+                    "content_language": None,
+                    "content_md5": bytearray(
+                        b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                    ),
+                    "content_disposition": None,
+                    "cache_control": None,
+                },
+            },
+            {
+                "name": "data/root/c/file2.txt",
+                "size": 10,
+                "type": "file",
+                "archive_status": None,
+                "deleted": None,
+                "creation_time": storage.insert_time,
+                "last_modified": storage.insert_time,
+                "deleted_time": None,
+                "last_accessed_on": None,
+                "remaining_retention_days": None,
+                "tag_count": None,
+                "tags": None,
+                "metadata": {},
+                "content_settings": {
+                    "content_type": "application/octet-stream",
+                    "content_encoding": None,
+                    "content_language": None,
+                    "content_md5": bytearray(
+                        b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                    ),
+                    "content_disposition": None,
+                    "cache_control": None,
+                },
+            },
+        ],
+    )
+
+    # with metadata
+    assert_blobs_equals(
+        fs.ls("data/root/d", detail=True),
+        [
+            {
+                "name": "data/root/d/file_with_metadata.txt",
+                "size": 10,
+                "type": "file",
+                "archive_status": None,
+                "deleted": None,
+                "creation_time": storage.insert_time,
+                "last_modified": storage.insert_time,
+                "deleted_time": None,
+                "last_accessed_on": None,
+                "remaining_retention_days": None,
+                "tag_count": None,
+                "tags": None,
+                "metadata": {"meta": "data"},
+                "content_settings": {
+                    "content_type": "application/octet-stream",
+                    "content_encoding": None,
+                    "content_language": None,
+                    "content_md5": bytearray(
+                        b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                    ),
+                    "content_disposition": None,
+                    "cache_control": None,
+                },
+            }
+        ],
+    )
 
     ## if not direct match is found throws error
     with pytest.raises(FileNotFoundError):
@@ -101,16 +253,86 @@ def test_info(storage):
     )
 
     container_info = fs.info("data")
-    assert container_info == {"name": "data/", "type": "directory", "size": 0}
+    assert_blob_equals(
+        container_info,
+        {
+            "name": "data/",
+            "type": "directory",
+            "size": 0,
+            "deleted": None,
+            "last_modified": storage.insert_time,
+            "metadata": None,
+        },
+    )
 
     container2_info = fs.info("data/root")
-    assert container2_info == {"name": "data/root/", "type": "directory", "size": 0}
+    assert_blob_equals(
+        container2_info, {"name": "data/root/", "type": "directory", "size": 0}
+    )
 
     dir_info = fs.info("data/root/c")
-    assert dir_info == {"name": "data/root/c/", "type": "directory", "size": 0}
+    assert_blob_equals(
+        dir_info, {"name": "data/root/c/", "type": "directory", "size": 0}
+    )
 
     file_info = fs.info("data/root/a/file.txt")
-    assert file_info == {"name": "data/root/a/file.txt", "type": "file", "size": 10}
+    assert_blob_equals(
+        file_info,
+        {
+            "name": "data/root/a/file.txt",
+            "size": 10,
+            "type": "file",
+            "archive_status": None,
+            "deleted": None,
+            "creation_time": storage.insert_time,
+            "last_modified": storage.insert_time,
+            "deleted_time": None,
+            "last_accessed_on": None,
+            "remaining_retention_days": None,
+            "tag_count": None,
+            "tags": None,
+            "metadata": {},
+            "content_settings": {
+                "content_type": "application/octet-stream",
+                "content_encoding": None,
+                "content_language": None,
+                "content_md5": bytearray(
+                    b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                ),
+                "content_disposition": None,
+                "cache_control": None,
+            },
+        },
+    )
+    file_with_meta_info = fs.info("data/root/d/file_with_metadata.txt")
+    assert_blob_equals(
+        file_with_meta_info,
+        {
+            "name": "data/root/d/file_with_metadata.txt",
+            "size": 10,
+            "type": "file",
+            "archive_status": None,
+            "deleted": None,
+            "creation_time": storage.insert_time,
+            "last_modified": storage.insert_time,
+            "deleted_time": None,
+            "last_accessed_on": None,
+            "remaining_retention_days": None,
+            "tag_count": None,
+            "tags": None,
+            "metadata": {"meta": "data"},
+            "content_settings": {
+                "content_type": "application/octet-stream",
+                "content_encoding": None,
+                "content_language": None,
+                "content_md5": bytearray(
+                    b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                ),
+                "content_disposition": None,
+                "cache_control": None,
+            },
+        },
+    )
 
 
 def test_find(storage):
@@ -137,6 +359,7 @@ def test_find(storage):
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root", withdirs=False) == [
@@ -144,6 +367,7 @@ def test_find(storage):
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
 
@@ -156,6 +380,8 @@ def test_find(storage):
         "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
@@ -166,6 +392,8 @@ def test_find(storage):
         "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
 
@@ -194,12 +422,14 @@ def test_glob(storage):
         "data/root/a",
         "data/root/b",
         "data/root/c",
+        "data/root/d",
         "data/root/rfile.txt",
     ]
     assert fs.glob("data/root/*") == [
         "data/root/a",
         "data/root/b",
         "data/root/c",
+        "data/root/d",
         "data/root/rfile.txt",
     ]
 
@@ -224,6 +454,7 @@ def test_glob(storage):
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
     ]
 
     ## all text files
@@ -232,6 +463,7 @@ def test_glob(storage):
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
 
@@ -244,6 +476,8 @@ def test_glob(storage):
         "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
     assert fs.glob("data/roo**") == [
@@ -255,6 +489,8 @@ def test_glob(storage):
         "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/d",
+        "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
 
