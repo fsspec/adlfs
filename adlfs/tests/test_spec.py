@@ -881,6 +881,63 @@ def test_dask_parquet(storage):
     assert_frame_equal(df5, df5_test)
 
 
+def test_metadata_write(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test_metadata_write")
+    data = b"0123456789"
+    metadata = {"meta": "data"}
+
+    # standard blob type
+    with fs.open("test_metadata_write/file.txt", "wb", metadata=metadata) as f:
+        f.write(data)
+    info = fs.info("test_metadata_write/file.txt")
+    assert info["metadata"] == metadata
+    metadata_changed_on_write = {"meta": "datum"}
+    with fs.open(
+        "test_metadata_write/file.txt", "wb", metadata=metadata_changed_on_write
+    ) as f:
+        f.write(data)
+    info = fs.info("test_metadata_write/file.txt")
+    assert info["metadata"] == metadata_changed_on_write
+
+    # append blob type
+    new_metadata = {"data": "meta"}
+    with fs.open("test_metadata_write/append-file.txt", "ab", metadata=metadata) as f:
+        f.write(data)
+
+    # try change metadata on block appending
+    with fs.open(
+        "test_metadata_write/append-file.txt", "ab", metadata=new_metadata
+    ) as f:
+        f.write(data)
+    info = fs.info("test_metadata_write/append-file.txt")
+
+    # azure blob client doesn't seem to support metadata mutation when appending blocks
+    # lets be sure this behavior doesn't change as this would imply
+    # a potential breaking change
+    assert info["metadata"] == metadata
+
+    # getxattr / setxattr
+    assert fs.getxattr("test_metadata_write/file.txt", "meta") == "datum"
+    fs.setxattrs("test_metadata_write/file.txt", metadata="data2")
+    assert fs.getxattr("test_metadata_write/file.txt", "metadata") == "data2"
+    assert fs.info("test_metadata_write/file.txt")["metadata"] == {"metadata": "data2"}
+
+    # empty file and nested directory
+    with fs.open(
+        "test_metadata_write/a/b/c/nested-file.txt", "wb", metadata=metadata
+    ) as f:
+        f.write(b"")
+    assert fs.getxattr("test_metadata_write/a/b/c/nested-file.txt", "meta") == "data"
+    fs.setxattrs("test_metadata_write/a/b/c/nested-file.txt", metadata="data2")
+    assert fs.info("test_metadata_write/a/b/c/nested-file.txt")["metadata"] == {
+        "metadata": "data2"
+    }
+    fs.rmdir("test_metadata_write")
+
+
 def test_put_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR

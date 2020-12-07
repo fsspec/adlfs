@@ -1267,6 +1267,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     get_file = sync_wrapper(_get_file)
 
+    def getxattr(self, path, attr):
+        meta = self.info(path).get("metadata", {})
+        return meta[attr]
+
+    async def _setxattrs(self, rpath, **kwargs):
+        container_name, path = self.split_path(rpath)
+        try:
+            cc = self.service_client.get_container_client(container_name)
+            bc = cc.get_blob_client(blob=path)
+            await bc.set_blob_metadata(metadata=kwargs)
+            self.invalidate_cache(self._parent(rpath))
+        except Exception as e:
+            raise FileNotFoundError(f"File not found for {e}")
+
+    setxattrs = sync_wrapper(_setxattrs)
+
     def invalidate_cache(self, path=None):
         if path is None:
             self.dircache.clear()
@@ -1282,6 +1298,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         autocommit: bool = True,
         cache_options: dict = {},
         cache_type="readahead",
+        metadata=None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1315,6 +1332,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             autocommit=autocommit,
             cache_options=cache_options,
             cache_type=cache_type,
+            metadata=metadata,
             **kwargs,
         )
 
@@ -1333,6 +1351,7 @@ class AzureBlobFile(io.IOBase):
         autocommit: bool = True,
         cache_type: str = "readahead",
         cache_options: dict = {},
+        metadata=None,
         **kwargs,
     ):
         """
@@ -1399,7 +1418,7 @@ class AzureBlobFile(io.IOBase):
                 FutureWarning,
             )
             cache_options["trim"] = kwargs.pop("trim")
-
+        self.metadata = None
         self.kwargs = kwargs
         self.connect_client()
         if self.mode not in {"ab", "rb", "wb"}:
@@ -1412,6 +1431,7 @@ class AzureBlobFile(io.IOBase):
                 self.blocksize, self._fetch_range, self.size, **cache_options
             )
         else:
+            self.metadata = metadata
             self.buffer = io.BytesIO()
             self.offset = None
             self.forced = False
@@ -1541,7 +1561,7 @@ class AzureBlobFile(io.IOBase):
         elif self.mode == "ab":
             self.blob_client = self.container_client.get_blob_client(blob=self.blob)
             if not self.fs.exists(self.path):
-                self.blob_client.create_append_blob()
+                self.blob_client.create_append_blob(metadata=self.metadata)
         else:
             raise ValueError(
                 "File operation modes other than wb are not yet supported for writing"
@@ -1565,24 +1585,29 @@ class AzureBlobFile(io.IOBase):
         if self.mode == "wb":
             try:
                 self.blob_client.stage_block(
-                    block_id=block_id, data=data, length=length
+                    block_id=block_id, data=data, length=length,
                 )
                 self._block_list.append(block_id)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    self.blob_client.commit_block_list(block_list=block_list)
+                    self.blob_client.commit_block_list(
+                        block_list=block_list, metadata=self.metadata
+                    )
             except Exception as e:
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 if block_id == "0000000" and length == 0 and final:
-                    self.blob_client.upload_blob(data=data)
+                    self.blob_client.upload_blob(data=data, metadata=self.metadata)
                 else:
                     raise RuntimeError(f"Failed to upload block with {e}!!")
         elif self.mode == "ab":
             self.blob_client.upload_blob(
-                data=data, length=length, blob_type=BlobType.AppendBlob
+                data=data,
+                length=length,
+                blob_type=BlobType.AppendBlob,
+                metadata=self.metadata,
             )
 
     def flush(self, force=False):
