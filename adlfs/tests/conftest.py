@@ -44,6 +44,7 @@ def storage(host):
     container_client.upload_blob("top_file.txt", data)
     container_client.upload_blob("root/rfile.txt", data)
     container_client.upload_blob("root/a/file.txt", data)
+    container_client.upload_blob("root/a1/file1.txt", data)
     container_client.upload_blob("root/b/file.txt", data)
     container_client.upload_blob("root/c/file1.txt", data)
     container_client.upload_blob("root/c/file2.txt", data)

@@ -25,6 +25,7 @@ from fsspec.asyn import (
     sync_wrapper,
 )
 from fsspec.utils import infer_storage_options, tokenize
+from .utils import filter_blobs
 
 
 logger = logging.getLogger(__name__)
@@ -744,10 +745,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     except ResourceNotFoundError:
                         raise FileNotFoundError
                     if return_glob:
-                        finalblobs = await self._details(outblobs, return_glob=True)
+                        finalblobs = await self._details(
+                            outblobs, target_path=target_path, return_glob=True
+                        )
                         return finalblobs
                     else:
-                        finalblobs = await self._details(outblobs)
+                        finalblobs = await self._details(
+                            outblobs, target_path=target_path
+                        )
                     if not finalblobs:
                         if not await self._exists(target_path):
                             raise FileNotFoundError
@@ -758,7 +763,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return self.dircache[target_path]
 
     async def _details(
-        self, contents, delimiter="/", return_glob: bool = False, **kwargs
+        self,
+        contents,
+        delimiter="/",
+        return_glob: bool = False,
+        target_path="",
+        **kwargs,
     ):
         """
         Return a list of dictionaries of specifying details about the contents
@@ -804,6 +814,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if return_glob:
                 data.update({"name": data["name"].rstrip("/")})
             output.append(data)
+        if target_path:
+            if len(output) == 1 and output[0]["type"] == "file":
+                # This handles the case where path is a file passed to ls
+                return output
+            output = await filter_blobs(output, target_path)
         return output
 
     def find(self, path, maxdepth=None, withdirs=False, **kwargs):
@@ -881,8 +896,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             listing = await self._ls(path, return_glob=True, **kwargs)
         except (FileNotFoundError, IOError):
             listing = []
-            # self._stop_iterating()
-            # yield [], [], []
 
         for info in listing:
             # each info name must be at least [path]/part , but here

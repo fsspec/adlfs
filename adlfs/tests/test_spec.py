@@ -95,6 +95,7 @@ def test_ls(storage):
     # root contains files and directories
     assert fs.ls("data/root") == [
         "data/root/a/",
+        "data/root/a1/",
         "data/root/b/",
         "data/root/c/",
         "data/root/d/",
@@ -102,6 +103,7 @@ def test_ls(storage):
     ]
     assert fs.ls("data/root/") == [
         "data/root/a/",
+        "data/root/a1/",
         "data/root/b/",
         "data/root/c/",
         "data/root/d/",
@@ -113,6 +115,10 @@ def test_ls(storage):
     assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
     assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
     assert fs.ls("/data/root/a/") == ["data/root/a/file.txt"]
+    assert fs.ls("data/root/b") == ["data/root/b/file.txt"]
+    assert fs.ls("data/root/b/") == ["data/root/b/file.txt"]
+    assert fs.ls("data/root/a1") == ["data/root/a1/file1.txt"]
+    assert fs.ls("data/root/a1/") == ["data/root/a1/file1.txt"]
 
     ## file details
     files = fs.ls("data/root/a/file.txt", detail=True)
@@ -356,6 +362,7 @@ def test_find(storage):
     ## all files
     assert fs.find("data/root") == [
         "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
@@ -364,6 +371,7 @@ def test_find(storage):
     ]
     assert fs.find("data/root", withdirs=False) == [
         "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
@@ -375,6 +383,8 @@ def test_find(storage):
     assert fs.find("data/root", withdirs=True) == [
         "data/root/a",
         "data/root/a/file.txt",
+        "data/root/a1",
+        "data/root/a1/file1.txt",
         "data/root/b",
         "data/root/b/file.txt",
         "data/root/c",
@@ -387,6 +397,8 @@ def test_find(storage):
     assert fs.find("data/root/", withdirs=True) == [
         "data/root/a",
         "data/root/a/file.txt",
+        "data/root/a1",
+        "data/root/a1/file1.txt",
         "data/root/b",
         "data/root/b/file.txt",
         "data/root/c",
@@ -401,7 +413,7 @@ def test_find(storage):
     assert fs.find("data/missing") == []
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_find_missing(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -420,6 +432,7 @@ def test_glob(storage):
     # top-level contents of a directory
     assert fs.glob("data/root/") == [
         "data/root/a",
+        "data/root/a1",
         "data/root/b",
         "data/root/c",
         "data/root/d",
@@ -427,6 +440,7 @@ def test_glob(storage):
     ]
     assert fs.glob("data/root/*") == [
         "data/root/a",
+        "data/root/a1",
         "data/root/b",
         "data/root/c",
         "data/root/d",
@@ -444,6 +458,7 @@ def test_glob(storage):
 
     ## regex match
     assert fs.glob("data/root/*/file[0-9].txt") == [
+        "data/root/a1/file1.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
     ]
@@ -451,6 +466,7 @@ def test_glob(storage):
     ## text files
     assert fs.glob("data/root/*/file*.txt") == [
         "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
@@ -460,6 +476,7 @@ def test_glob(storage):
     ## all text files
     assert fs.glob("data/**/*.txt") == [
         "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
         "data/root/b/file.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
@@ -471,6 +488,8 @@ def test_glob(storage):
     assert fs.glob("data/root/**") == [
         "data/root/a",
         "data/root/a/file.txt",
+        "data/root/a1",
+        "data/root/a1/file1.txt",
         "data/root/b",
         "data/root/b/file.txt",
         "data/root/c",
@@ -484,6 +503,8 @@ def test_glob(storage):
         "data/root",
         "data/root/a",
         "data/root/a/file.txt",
+        "data/root/a1",
+        "data/root/a1/file1.txt",
         "data/root/b",
         "data/root/b/file.txt",
         "data/root/c",
