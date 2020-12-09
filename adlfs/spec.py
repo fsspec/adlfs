@@ -8,6 +8,7 @@ from glob import has_magic
 import logging
 import os
 import warnings
+import weakref
 
 from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
 from azure.storage.blob._shared.base_client import create_configuration
@@ -397,6 +398,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
         self.do_connect()
+        weakref.finalize(self, maybe_sync, self.service_client.close, self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
