@@ -466,17 +466,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         try:
             self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
-            if self.credential is not None:
-                self.service_client = AIOBlobServiceClient(
-                    account_url=self.account_url, credential=self.credential
-                )
+            creds = [self.credential, self.account_key]
+            if any(creds):
+                self.service_client = [
+                    AIOBlobServiceClient(account_url=self.account_url, credential=cred)
+                    for cred in creds
+                    if cred is not None
+                ][0]
             elif self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.connection_string
-                )
-            elif self.account_key is not None:
-                self.service_client = AIOBlobServiceClient(
-                    account_url=self.account_url, credential=self.account_key
                 )
             elif self.sas_token is not None:
                 self.service_client = AIOBlobServiceClient(
@@ -1464,25 +1463,22 @@ class AzureBlobFile(io.IOBase):
             self.fs.account_url: str = (
                 f"https://{self.fs.account_name}.blob.core.windows.net"
             )
-            if self.fs.sync_credential is not None:
-                self.container_client = BlobServiceClient(
-                    account_url=self.fs.account_url, credential=self.fs.sync_credential
-                ).get_container_client(self.container_name)
+            creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
+            if any(creds):
+                self.container_client = [
+                    BlobServiceClient(
+                        account_url=self.fs.account_url, credential=cred
+                    ).get_container_client(self.container_name)
+                    for cred in creds
+                    if cred is not None
+                ][0]
             elif self.fs.connection_string is not None:
                 self.container_client = BlobServiceClient.from_connection_string(
                     conn_str=self.fs.connection_string
                 ).get_container_client(self.container_name)
-            elif self.fs.account_key is not None:
-                self.container_client = BlobServiceClient(
-                    account_url=self.fs.account_url, credential=self.fs.account_key
-                ).get_container_client(self.container_name)
             elif self.fs.sas_token is not None:
                 self.container_client = BlobServiceClient(
                     account_url=self.fs.account_url + self.fs.sas_token, credential=None
-                ).get_container_client(self.container_name)
-            elif self.fs.credential is not None:
-                self.container_client = BlobServiceClient(
-                    account_url=self.fs.account_url, credential=self.fs.credential
                 ).get_container_client(self.container_name)
             else:
                 self.container_client = BlobServiceClient(
@@ -1490,7 +1486,9 @@ class AzureBlobFile(io.IOBase):
                 ).get_container_client(self.container_name)
 
         except Exception as e:
-            raise ValueError(f"Unable to connect with provided params for {e}!!")
+            raise ValueError(
+                f"Unable to fetch container_client with provided params for {e}!!"
+            )
 
     @property
     def closed(self):
