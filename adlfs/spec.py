@@ -1480,6 +1480,10 @@ class AzureBlobFile(io.IOBase):
                 self.container_client = BlobServiceClient(
                     account_url=self.fs.account_url + self.fs.sas_token, credential=None
                 ).get_container_client(self.container_name)
+            elif self.fs.credential is not None:
+                self.container_client = BlobServiceClient(
+                    account_url=self.fs.account_url, credential=self.fs.credential
+                ).get_container_client(self.container_name)
             else:
                 self.container_client = BlobServiceClient(
                     account_url=self.fs.account_url
