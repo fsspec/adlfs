@@ -466,17 +466,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         try:
             self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
-            if self.credential is not None:
-                self.service_client = AIOBlobServiceClient(
-                    account_url=self.account_url, credential=self.credential
-                )
+            creds = [self.credential, self.account_key]
+            if any(creds):
+                self.service_client = [
+                    AIOBlobServiceClient(account_url=self.account_url, credential=cred)
+                    for cred in creds
+                    if cred is not None
+                ][0]
             elif self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.connection_string
-                )
-            elif self.account_key is not None:
-                self.service_client = AIOBlobServiceClient(
-                    account_url=self.account_url, credential=self.account_key
                 )
             elif self.sas_token is not None:
                 self.service_client = AIOBlobServiceClient(
