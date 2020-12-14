@@ -412,6 +412,52 @@ def test_find(storage):
     ## missing
     assert fs.find("data/missing") == []
 
+    ## prefix search
+    assert fs.find("data/root", prefix="a") == [
+        "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
+    ]
+
+    assert fs.find("data/root", prefix="a", withdirs=True) == [
+        "data/root/a",
+        "data/root/a/file.txt",
+        "data/root/a1",
+        "data/root/a1/file1.txt",
+    ]
+
+    find_results = fs.find("data/root", prefix="a1", withdirs=True, detail=True)
+    assert_blobs_equals(
+        list(find_results.values()),
+        [
+            {"name": "data/root/a1", "size": 0, "type": "directory"},
+            {
+                "name": "data/root/a1/file1.txt",
+                "size": 10,
+                "type": "file",
+                "archive_status": None,
+                "deleted": None,
+                "creation_time": storage.insert_time,
+                "last_modified": storage.insert_time,
+                "deleted_time": None,
+                "last_accessed_on": None,
+                "remaining_retention_days": None,
+                "tag_count": None,
+                "tags": None,
+                "metadata": {},
+                "content_settings": {
+                    "content_type": "application/octet-stream",
+                    "content_encoding": None,
+                    "content_language": None,
+                    "content_md5": bytearray(
+                        b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
+                    ),
+                    "content_disposition": None,
+                    "cache_control": None,
+                },
+            },
+        ],
+    )
+
 
 # @pytest.mark.xfail
 def test_find_missing(storage):

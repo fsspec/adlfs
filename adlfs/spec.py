@@ -601,7 +601,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             root = ""
             depth = 20 if "**" in path else 1
 
-        allpaths = await self._find(
+        allpaths = await self._glob_find(
             root, maxdepth=depth, withdirs=True, detail=True, **kwargs
         )
         pattern = (
@@ -822,13 +822,62 @@ class AzureBlobFileSystem(AsyncFileSystem):
             output = await filter_blobs(output, target_path)
         return output
 
-    def find(self, path, maxdepth=None, withdirs=False, **kwargs):
+    def find(self, path, withdirs=False, prefix="", **kwargs):
         return maybe_sync(
-            self._find, self, path=path, maxdepth=maxdepth, withdirs=withdirs, **kwargs
+            self._find, self, path=path, withdirs=withdirs, prefix=prefix, **kwargs
         )
 
-    async def _find(self, path, maxdepth=None, withdirs=False, **kwargs):
+    async def _find(self, path, withdirs=False, prefix="", **kwargs):
         """List all files below path.
+        Like posix ``find`` command without conditions
+        Parameters
+        ----------
+        path : str
+            The path (directory) to list from
+        withdirs: bool
+            Whether to include directory paths in the output. This is True
+            when used by glob, but users usually only want files.
+        prefix: str
+            Only return files that match `^{path}/{prefix}`
+        kwargs are passed to ``ls``.
+        """
+        path = self._strip_protocol(path)
+        parent_path = path.strip("/") + "/"
+        target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
+        # target_path = path.strip("/")
+        container, path = self.split_path(target_path)
+
+        container_client = self.service_client.get_container_client(container=container)
+        blobs = container_client.list_blobs(include=["metadata"], name_starts_with=path)
+        files = {}
+        dir_set = set()
+        dirs = {}
+        detail = kwargs.pop("detail", False)
+        try:
+            infos = await self._details([b async for b in blobs])
+            for info in infos:
+                name = info["name"]
+                parent_dir = self._parent(name)
+                if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
+                    dir_set.add(parent_dir)
+                    dirs[parent_dir] = {
+                        "name": parent_dir,
+                        "type": "directory",
+                        "size": 0,
+                    }
+                files[name] = info
+        except ResourceNotFoundError:
+            # find doesn't raise but returns [] or {} instead
+            pass
+        if withdirs:
+            files.update(dirs)
+        names = sorted(files)
+        if not detail:
+            return names
+        return {name: files[name] for name in names}
+
+    async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
+        """List all files below path in a recusrsive manner.
         Like posix ``find`` command without conditions
         Parameters
         ----------
