@@ -700,7 +700,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 containers = [c async for c in contents]
                 files = await self._details(containers)
                 self.dircache[path] = files
-                return files
+
             return self.dircache[path]
         else:
             if target_path not in self.dircache or invalidate_cache or return_glob:
@@ -745,22 +745,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                             pass
                     except ResourceNotFoundError:
                         raise FileNotFoundError
+                    finalblobs = await self._details(
+                        outblobs, target_path=target_path, return_glob=return_glob
+                    )
                     if return_glob:
-                        finalblobs = await self._details(
-                            outblobs, target_path=target_path, return_glob=True
-                        )
                         return finalblobs
-                    else:
-                        finalblobs = await self._details(
-                            outblobs, target_path=target_path
-                        )
+                    finalblobs = await self._details(outblobs, target_path=target_path)
                     if not finalblobs:
                         if not await self._exists(target_path):
                             raise FileNotFoundError
-                        else:
-                            return []
+                        return []
                     self.dircache[target_path] = finalblobs
-                    return finalblobs
+
             return self.dircache[target_path]
 
     async def _details(
