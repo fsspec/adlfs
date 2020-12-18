@@ -1183,12 +1183,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return True
         except FileNotFoundError:
             pass
-        try:
-            await self._info(path)
+
+        container_name, path = self.split_path(path)
+
+        if not path:
+            # Empty paths exist by definition
             return True
-        except:  # noqa: E722
-            # any exception allowed bar FileNotFoundError?
-            return False
+
+        cc = self.service_client.get_container_client(container_name)
+        bc = cc.get_blob_client(blob=path)
+        async with bc:
+            exists = await bc.exists()
+
+        return exists
 
     def cat(self, path, recursive=False, on_error="raise", **kwargs):
         """Fetch (potentially multiple) paths' contents
