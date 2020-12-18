@@ -1667,10 +1667,17 @@ class AzureBlobFile(io.IOBase):
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
+                # This isn't actually tested, since Azureite behaves differently.
                 if block_id == "0000000" and length == 0 and final:
                     self.blob_client.upload_blob(data=data, metadata=self.metadata)
+                elif length == 0 and final:
+                    # just finalize
+                    block_list = [BlobBlock(_id) for _id in self._block_list]
+                    self.blob_client.commit_block_list(
+                        block_list=block_list, metadata=self.metadata
+                    )
                 else:
-                    raise RuntimeError(f"Failed to upload block with {e}!!")
+                    raise RuntimeError(f"Failed to upload block{e}!") from e
         elif self.mode == "ab":
             self.blob_client.upload_blob(
                 data=data,
