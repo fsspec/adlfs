@@ -1024,3 +1024,15 @@ def test_cp_file(storage):
     assert "homedir/enddir/test_file.txt" in files
 
     fs.rm("homedir", recursive=True)
+
+
+def test_exists(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert fs.exists("data/top_file.txt")
+    assert fs.exists("data")
+    assert fs.exists("data/")
+    assert fs.exists("")
+    assert not fs.exists("data/not-a-key")
