@@ -9,7 +9,7 @@ setup(
     name="adlfs",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    description="Access Azure Datalake Gen1 with fsspec and dask",
+    description="Access Azure Datalake Gen1/Gen2 with fsspec",
     url="https://github.com/hayesgb/adlfs/",
     maintainer="Greg Hayes",
     maintainer_email="hayesgb@gmail.com",
