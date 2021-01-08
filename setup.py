@@ -19,7 +19,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     description="Access Azure Datalake Gen1 with fsspec and dask",
-    url="https://github.com/hayesgb/adlfs/",
+    url="https://github.com/dask/adlfs/",
     maintainer="Greg Hayes",
     maintainer_email="hayesgb@gmail.com",
     license="BSD",
