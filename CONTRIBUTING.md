@@ -15,3 +15,15 @@ You can run tests from the main directory as follows:
 ```bash
 $ py.test adlfs/tests
 ```
+
+## Release
+
+```
+# Update CHANGELOG.md
+# Create a tag. Should start with v
+git commit --allow-empty -m 'RLS: <tag>'
+git tag -a -m 'RLS: <tag>' <tag>
+git push upstream master --follow-tags
+python setup.py sdist bdist_wheel
+twine upload dist/*
+```
