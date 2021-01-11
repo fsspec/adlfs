@@ -609,6 +609,7 @@ def test_mkdir_rmdir(storage, caplog):
         account_name=storage.account_name, connection_string=CONN_STR,
     )
     import logging
+
     caplog.set_level(logging.CRITICAL)
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")

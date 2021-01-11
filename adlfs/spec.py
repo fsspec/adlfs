@@ -15,7 +15,6 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob import BlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
@@ -1198,10 +1197,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return exists
 
-    def pipe_file(self, path, value, **kwargs):
+    async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""
-        with self.open(path, "wb") as f:
-            f.write(value)
+        container_name, path = self.split_path(path)
+        async with self.service_client.get_blob_client(
+            container=container_name, blob=path
+        ) as bc:
+            await bc.upload_blob(data=value, overwrite=overwrite)
+
+    pipe_file = sync_wrapper(_pipe_file)
 
     def cat(self, path, recursive=False, on_error="raise", **kwargs):
         """Fetch (potentially multiple) paths' contents
@@ -1467,9 +1471,10 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        self.container_client = fs.service_client.get_container_client(
-            self.container_name
-        ) or self.connect_client()
+        self.container_client = (
+            fs.service_client.get_container_client(self.container_name)
+            or self.connect_client()
+        )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1566,7 +1571,7 @@ class AzureBlobFile(AbstractBufferedFile):
             )
             blob = await stream.readall()
         return blob
-    
+
     _fetch_range = sync_wrapper(_async_fetch_range)
 
     async def _reinitiate_async_upload(self, **kwargs):
@@ -1621,22 +1626,28 @@ class AzureBlobFile(AbstractBufferedFile):
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                            await bc.commit_block_list(
-                                block_list=block_list, metadata=self.metadata
-                            )
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
+                        await bc.commit_block_list(
+                            block_list=block_list, metadata=self.metadata
+                        )
             except Exception as e:
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
                 if block_id == "0000000" and length == 0 and final:
-                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
                         await bc.upload_blob(data=data, metadata=self.metadata)
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
                         await bc.commit_block_list(
                             block_list=block_list, metadata=self.metadata
                         )
