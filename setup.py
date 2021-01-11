@@ -9,6 +9,8 @@ setup(
     name="adlfs",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
+    description="Access Azure Datalake Gen1 with fsspec and dask",
+    url="https://github.com/dask/adlfs/",
     classifiers=[
         "Intended Audience :: Developers",
         "License :: OSI Approved :: BSD License",
@@ -18,8 +20,6 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
     ],
-    description="Access Azure Datalake Gen1 with fsspec and dask",
-    url="https://github.com/dask/adlfs/",
     maintainer="Greg Hayes",
     maintainer_email="hayesgb@gmail.com",
     license="BSD",
