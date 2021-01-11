@@ -1203,7 +1203,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            await bc.upload_blob(data=value, overwrite=overwrite)
+            result = await bc.upload_blob(data=value, overwrite=overwrite)
+        return result
 
     pipe_file = sync_wrapper(_pipe_file)
 
@@ -1617,7 +1618,6 @@ class AzureBlobFile(AbstractBufferedFile):
         block_id = f"{block_id:07d}"
         if self.mode == "wb":
             try:
-                # self.blob_client = self.container_client.get_blob_client(blob=self.blob)
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
                         block_id=block_id, data=data, length=length,
