@@ -1198,6 +1198,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return exists
 
+    def pipe_file(self, path, value, **kwargs):
+        """Set the bytes of given file"""
+        with self.open(path, "wb") as f:
+            f.write(value)
+
     def cat(self, path, recursive=False, on_error="raise", **kwargs):
         """Fetch (potentially multiple) paths' contents
         Returns a dict of {path: contents} if there are multiple paths
@@ -1288,7 +1293,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _cp_file(self, path1, path2, *kwargs):
         """ Copy the file at path1 to path2 """
-        # import pdb;pdb.set_trace()
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
 
@@ -1463,9 +1467,9 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        # self.container_client = fs.service_client.get_container_client(
-        #     self.container_name
-        # )
+        self.container_client = fs.service_client.get_container_client(
+            self.container_name
+        ) or self.connect_client()
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1474,6 +1478,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self.end = None
         self.start = None
         self.closed = False
+        self.loop = self.fs.loop or get_loop()
 
         if cache_options is None:
             cache_options = {}
@@ -1487,7 +1492,8 @@ class AzureBlobFile(AbstractBufferedFile):
             cache_options["trim"] = kwargs.pop("trim")
         self.metadata = None
         self.kwargs = kwargs
-        self.connect_client()
+        weakref.finalize(self, maybe_sync, self.container_client.close, self)
+
         if self.mode not in {"ab", "rb", "wb"}:
             raise NotImplementedError("File mode not supported")
         if self.mode == "rb":
@@ -1519,22 +1525,22 @@ class AzureBlobFile(AbstractBufferedFile):
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
                 self.container_client = [
-                    BlobServiceClient(
+                    AIOBlobServiceClient(
                         account_url=self.fs.account_url, credential=cred
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                self.container_client = BlobServiceClient.from_connection_string(
+                self.container_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.fs.connection_string
                 ).get_container_client(self.container_name)
             elif self.fs.sas_token is not None:
-                self.container_client = BlobServiceClient(
+                self.container_client = AIOBlobServiceClient(
                     account_url=self.fs.account_url + self.fs.sas_token, credential=None
                 ).get_container_client(self.container_name)
             else:
-                self.container_client = BlobServiceClient(
+                self.container_client = AIOBlobServiceClient(
                     account_url=self.fs.account_url
                 ).get_container_client(self.container_name)
 
@@ -1543,7 +1549,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 f"Unable to fetch container_client with provided params for {e}!!"
             )
 
-    def _fetch_range(self, start: int, end: int, **kwargs):
+    async def _async_fetch_range(self, start: int, end: int, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -1554,36 +1560,42 @@ class AzureBlobFile(AbstractBufferedFile):
         end: int
             End byte position to download blob from
         """
-        blob = self.container_client.download_blob(
-            blob=self.blob, offset=start, length=end
-        )
-        # return blob.readall()
-        return blob.readinto()
+        async with self.container_client:
+            stream = await self.container_client.download_blob(
+                blob=self.blob, offset=start, length=end
+            )
+            blob = await stream.readall()
+        return blob
+    
+    _fetch_range = sync_wrapper(_async_fetch_range)
 
-    def __initiate_upload(self, **kwargs):
+    async def _reinitiate_async_upload(self, **kwargs):
         pass
 
-    def _initiate_upload(self, **kwargs):
+    async def _async_initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self._block_list = []
         if self.mode == "wb":
-            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
             try:
-                self.container_client.delete_blob(self.blob)
+                async with self.container_client as c:
+                    await c.delete_blob(self.blob)
             except ResourceNotFoundError:
                 pass
             else:
-                return self.__initiate_upload()
+                await self._reinitiate_async_upload()
+
         elif self.mode == "ab":
-            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
-            if not self.fs.exists(self.path):
-                self.blob_client.create_append_blob(metadata=self.metadata)
+            if not await self.fs._exists(self.path):
+                async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    await bc.create_append_blob(metadata=self.metadata)
         else:
             raise ValueError(
                 "File operation modes other than wb are not yet supported for writing"
             )
 
-    def _upload_chunk(self, final: bool = False, **kwargs):
+    _initiate_upload = sync_wrapper(_async_initiate_upload)
+
+    async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
         Write one part of a multi-block file upload
 
@@ -1600,39 +1612,47 @@ class AzureBlobFile(AbstractBufferedFile):
         block_id = f"{block_id:07d}"
         if self.mode == "wb":
             try:
-                self.blob_client.stage_block(
-                    block_id=block_id, data=data, length=length,
-                )
+                # self.blob_client = self.container_client.get_blob_client(blob=self.blob)
+                async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    await bc.stage_block(
+                        block_id=block_id, data=data, length=length,
+                    )
                 self._block_list.append(block_id)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    self.blob_client.commit_block_list(
-                        block_list=block_list, metadata=self.metadata
-                    )
+                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                            await bc.commit_block_list(
+                                block_list=block_list, metadata=self.metadata
+                            )
             except Exception as e:
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
                 if block_id == "0000000" and length == 0 and final:
-                    self.blob_client.upload_blob(data=data, metadata=self.metadata)
+                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                        await bc.upload_blob(data=data, metadata=self.metadata)
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    self.blob_client.commit_block_list(
-                        block_list=block_list, metadata=self.metadata
-                    )
+                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                        await bc.commit_block_list(
+                            block_list=block_list, metadata=self.metadata
+                        )
                 else:
                     raise RuntimeError(f"Failed to upload block{e}!") from e
         elif self.mode == "ab":
-            self.blob_client.upload_blob(
-                data=data,
-                length=length,
-                blob_type=BlobType.AppendBlob,
-                metadata=self.metadata,
-            )
+            async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                await bc.upload_blob(
+                    data=data,
+                    length=length,
+                    blob_type=BlobType.AppendBlob,
+                    metadata=self.metadata,
+                )
         else:
             raise ValueError(
                 "File operation modes other than wb or ab are not yet supported for upload_chunk"
             )
+
+    _upload_chunk = sync_wrapper(_async_upload_chunk)
