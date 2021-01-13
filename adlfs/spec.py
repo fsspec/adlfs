@@ -975,17 +975,66 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ):
                 yield path, dirs, files
 
-    def mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
-        maybe_sync(
-            self._mkdir,
-            self,
-            path=path,
-            delimiter=delimiter,
-            exist_ok=exist_ok,
-            **kwargs,
-        )
+    async def _mkdir(self, path, delimiter="/", **kwargs):
+        """
+        Create directory entry at path
 
-    async def _mkdir(self, path, delimiter="/", exist_ok=False, **kwargs):
+        Parameters
+        ----------
+        path: str
+            The path to create
+
+        delimiter: str
+            Delimiter to use when splitting the path
+
+        """
+        container_name, path = self.split_path(path, delimiter=delimiter)
+        _containers = await self._ls("")
+        _containers = [c["name"] for c in _containers]
+        # The list of containers will be returned from _ls() in a directory format,
+        # with a trailing "/", but the container_name will not have this.
+        # Need a placeholder that presents the container_name in a directory format
+        container_name_as_dir = f"{container_name}/"
+        if _containers is None:
+            _containers = []
+        try:
+            if (container_name_as_dir not in _containers) and (not path):
+                # create new container
+                await self.service_client.create_container(name=container_name)
+            elif (
+                container_name
+                in [container_path.split("/")[0] for container_path in _containers]
+            ) and path:
+                ## attempt to create prefix
+                container_client = self.service_client.get_container_client(
+                    container=container_name
+                )
+                await container_client.upload_blob(name=path, data="", overwrite=False)
+        except:
+            ## everything else
+            exist_ok = kwargs.get("exist_ok", False)
+            if exist_ok:
+                pass
+            else:
+                raise FileExistsError(
+                    f"Cannot overwrite existing Azure container -- {container_name} already exists."
+                )
+        # else:
+        #     try:
+        #         if (container_name_as_dir in _containers) and path:
+        #             container_client = self.service_client.get_container_client(
+        #                 container=container_name
+        #             )
+        #             await container_client.upload_blob(
+        #                 name=path, data="", overwrite=False
+        #             )
+        #     except ResourceExistsError:
+        #         raise FileExistsError(f"{container_name_as_dir}{path} already exists!!")
+        self.invalidate_cache(self._parent(path))
+
+    mkdir = sync_wrapper(_mkdir)
+
+    def makedir(self, path, exist_ok=False):
         """
         Create directory entry at path
 
@@ -998,47 +1047,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         exist_ok: bool
-            If True, raise an exception if the directory already exists. Defaults to False
+            If False (default), raise an error if the directory already exists.
         """
-        container_name, path = self.split_path(path, delimiter=delimiter)
-        _containers = await self._ls("")
-        _containers = [c["name"] for c in _containers]
-        # The list of containers will be returned from _ls() in a directory format,
-        # with a trailing "/", but the container_name will not have this.
-        # Need a placeholder that presents the container_name in a directory format
-        container_name_as_dir = f"{container_name}/"
-        if _containers is None:
-            _containers = []
-        if not exist_ok:
-            if (container_name_as_dir not in _containers) and (not path):
-                # create new container
-                await self.service_client.create_container(name=container_name)
-            elif (
-                container_name
-                in [container_path.split("/")[0] for container_path in _containers]
-            ) and path:
-                ## attempt to create prefix
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                await container_client.upload_blob(name=path, data="", overwrite=True)
+        try:
+            self.mkdir(path, create_parents=True)
+        except FileExistsError:
+            if exist_ok:
+                pass
             else:
-                ## everything else
-                raise FileExistsError(
-                    f"Cannot overwrite existing Azure container -- {container_name} already exists."
-                )
-        else:
-            try:
-                if (container_name_as_dir in _containers) and path:
-                    container_client = self.service_client.get_container_client(
-                        container=container_name
-                    )
-                    await container_client.upload_blob(
-                        name=path, data="", overwrite=False
-                    )
-            except ResourceExistsError:
-                raise FileExistsError(f"{container_name_as_dir}{path} already exists!!")
-        self.invalidate_cache(self._parent(path))
+                raise
 
     def rm(self, path, recursive=False, maxdepth=None, **kwargs):
         maybe_sync(self._rm, self, path, recursive, **kwargs)
@@ -1204,6 +1221,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             container=container_name, blob=path
         ) as bc:
             result = await bc.upload_blob(data=value, overwrite=overwrite)
+        self.invalidate_cache(self._parent(path))
         return result
 
     pipe_file = sync_wrapper(_pipe_file)

@@ -624,13 +624,20 @@ def test_mkdir_rmdir(storage, caplog):
     with fs.open("new-container/dir/file2.txt", "wb") as f:
         f.write(b"0123456789")
 
-    # Check to verify you can skip making a directory if the container
-    # already exists, but still create a file in that directory
-    fs.mkdir("new-container/dir/file.txt", exist_ok=False)
-    assert "new-container/" in fs.ls("")
+    # Verify that mkdir will raise an exception if the directory exists
+    # and exist_ok is False
+    with pytest.raises(FileExistsError):
+        fs.mkdir("new-container/dir/file.txt", exist_ok=False)
 
+    # Verify that mkdir creates a directory if exist_ok is False and the
+    # directory does not exist
     fs.mkdir("new-container/file2.txt", exist_ok=False)
     assert "new-container/file2.txt" in fs.ls("new-container")
+
+    # Verify that mkdir will silently ignore an existing directory if
+    # the directory exists and exist_ok is True
+    fs.mkdir("new-container/dir", exist_ok=True)
+    assert "new-container/dir/" in fs.ls("new-container")
 
     # Test to verify that the file contains expected contents
     with fs.open("new-container/file2.txt", "rb") as f:
@@ -638,7 +645,8 @@ def test_mkdir_rmdir(storage, caplog):
     assert outfile == b""
 
     # Check that trying to overwrite an existing nested file in append mode works as expected
-    fs.mkdir("new-container/dir/file2.txt", exist_ok=False)
+    # if exist_ok is True
+    fs.mkdir("new-container/dir/file2.txt", exist_ok=True)
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
