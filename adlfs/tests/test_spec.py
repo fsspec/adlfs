@@ -604,11 +604,13 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
-def test_mkdir_rmdir(storage):
+def test_mkdir_rmdir(storage, caplog):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
     )
+    import logging
 
+    caplog.set_level(logging.CRITICAL)
     fs.mkdir("new-container")
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []

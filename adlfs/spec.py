@@ -15,7 +15,6 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob import BlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
@@ -25,6 +24,7 @@ from fsspec.asyn import (
     get_loop,
     sync_wrapper,
 )
+from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 from .utils import filter_blobs
 
@@ -1197,6 +1197,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return exists
 
+    async def _pipe_file(self, path, value, overwrite=True, **kwargs):
+        """Set the bytes of given file"""
+        container_name, path = self.split_path(path)
+        async with self.service_client.get_blob_client(
+            container=container_name, blob=path
+        ) as bc:
+            result = await bc.upload_blob(data=value, overwrite=overwrite)
+        return result
+
+    pipe_file = sync_wrapper(_pipe_file)
+
     def cat(self, path, recursive=False, on_error="raise", **kwargs):
         """Fetch (potentially multiple) paths' contents
         Returns a dict of {path: contents} if there are multiple paths
@@ -1287,7 +1298,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _cp_file(self, path1, path2, *kwargs):
         """ Copy the file at path1 to path2 """
-        # import pdb;pdb.set_trace()
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
 
@@ -1403,7 +1413,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )
 
 
-class AzureBlobFile(io.IOBase):
+class AzureBlobFile(AbstractBufferedFile):
     """ File-like operations on Azure Blobs """
 
     DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
@@ -1415,7 +1425,7 @@ class AzureBlobFile(io.IOBase):
         mode: str = "rb",
         block_size="default",
         autocommit: bool = True,
-        cache_type: str = "readahead",
+        cache_type: str = "bytes",
         cache_options: dict = {},
         metadata=None,
         **kwargs,
@@ -1462,9 +1472,10 @@ class AzureBlobFile(io.IOBase):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
-        # self.container_client = fs.service_client.get_container_client(
-        #     self.container_name
-        # )
+        self.container_client = (
+            fs.service_client.get_container_client(self.container_name)
+            or self.connect_client()
+        )
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1473,6 +1484,7 @@ class AzureBlobFile(io.IOBase):
         self.end = None
         self.start = None
         self.closed = False
+        self.loop = self.fs.loop or get_loop()
 
         if cache_options is None:
             cache_options = {}
@@ -1486,7 +1498,8 @@ class AzureBlobFile(io.IOBase):
             cache_options["trim"] = kwargs.pop("trim")
         self.metadata = None
         self.kwargs = kwargs
-        self.connect_client()
+        weakref.finalize(self, maybe_sync, self.container_client.close, self)
+
         if self.mode not in {"ab", "rb", "wb"}:
             raise NotImplementedError("File mode not supported")
         if self.mode == "rb":
@@ -1518,22 +1531,22 @@ class AzureBlobFile(io.IOBase):
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
                 self.container_client = [
-                    BlobServiceClient(
+                    AIOBlobServiceClient(
                         account_url=self.fs.account_url, credential=cred
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                self.container_client = BlobServiceClient.from_connection_string(
+                self.container_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.fs.connection_string
                 ).get_container_client(self.container_name)
             elif self.fs.sas_token is not None:
-                self.container_client = BlobServiceClient(
+                self.container_client = AIOBlobServiceClient(
                     account_url=self.fs.account_url + self.fs.sas_token, credential=None
                 ).get_container_client(self.container_name)
             else:
-                self.container_client = BlobServiceClient(
+                self.container_client = AIOBlobServiceClient(
                     account_url=self.fs.account_url
                 ).get_container_client(self.container_name)
 
@@ -1542,62 +1555,7 @@ class AzureBlobFile(io.IOBase):
                 f"Unable to fetch container_client with provided params for {e}!!"
             )
 
-    @property
-    def closed(self):
-        # get around this attr being read-only in IOBase
-        # use getattr here, since this can be called during del
-        return getattr(self, "_closed", True)
-
-    @closed.setter
-    def closed(self, c):
-        self._closed = c
-
-    def __hash__(self):
-        if "w" in self.mode:
-            return id(self)
-        else:
-            return int(tokenize(self.details), 16)
-
-    def __eq__(self, other):
-        """Files are equal if they have the same checksum, only in read mode"""
-        return self.mode == "rb" and other.mode == "rb" and hash(self) == hash(other)
-
-    def commit(self):
-        """Move from temp to final destination"""
-
-    def tell(self):
-        """ Current file location """
-        return self.loc
-
-    def seek(self, loc, whence=0):
-        """Set current file location
-        Parameters
-        ----------
-        loc: int
-            byte location
-        whence: {0, 1, 2}
-            from start of file, current location or end of file, resp.
-        """
-        loc = int(loc)
-        if not self.mode == "rb":
-            raise OSError("Seek only available in read mode")
-        if whence == 0:
-            nloc = loc
-        elif whence == 1:
-            nloc = self.loc + loc
-        elif whence == 2:
-            nloc = self.size + loc
-        else:
-            raise ValueError("invalid whence (%s, should be 0, 1 or 2)" % whence)
-        if nloc < 0:
-            raise ValueError("Seek before start of file")
-        self.loc = nloc
-        return self.loc
-
-    def discard(self):
-        """Throw away temporary file"""
-
-    def _fetch_range(self, start: int, end: int, **kwargs):
+    async def _async_fetch_range(self, start: int, end: int, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -1608,35 +1566,41 @@ class AzureBlobFile(io.IOBase):
         end: int
             End byte position to download blob from
         """
-        blob = self.container_client.download_blob(
-            blob=self.blob, offset=start, length=end
-        )
-        return blob.readall()
+        async with self.container_client:
+            stream = await self.container_client.download_blob(
+                blob=self.blob, offset=start, length=end
+            )
+            blob = await stream.readall()
+        return blob
 
-    def __initiate_upload(self, **kwargs):
+    _fetch_range = sync_wrapper(_async_fetch_range)
+
+    async def _reinitiate_async_upload(self, **kwargs):
         pass
 
-    def _initiate_upload(self, **kwargs):
+    async def _async_initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self._block_list = []
         if self.mode == "wb":
-            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
             try:
-                self.container_client.delete_blob(self.blob)
+                await self.container_client.delete_blob(self.blob)
             except ResourceNotFoundError:
                 pass
             else:
-                return self.__initiate_upload()
+                await self._reinitiate_async_upload()
+
         elif self.mode == "ab":
-            self.blob_client = self.container_client.get_blob_client(blob=self.blob)
-            if not self.fs.exists(self.path):
-                self.blob_client.create_append_blob(metadata=self.metadata)
+            if not await self.fs._exists(self.path):
+                async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    await bc.create_append_blob(metadata=self.metadata)
         else:
             raise ValueError(
                 "File operation modes other than wb are not yet supported for writing"
             )
 
-    def _upload_chunk(self, final: bool = False, **kwargs):
+    _initiate_upload = sync_wrapper(_async_initiate_upload)
+
+    async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
         Write one part of a multi-block file upload
 
@@ -1653,219 +1617,52 @@ class AzureBlobFile(io.IOBase):
         block_id = f"{block_id:07d}"
         if self.mode == "wb":
             try:
-                self.blob_client.stage_block(
-                    block_id=block_id, data=data, length=length,
-                )
+                async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                    await bc.stage_block(
+                        block_id=block_id, data=data, length=length,
+                    )
                 self._block_list.append(block_id)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    self.blob_client.commit_block_list(
-                        block_list=block_list, metadata=self.metadata
-                    )
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
+                        await bc.commit_block_list(
+                            block_list=block_list, metadata=self.metadata
+                        )
             except Exception as e:
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
                 if block_id == "0000000" and length == 0 and final:
-                    self.blob_client.upload_blob(data=data, metadata=self.metadata)
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
+                        await bc.upload_blob(data=data, metadata=self.metadata)
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
-                    self.blob_client.commit_block_list(
-                        block_list=block_list, metadata=self.metadata
-                    )
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
+                        await bc.commit_block_list(
+                            block_list=block_list, metadata=self.metadata
+                        )
                 else:
                     raise RuntimeError(f"Failed to upload block{e}!") from e
         elif self.mode == "ab":
-            self.blob_client.upload_blob(
-                data=data,
-                length=length,
-                blob_type=BlobType.AppendBlob,
-                metadata=self.metadata,
+            async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                await bc.upload_blob(
+                    data=data,
+                    length=length,
+                    blob_type=BlobType.AppendBlob,
+                    metadata=self.metadata,
+                )
+        else:
+            raise ValueError(
+                "File operation modes other than wb or ab are not yet supported for upload_chunk"
             )
 
-    def flush(self, force=False):
-        """
-        Write buffered data to backend store.
-        Writes the current buffer, if it is larger than the block-size, or if
-        the file is being closed.
-        Parameters
-        ----------
-        force: bool
-            When closing, write the last block even if it is smaller than
-            blocks are allowed to be. Disallows further writing to this file.
-        """
-
-        if self.closed:
-            raise ValueError("Flush on closed file")
-        if force and self.forced:
-            raise ValueError("Force flush cannot be called more than once")
-        if force:
-            self.forced = True
-        if self.mode not in {"wb", "ab"}:
-            # no-op to flush on read-mode
-            return
-
-        if not force and self.buffer.tell() < self.blocksize:
-            # Defer write on small block
-            return
-
-        if self.offset is None:
-            # Initialize a multipart upload
-            self.offset = 0
-            self._initiate_upload()
-
-        if self._upload_chunk(final=force) is not False:
-            self.offset += self.buffer.seek(0, 2)
-            self.buffer = io.BytesIO()
-
-    def write(self, data):
-        """
-        Write data to buffer.
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
-        Parameters
-        ----------
-        data: bytes
-            Set of bytes to be written.
-        """
-
-        if self.mode not in {"wb", "ab"}:
-            raise ValueError("File not in write mode")
-        if self.closed:
-            raise ValueError("I/O operation on closed file.")
-        if self.forced:
-            raise ValueError("This file has been force-flushed, can only close")
-        out = self.buffer.write(data)
-        self.loc += out
-        if self.buffer.tell() >= self.blocksize:
-            self.flush()
-        return out
-
-    def readuntil(self, char=b"\n", blocks=None):
-        """Return data between current position and first occurrence of char
-        char is included in the output, except if the end of the tile is
-        encountered first.
-        Parameters
-        ----------
-        char: bytes
-            Thing to find
-        blocks: None or int
-            How much to read in each go. Defaults to file blocksize - which may
-            mean a new read on every call.
-        """
-        out = []
-        while True:
-            start = self.tell()
-            part = self.read(blocks or self.blocksize)
-            if len(part) == 0:
-                break
-            found = part.find(char)
-            if found > -1:
-                out.append(part[: found + len(char)])
-                self.seek(start + found + len(char))
-                break
-            out.append(part)
-        return b"".join(out)
-
-    def readline(self):
-        """Read until first occurrence of newline character
-        Note that, because of character encoding, this is not necessarily a
-        true line ending.
-        """
-        return self.readuntil(b"\n")
-
-    def __next__(self):
-        out = self.readline()
-        if out:
-            return out
-        raise StopIteration
-
-    def __iter__(self):
-        return self
-
-    def readlines(self):
-        """Return all data, split by the newline character"""
-        data = self.read()
-        lines = data.split(b"\n")
-        out = [l + b"\n" for l in lines[:-1]]
-        if data.endswith(b"\n"):
-            return out
-        else:
-            return out + [lines[-1]]
-        # return list(self)  ???
-
-    def readinto1(self, b):
-        return self.readinto(b)
-
-    def readinto(self, b):
-        """mirrors builtin file's readinto method
-        https://docs.python.org/3/library/io.html#io.RawIOBase.readinto
-        """
-        data = self.read(len(b))
-        memoryview(b).cast("B")[: len(data)] = data
-        return len(data)
-
-    def read(self, length=-1):
-        """
-        Return data from cache, or fetch pieces as necessary
-        Parameters
-        ----------
-        length: int (-1)
-            Number of bytes to read; if <0, all remaining bytes.
-        """
-
-        length = -1 if length is None else int(length)
-        if self.mode != "rb":
-            raise ValueError("File not in read mode")
-        if length < 0:
-            length = self.size - self.loc
-        if self.closed:
-            raise ValueError("I/O operation on closed file.")
-        logger.debug("%s read: %i - %i" % (self, self.loc, self.loc + length))
-        if length == 0:
-            # don't even bother calling fetch
-            return b""
-        out = self.cache._fetch(self.loc, self.loc + length)
-        self.loc += len(out)
-        return out
-
-    def close(self):
-        """Close file
-        Finalizes writes, discards cache
-        """
-        if self.closed:
-            return
-        if self.mode == "rb":
-            self.cache = None
-        else:
-            if not self.forced:
-                self.flush(force=True)
-            if self.fs is not None:
-                self.fs.invalidate_cache(self.path)
-                self.fs.invalidate_cache(self.fs._parent(self.path))
-
-        self.closed = True
-
-    def readable(self):
-        """Whether opened for reading"""
-        return self.mode == "rb" and not self.closed
-
-    def seekable(self):
-        """Whether is seekable (only in read mode)"""
-        return self.readable()
-
-    def writable(self):
-        """Whether opened for writing"""
-        return self.mode in {"wb", "ab"} and not self.closed
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-
-    def __del__(self):
-        self.close()
+    _upload_chunk = sync_wrapper(_async_upload_chunk)
