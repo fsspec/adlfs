@@ -1583,8 +1583,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self._block_list = []
         if self.mode == "wb":
             try:
-                async with self.container_client as c:
-                    await c.delete_blob(self.blob)
+                await self.container_client.delete_blob(self.blob)
             except ResourceNotFoundError:
                 pass
             else:

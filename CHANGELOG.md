@@ -1,4 +1,7 @@
 **Change Log**  
+v0.6.0
+------
+- Implemented asynchronous uploads and downloads of AzureBlobFile objects
 
 v0.5.9
 ------
