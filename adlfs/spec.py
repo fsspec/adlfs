@@ -975,7 +975,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ):
                 yield path, dirs, files
 
-    async def _mkdir(self, path, delimiter="/", **kwargs):
+    async def _mkdir(self, path, create_parents=True, delimiter="/", **kwargs):
         """
         Create directory entry at path
 
@@ -983,6 +983,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ----------
         path: str
             The path to create
+
+        create_parents: bool
+            If True (default), create the Azure Container if it does not exist
 
         delimiter: str
             Delimiter to use when splitting the path
@@ -1019,17 +1022,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 raise FileExistsError(
                     f"Cannot overwrite existing Azure container -- {container_name} already exists."
                 )
-        # else:
-        #     try:
-        #         if (container_name_as_dir in _containers) and path:
-        #             container_client = self.service_client.get_container_client(
-        #                 container=container_name
-        #             )
-        #             await container_client.upload_blob(
-        #                 name=path, data="", overwrite=False
-        #             )
-        #     except ResourceExistsError:
-        #         raise FileExistsError(f"{container_name_as_dir}{path} already exists!!")
         self.invalidate_cache(self._parent(path))
 
     mkdir = sync_wrapper(_mkdir)
