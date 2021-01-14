@@ -1020,8 +1020,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
                 await container_client.upload_blob(name=path, data="", overwrite=False)
         except PermissionError:
-            raise PermissionError(f"Unable to create Azure container {container_name_as_dir} with \
-                create_parents=False")
+            raise PermissionError(
+                f"Unable to create Azure container {container_name_as_dir} with \
+                create_parents=False"
+            )
         except Exception as e:
             ## everything else
             exist_ok = kwargs.get("exist_ok", False)
