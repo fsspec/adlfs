@@ -1011,7 +1011,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         await self._mkdir(fpath, exist_ok=True)
                 else:
                     raise PermissionError(
-                        f"Azure Container does not exist.  Set create_parents=True to create!!"
+                        f"Azure Container does not exist.  Set create_parents=True to create, assuming \
+                        Azure permissions exist!!"
                     )
             else:
                 ## attempt to create prefix
