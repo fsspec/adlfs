@@ -604,14 +604,56 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
-def test_mkdir_rmdir(storage, caplog):
+def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
     )
-    import logging
 
-    caplog.set_level(logging.CRITICAL)
-    fs.mkdir("new-container")
+    # Verify mkdir will create a new container when create_parents is True
+    fs.mkdir("new-container", create_parents=True)
+    assert "new-container/" in fs.ls(".")
+    fs.rm("new-container")
+
+    # Verify a new container will not be created when create_parents
+    # is False
+    with pytest.raises(PermissionError):
+        fs.mkdir("new-container", create_parents=False)
+
+    # Test creating subdirectory when container does not exist
+    fs.mkdir("new-container/dir", create_parents=True)
+    assert "new-container/dir" in fs.ls("new-container")
+    fs.rm("new-container", recursive=True)
+
+    # Test raising error when container does not exist
+    with pytest.raises(PermissionError):
+        fs.mkdir("new-container/dir", create_parents=False)
+
+
+def test_makedir(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR,
+    )
+
+    # Verify makedir will create a new container when create_parents is True
+    with pytest.raises(FileExistsError):
+        fs.makedir("data", exist_ok=False)
+
+    # The container and directory already exist.  Should pass
+    fs.makedir("data", exist_ok=True)
+    assert "data/" in fs.ls(".")
+
+    # Test creating subdirectory when container does not exist
+    fs.makedir("new-container/dir")
+    assert "new-container/dir" in fs.ls("new-container")
+    fs.rm("new-container", recursive=True)
+
+
+def test_makedir_rmdir(storage, caplog):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR,
+    )
+
+    fs.makedir("new-container")
     assert "new-container/" in fs.ls("")
     assert fs.ls("new-container") == []
 
@@ -627,16 +669,16 @@ def test_mkdir_rmdir(storage, caplog):
     # Verify that mkdir will raise an exception if the directory exists
     # and exist_ok is False
     with pytest.raises(FileExistsError):
-        fs.mkdir("new-container/dir/file.txt", exist_ok=False)
+        fs.makedir("new-container/dir/file.txt", exist_ok=False)
 
     # Verify that mkdir creates a directory if exist_ok is False and the
     # directory does not exist
-    fs.mkdir("new-container/file2.txt", exist_ok=False)
+    fs.makedir("new-container/file2.txt", exist_ok=False)
     assert "new-container/file2.txt" in fs.ls("new-container")
 
     # Verify that mkdir will silently ignore an existing directory if
     # the directory exists and exist_ok is True
-    fs.mkdir("new-container/dir", exist_ok=True)
+    fs.makedir("new-container/dir", exist_ok=True)
     assert "new-container/dir/" in fs.ls("new-container")
 
     # Test to verify that the file contains expected contents
@@ -646,11 +688,11 @@ def test_mkdir_rmdir(storage, caplog):
 
     # Check that trying to overwrite an existing nested file in append mode works as expected
     # if exist_ok is True
-    fs.mkdir("new-container/dir/file2.txt", exist_ok=True)
+    fs.makedir("new-container/dir/file2.txt", exist_ok=True)
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
-    fs.mkdir("new-container/dir2/file.txt", exist_ok=False)
+    fs.makedir("new-container/dir2/file.txt", exist_ok=False)
     with fs.open("new-container/dir2/file.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")

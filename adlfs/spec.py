@@ -1010,7 +1010,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         fpath = f"{container_name_as_dir}{path}"
                         await self._mkdir(fpath, exist_ok=True)
                 else:
-                    raise ValueError(
+                    raise PermissionError(
                         f"Azure Container does not exist.  Set create_parents=True to create!!"
                     )
             else:
@@ -1019,6 +1019,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container=container_name
                 )
                 await container_client.upload_blob(name=path, data="", overwrite=False)
+        except PermissionError:
+            raise PermissionError(f"Unable to create Azure container {container_name_as_dir} with \
+                create_parents=False")
         except Exception as e:
             ## everything else
             exist_ok = kwargs.get("exist_ok", False)
@@ -1026,8 +1029,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 pass
             else:
                 raise FileExistsError(
-                    f"Cannot overwrite existing Azure container -- {container_name} already exists.  \
-                        Error from Azure {e}"
+                    f"Cannot overwrite existing Azure container -- {container_name} already exists. \
+                        with Azure error {e}"
                 )
         self.invalidate_cache(self._parent(path))
 
@@ -1056,9 +1059,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 raise
 
-    def rm(self, path, recursive=False, maxdepth=None, **kwargs):
-        maybe_sync(self._rm, self, path, recursive, **kwargs)
-
     async def _rm(self, path, recursive=False, maxdepth=None, **kwargs):
         """Delete files.
         Parameters
@@ -1077,6 +1077,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for p in reversed(path):
             await self.rm_file(p)
         self.invalidate_cache()
+
+    rm = sync_wrapper(_rm)
 
     async def rm_file(self, path, delimiter="/", **kwargs):
         """
