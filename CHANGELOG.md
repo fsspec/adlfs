@@ -5,6 +5,7 @@ v0.6.0
 - Aligned on policy for asynchronous context managers to be preferred with blob_client.
 - Added abfs.makedir() method and aligned exist_ok parameter to fsspec api 
 - Updated abfs.mkdir() method to align to fsspec api.
+- Pinned azure-storage-blob >= 12.5.0,<12.7.0 -- version 12.7.0 breaks compatability with azurite for unit testing
 
 
 v0.5.9
