@@ -1,10 +1,11 @@
 **Change Log**  
 v0.6.0
 ------
-- Implemented asynchronous uploads and downloads of AzureBlobFile objects. Aligned on policy for asynchronous context managers to be preferred with blob_client.
+- Implemented asynchronous uploads and downloads of AzureBlobFile objects
+- Aligned on policy for asynchronous context managers to be preferred with blob_client.
 - Added abfs.makedir() method and aligned exist_ok parameter to fsspec api 
 - Updated abfs.mkdir() method to align to fsspec api.
-- Adopted convention for asynchronous contex 
+
 
 v0.5.9
 ------

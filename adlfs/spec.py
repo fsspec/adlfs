@@ -1001,26 +1001,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if _containers is None:
             _containers = []
         try:
-            if (container_name_as_dir not in _containers) and (not path):
-                # create new container
-                await self.service_client.create_container(name=container_name)
-            elif (
-                container_name
-                in [container_path.split("/")[0] for container_path in _containers]
-            ) and path:
+            if container_name_as_dir not in _containers:
+                if create_parents:
+                    # create new container
+                    await self.service_client.create_container(name=container_name)
+                    self.invalidate_cache(self._parent(path))
+                    if path:
+                        fpath = f"{container_name_as_dir}{path}"
+                        await self._mkdir(fpath, exist_ok=True)
+                else:
+                    raise ValueError(
+                        f"Azure Container does not exist.  Set create_parents=True to create!!"
+                    )
+            else:
                 ## attempt to create prefix
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
                 await container_client.upload_blob(name=path, data="", overwrite=False)
-        except:
+        except Exception as e:
             ## everything else
             exist_ok = kwargs.get("exist_ok", False)
             if exist_ok:
                 pass
             else:
                 raise FileExistsError(
-                    f"Cannot overwrite existing Azure container -- {container_name} already exists."
+                    f"Cannot overwrite existing Azure container -- {container_name} already exists.  \
+                        Error from Azure {e}"
                 )
         self.invalidate_cache(self._parent(path))
 
