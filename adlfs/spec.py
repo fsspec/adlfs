@@ -1317,7 +1317,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     put_file = sync_wrapper(_put_file)
 
-    async def _cp_file(self, path1, path2, *kwargs):
+    async def _cp_file(self, path1, path2, **kwargs):
         """ Copy the file at path1 to path2 """
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
