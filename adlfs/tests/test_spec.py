@@ -565,7 +565,7 @@ def test_glob(storage):
     assert fs.glob("data/missing/*") == []
 
 
-def test_open_file(storage):
+def test_open_file(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
@@ -573,6 +573,23 @@ def test_open_file(storage):
 
     result = f.read()
     assert result == b"0123456789"
+
+    close = mocker.patch.object(f.container_client, "close")
+    f.close()
+
+    close.assert_called_once()
+
+def test_open_context_manager(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    with fs.open("/data/root/a/file.txt") as f:
+        close = mocker.patch.object(f.container_client, "close")
+        result = f.read()
+        assert result == b"0123456789"
+
+    close.assert_called_once()
+
 
 
 def test_rm(storage):

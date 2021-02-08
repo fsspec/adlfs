@@ -1519,7 +1519,6 @@ class AzureBlobFile(AbstractBufferedFile):
             cache_options["trim"] = kwargs.pop("trim")
         self.metadata = None
         self.kwargs = kwargs
-        weakref.finalize(self, maybe_sync, self.container_client.close, self)
 
         if self.mode not in {"ab", "rb", "wb"}:
             raise NotImplementedError("File mode not supported")
@@ -1536,6 +1535,11 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
+
+    def close(self):
+        """Close file and azure client."""
+        maybe_sync(self.container_client.close, self)
+        super().close()
 
     def connect_client(self):
         """Connect to the Synchronous BlobServiceClient, using user-specified connection details.

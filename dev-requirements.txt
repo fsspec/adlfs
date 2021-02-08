@@ -11,6 +11,7 @@ pyarrow
 pytest>=5.0,<6.0
 pytest-asyncio
 pytest-cov
+pytest-mock
 requests>=2.22.0,<3.0
 scipy>=0.9
 versioneer>=0.18,<1.0
