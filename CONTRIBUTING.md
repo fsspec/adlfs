@@ -1,4 +1,4 @@
-Dask is a community maintained project. We welcome contributions in the form of bug reports, documentation, code, design proposals, and more. 
+Dask is a community maintained project. We welcome contributions in the form of bug reports, documentation, code, design proposals, and more.
 
 For general information on how to contribute see https://docs.dask.org/en/latest/develop.html.
 
@@ -23,7 +23,7 @@ $ py.test adlfs/tests
 # Create a tag. Should start with v
 git commit --allow-empty -m 'RLS: <tag>'
 git tag -a -m 'RLS: <tag>' <tag>
-git push upstream master --follow-tags
+git push upstream main --follow-tags
 python setup.py sdist bdist_wheel
 twine upload dist/*
 ```
