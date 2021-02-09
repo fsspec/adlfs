@@ -579,7 +579,9 @@ def test_open_file(storage, mocker):
 
     close.assert_called_once()
 
+
 def test_open_context_manager(storage, mocker):
+    "test closing azure client with context manager"
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
@@ -589,7 +591,6 @@ def test_open_context_manager(storage, mocker):
         assert result == b"0123456789"
 
     close.assert_called_once()
-
 
 
 def test_rm(storage):
