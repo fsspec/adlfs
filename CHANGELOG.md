@@ -1,4 +1,9 @@
-**Change Log**  
+**Change Log**
+v0.6.1
+------
+- Removed weakref and added close method to fix memory leak
+- Added **kwargs reference to _cp_file
+
 v0.6.0
 ------
 - Implemented asynchronous uploads and downloads of AzureBlobFile objects
