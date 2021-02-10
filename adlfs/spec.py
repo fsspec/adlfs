@@ -349,16 +349,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def __init__(
         self,
         account_name: str,
-        account_key: str = None,
-        connection_string: str = None or os.getenv['AZURE_STORAGE_CONNECTION_STRING'],
+        account_key: str = None or os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),
+        connection_string: str = None or os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
         credential: str = None,
-        sas_token: str = None,
+        sas_token: str = None or os.getenv("AZURE_STORAGE_SAS_TOKEN"),
         request_session=None,
         socket_timeout: int = None,
         blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
         client_id: str = None,
-        client_secret: str = None,
-        tenant_id: str = None,
+        client_secret: str = None or os.getenv("AZURE_STORAGE_CLIENT_SECRET"),
+        tenant_id: str = None or os.getenv("AZURE_STORAGE_TENANT_ID"),
         loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
@@ -1542,7 +1542,7 @@ class AzureBlobFile(AbstractBufferedFile):
         super().close()
 
     def connect_client(self):
-        """Connect to the Synchronous BlobServiceClient, using user-specified connection details.
+        """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
 
         Raises
