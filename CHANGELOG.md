@@ -1,4 +1,9 @@
 **Change Log**
+v0.6.2
+------
+- Added ability to fetch multiple AZURE_STORAGE_XYZ credentials as environmental variables
+
+
 v0.6.1
 ------
 - Removed weakref and added close method to fix memory leak
