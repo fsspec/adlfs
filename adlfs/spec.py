@@ -350,7 +350,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self,
         account_name: str,
         account_key: str = None,
-        connection_string: str = None,
+        connection_string: str = None or os.getenv['AZURE_STORAGE_CONNECTION_STRING'],
         credential: str = None,
         sas_token: str = None,
         request_session=None,
