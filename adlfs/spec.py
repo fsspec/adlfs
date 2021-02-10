@@ -356,7 +356,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         request_session=None,
         socket_timeout: int = None,
         blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
-        client_id: str = None,
+        client_id: str = None or os.getenv("AZURE_STORAGE_CLIENT_ID"),
         client_secret: str = None or os.getenv("AZURE_STORAGE_CLIENT_SECRET"),
         tenant_id: str = None or os.getenv("AZURE_STORAGE_TENANT_ID"),
         loop=None,

@@ -61,6 +61,23 @@ Operations against both Gen1 Datalake currently only work with an Azure ServiceP
 with suitable credentials to perform operations on the resources of choice.
 
 Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
+
+    The filesystem can be instantiated with a variety of credentials, including:
+        account_name
+        account_key
+        sas_token
+        connection_string
+        or Azure ServicePrincipal credentials (tenant_id, client_id, client_secret)
+
+    The following enviornmental variables can also be set and picked up for authentication:
+        "AZURE_STORAGE_CONNECTION_STRING"
+        "AZURE_STORAGE_ACCOUNT_KEY"
+        "AZURE_STORAGE_SAS_TOKEN"
+        "AZURE_STORAGE_CLIENT_SECRET"
+        "AZURE_STORAGE_CLIENT_ID"
+        "AZURE_STORAGE_TENANT_ID"
+
+
 The AzureBlobFileSystem accepts [all of the Async BlobServiceClient arguments](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python).
 
     By default, write operations create BlockBlobs in Azure, which, once written can not be appended.  It is possible to create an AppendBlob using an `mode="ab"` when creating, and then when operating on blobs.  Currently AppendBlobs are not available if hierarchical namespaces are enabled.
