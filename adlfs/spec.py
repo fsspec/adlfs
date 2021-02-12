@@ -42,6 +42,7 @@ FORWARDED_BLOB_PROPERTIES = [
     "remaining_retention_days",
     "archive_status",
     "last_accessed_on",
+    "etag",
     "tags",
     "tag_count",
 ]
