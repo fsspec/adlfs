@@ -39,6 +39,10 @@ storage_options={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 
 ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=storage_options)
 ddf = dd.read_parquet('az://{CONTAINER}/folder.parquet', storage_options=storage_options)
+
+or optionally, if AZURE_STORAGE_ACCOUNT_NAME and an AZURE_STORAGE_<CREDENTIAL> is 
+set as an environmental variable, then storage_options will be read from the environmental
+variables
 ```
 
 To read from a public storage blob you are required to specify the `'account_name'`.
@@ -71,6 +75,7 @@ Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob S
 
     The following enviornmental variables can also be set and picked up for authentication:
         "AZURE_STORAGE_CONNECTION_STRING"
+        "AZURE_STORAGE_ACCOUNT_NAME"
         "AZURE_STORAGE_ACCOUNT_KEY"
         "AZURE_STORAGE_SAS_TOKEN"
         "AZURE_STORAGE_CLIENT_SECRET"
