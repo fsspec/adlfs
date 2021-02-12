@@ -348,17 +348,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def __init__(
         self,
-        account_name: str,
-        account_key: str = None or os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),
-        connection_string: str = None or os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
+        account_name: str = None,
+        account_key: str = None,
+        connection_string: str = None,
         credential: str = None,
-        sas_token: str = None or os.getenv("AZURE_STORAGE_SAS_TOKEN"),
+        sas_token: str = None,
         request_session=None,
         socket_timeout: int = None,
         blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
-        client_id: str = None or os.getenv("AZURE_STORAGE_CLIENT_ID"),
-        client_secret: str = None or os.getenv("AZURE_STORAGE_CLIENT_SECRET"),
-        tenant_id: str = None or os.getenv("AZURE_STORAGE_TENANT_ID"),
+        client_id: str = None,
+        client_secret: str = None,
+        tenant_id: str = None,
         loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
@@ -371,17 +371,26 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(asynchronous=asynchronous, **super_kwargs)
-        self.account_name = account_name
-        self.account_key = account_key
-        self.connection_string = connection_string
+        if account_name:
+            self.account_name = account_name
+        elif "AZURE_STORAGE_ACCOUNT_NAME" in os.environ.keys():
+            self.account_name = os.environ["AZURE_STORAGE_ACCOUNT_NAME"]
+        else:
+            raise ValueError(
+                "account_name must be declared explictly or set in AZURE_STORAGE_ACCOUNT_NAME environmental variable"
+            )
+        self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
+        self.connection_string = connection_string or os.getenv(
+            "AZURE_STORAGE_CONNECTION_STRING"
+        )
+        self.sas_token = sas_token or os.getenv("AZURE_STORAGE_SAS_TOKEN")
+        self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
+        self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
+        self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
         self.credential = credential
-        self.sas_token = sas_token
         self.request_session = request_session
         self.socket_timeout = socket_timeout
         self.blocksize = blocksize
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.tenant_id = tenant_id
         self.loop = loop or get_loop()
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
