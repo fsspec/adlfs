@@ -1290,7 +1290,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             blob_name=blob,
             account_key=self.account_key,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.utcnow() + timedelta(seconds=3600),
+            expiry=datetime.utcnow() + timedelta(seconds=expires),
         )
 
         cc = self.service_client.get_container_client(container_name)
