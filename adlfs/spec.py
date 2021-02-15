@@ -372,14 +372,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(asynchronous=asynchronous, **super_kwargs)
-        if account_name:
-            self.account_name = account_name
-        elif "AZURE_STORAGE_ACCOUNT_NAME" in os.environ.keys():
-            self.account_name = os.environ["AZURE_STORAGE_ACCOUNT_NAME"]
-        else:
-            raise ValueError(
-                "account_name must be declared explictly or set in AZURE_STORAGE_ACCOUNT_NAME environmental variable"
-            )
+        self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.connection_string = connection_string or os.getenv(
             "AZURE_STORAGE_CONNECTION_STRING"
@@ -475,24 +468,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ValueError if none of the connection details are available
         """
         try:
-            self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
-            creds = [self.credential, self.account_key]
-            if any(creds):
-                self.service_client = [
-                    AIOBlobServiceClient(account_url=self.account_url, credential=cred)
-                    for cred in creds
-                    if cred is not None
-                ][0]
-            elif self.connection_string is not None:
+            if self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.connection_string
                 )
-            elif self.sas_token is not None:
-                self.service_client = AIOBlobServiceClient(
-                    account_url=self.account_url + self.sas_token, credential=None
-                )
+            elif self.account_name:
+                self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
+                creds = [self.credential, self.account_key]
+                if any(creds):
+                    self.service_client = [
+                        AIOBlobServiceClient(
+                            account_url=self.account_url, credential=cred
+                        )
+                        for cred in creds
+                        if cred is not None
+                    ][0]
+                elif self.sas_token is not None:
+                    self.service_client = AIOBlobServiceClient(
+                        account_url=self.account_url + self.sas_token, credential=None
+                    )
+                else:
+                    self.service_client = AIOBlobServiceClient(
+                        account_url=self.account_url
+                    )
             else:
-                self.service_client = AIOBlobServiceClient(account_url=self.account_url)
+                raise ValueError(
+                    "Must provide either a connection_string or account_name with credentials!!"
+                )
 
         except Exception as e:
             raise ValueError(f"unable to connect to account for {e}")
