@@ -47,6 +47,10 @@ def test_connect(storage):
 
 
 def assert_blob_equals(blob, expected_blob):
+    irregular_props = [
+        "etag",
+    ]
+
     time_based_props = [
         "last_modified",
         "creation_time",
@@ -64,6 +68,11 @@ def assert_blob_equals(blob, expected_blob):
             datetime.timedelta(minutes=1),
             prop_name=time_based_prop,
         )
+
+    for irregular_prop in irregular_props:
+        shallow_copy.pop(irregular_prop, None)
+        expected_blob.pop(irregular_prop, None)
+
     content_settings = dict(sorted(shallow_copy.pop("content_settings", {}).items()))
     expected_content_settings = dict(
         sorted(expected_blob.pop("content_settings", {}).items())
