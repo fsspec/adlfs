@@ -1,4 +1,9 @@
 **Change Log**
+v0.6.3
+------
+- Added ability to connect with only connection_string.
+- connection_string now pre-empts other credentials.
+
 v0.6.2
 ------
 - Added ability to fetch multiple AZURE_STORAGE_XYZ credentials as environmental variables
