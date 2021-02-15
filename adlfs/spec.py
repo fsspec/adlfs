@@ -1064,7 +1064,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If False (default), raise an error if the directory already exists.
         """
         try:
-            self.mkdir(path, create_parents=True)
+            self.mkdir(path, create_parents=True, exist_ok=exist_ok)
         except FileExistsError:
             if exist_ok:
                 pass

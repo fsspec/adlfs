@@ -651,6 +651,10 @@ def test_mkdir(storage):
     assert "new-container/dir" in fs.ls("new-container")
     fs.rm("new-container", recursive=True)
 
+    # Test that creating a directory when already exists passes
+    fs.mkdir("data")
+    assert "data/" in fs.ls(".")
+
     # Test raising error when container does not exist
     with pytest.raises(PermissionError):
         fs.mkdir("new-container/dir", create_parents=False)
