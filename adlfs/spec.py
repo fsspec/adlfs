@@ -1036,7 +1036,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
         except Exception as e:
             ## everything else
-            exist_ok = kwargs.get("exist_ok", False)
+            exist_ok = kwargs.get("exist_ok", True)
             if exist_ok:
                 pass
             else:
