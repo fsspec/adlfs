@@ -1590,7 +1590,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
-            )
+            ) from e
 
     async def _async_fetch_range(self, start: int, end: int, **kwargs):
         """
