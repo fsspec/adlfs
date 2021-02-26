@@ -731,6 +731,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     outblobs = []
                     try:
                         async for next_blob in blobs:
+                            import pdb;pdb.set_trace()
                             if depth in [0, 1] and path == "":
                                 outblobs.append(next_blob)
                             elif isinstance(next_blob, BlobProperties):
@@ -742,6 +743,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                     outblobs.append(next_blob)
                             else:
                                 async for blob_ in next_blob:
+                                    import pdb;pdb.set_trace()
                                     if isinstance(blob_, BlobProperties) or isinstance(
                                         blob_, BlobPrefix
                                     ):
