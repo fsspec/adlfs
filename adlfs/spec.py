@@ -854,7 +854,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path = self._strip_protocol(path)
         parent_path = path.strip("/") + "/"
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
-        # target_path = path.strip("/")
         container, path = self.split_path(target_path)
 
         container_client = self.service_client.get_container_client(container=container)
@@ -1005,6 +1004,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
+        fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
         _containers = [c["name"] for c in _containers]
@@ -1016,6 +1016,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             try:
                 is_file = await self._ls(fullpath, detail=True)
                 if len(is_file) == 1 and is_file[0]['name'] == fullpath and is_file[0]['type'] == 'file':
+                    # If the directory to be created is actually a file and already exists
+                    # skip this step, otherwise add a trailing delimiter
                     pass
             except FileNotFoundError:
                 path = f"{path}{delimiter}"
