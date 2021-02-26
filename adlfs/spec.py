@@ -1012,6 +1012,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # with a trailing "/", but the container_name will not have this.
         # Need a placeholder that presents the container_name in a directory format
         container_name_as_dir = f"{container_name}/"
+        if path and not path.endswith(delimiter):
+            try:
+                is_file = await self._ls(fullpath, detail=True)
+                if len(is_file) == 1 and is_file[0]['name'] == fullpath and is_file[0]['type'] == 'file':
+                    pass
+            except FileNotFoundError:
+                path = f"{path}{delimiter}"
         if _containers is None:
             _containers = []
         try:
