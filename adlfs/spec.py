@@ -731,7 +731,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     outblobs = []
                     try:
                         async for next_blob in blobs:
-                            import pdb;pdb.set_trace()
+                            # import pdb;pdb.set_trace()
                             if depth in [0, 1] and path == "":
                                 outblobs.append(next_blob)
                             elif isinstance(next_blob, BlobProperties):
@@ -743,7 +743,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                     outblobs.append(next_blob)
                             else:
                                 async for blob_ in next_blob:
-                                    import pdb;pdb.set_trace()
+                                    # import pdb;pdb.set_trace()
                                     if isinstance(blob_, BlobProperties) or isinstance(
                                         blob_, BlobPrefix
                                     ):
@@ -753,6 +753,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                                 == depth
                                             ):
                                                 outblobs.append(blob_)
+                                            elif blob_['name'].count("/") == depth and blob_["size"] == 0:
+                                                outblobs.append(blob_)
+                                            else:
+                                                pass
                                         elif blob_["name"].count("/") == (depth):
                                             outblobs.append(blob_)
                                         else:
@@ -798,7 +802,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         List of dicts
             Returns details about the contents, such as name, size and type
         """
-
+        # import pdb;pdb.set_trace()
         output = []
         for content in contents:
             data = {
@@ -864,6 +868,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         try:
             infos = await self._details([b async for b in blobs])
+            import pdb;pdb.set_trace()
             for info in infos:
                 name = info["name"]
                 parent_dir = self._parent(name)
@@ -1004,6 +1009,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
+        # import pdb;pdb.set_trace()
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
@@ -1014,11 +1020,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name_as_dir = f"{container_name}/"
         if path and not path.endswith(delimiter):
             try:
-                is_file = await self._ls(fullpath, detail=True)
-                if len(is_file) == 1 and is_file[0]['name'] == fullpath and is_file[0]['type'] == 'file':
+                files = await self._ls(fullpath, detail=True)
+                if (len(files) == 1) and (files[0]['name'] == fullpath) and (files[0]['type'] == 'file'):
                     # If the directory to be created is actually a file and already exists
                     # skip this step, otherwise add a trailing delimiter
-                    pass
+                        raise FileExistsError("File exists at this location")
+                else:
+                    path = f"{path}{delimiter}"
+
             except FileNotFoundError:
                 path = f"{path}{delimiter}"
         if _containers is None:
@@ -1057,7 +1066,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     f"Cannot overwrite existing Azure container -- {container_name} already exists. \
                         with Azure error {e}"
                 )
-        self.invalidate_cache(self._parent(path))
+        self.invalidate_cache(self._parent(fullpath))
 
     mkdir = sync_wrapper(_mkdir)
 

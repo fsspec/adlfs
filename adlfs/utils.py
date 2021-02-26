@@ -11,7 +11,6 @@ async def filter_blobs(blobs, target_path):
 
     target_path: Actual prefix of the blob folder
     """
-
     finalblobs = [
         b for b in blobs if re.search(r"\b" + target_path + r"(?=/)" + r"\b", b["name"])
     ]
