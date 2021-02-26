@@ -1320,7 +1320,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     await bc.upload_blob(f1, overwrite=overwrite)
                 self.invalidate_cache()
             except ResourceExistsError:
-                raise FileExistsError("File already exists!!")
+                raise FileExistsError("File already exists!")
             except ResourceNotFoundError:
                 if not await self._exists(container_name):
                     raise FileNotFoundError("Container does not exist.")
