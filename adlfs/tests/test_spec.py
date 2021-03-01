@@ -35,7 +35,7 @@ def spawn_azurite():
     print("Starting azurite docker container")
     client = docker.from_env()
     azurite = client.containers.run(
-        "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
+        "mcr.microsoft.com/azure-storage/azurite", "api_version='2020-12-12'", ports={"10000": "10000"}, detach=True
     )
     yield azurite
     print("Teardown azurite docker container")
