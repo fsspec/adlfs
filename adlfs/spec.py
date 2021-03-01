@@ -562,7 +562,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 out1[0]["size"] = None
             return out1[0]
         elif len(out1) > 1 or out:
-            return {"name": path, "size": 0, "type": "directory"}
+            return {"name": path, "size": None, "type": "directory"}
         else:
             raise FileNotFoundError
 
@@ -815,6 +815,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     data.update({"size": 0})
                 if data["size"] == 0 and data["name"].endswith(delimiter):
                     data.update({"type": "directory"})
+                    data.update({"size": 0})
                 else:
                     data.update({"type": "file"})
             else:
@@ -856,8 +857,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
         container, path = self.split_path(target_path)
 
-        container_client = self.service_client.get_container_client(container=container)
-        blobs = container_client.list_blobs(include=["metadata"], name_starts_with=path)
+        async with self.service_client.get_container_client(container=container) as container_client:
+            blobs = container_client.list_blobs(include=["metadata"], name_starts_with=path)
         files = {}
         dir_set = set()
         dirs = {}
@@ -1049,10 +1050,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
             else:
                 ## attempt to create prefix
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                await container_client.upload_blob(name=path, data="", overwrite=False)
+                async with self.service_client.get_container_client(container=container_name) as container_client:
+                    await container_client.upload_blob(name=path, data="", overwrite=False)
         except PermissionError:
             raise PermissionError(
                 f"Unable to create Azure container {container_name_as_dir} with \
@@ -1135,11 +1134,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if path != "":
                 if kind == 'directory':
                     path = path.strip("/") + "/"
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                logger.debug(f"Delete blob {path} in {container_name}")
-                await container_client.delete_blob(path)
+                async with self.service_client.get_container_client(container=container_name) as cc:
+                    await cc.delete_blob(path)
             elif kind == "directory":
                 await self._rmdir(container_name)
             else:
@@ -1245,11 +1241,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # Empty paths exist by definition
             return True
 
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob=path)
-        async with bc:
-            exists = await bc.exists()
-
+        async with self.service_client.get_container_client(container_name) as cc:
+            async with cc.get_blob_client(blob=path) as bc:
+                exists = await bc.exists()
         return exists
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
@@ -1348,14 +1342,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(rpath, delimiter=delimiter)
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob=path)
+
         if os.path.isdir(lpath):
             self.makedirs(rpath, exist_ok=True)
         else:
             try:
                 with open(lpath, "rb") as f1:
-                    await bc.upload_blob(f1, overwrite=overwrite)
+                    async with self.service_client.get_container_client(container_name) as cc:
+                        async with cc.get_blob_client(blob=path) as bc:
+                            await bc.upload_blob(f1, overwrite=overwrite)
                 self.invalidate_cache()
             except ResourceExistsError:
                 raise FileExistsError("File already exists!!")
@@ -1399,16 +1394,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         files = [f["name"] for f in files]
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
-            cc = self.service_client.get_container_client(container_name)
-            bc = cc.get_blob_client(blob=path)
-
             if await self._isdir(rpath):
                 os.makedirs(lpath, exist_ok=True)
             else:
-                with open(lpath, "wb") as my_blob:
-                    stream = await bc.download_blob()
-                    data = await stream.readall()
-                    my_blob.write(data)
+                async with self.service_client.get_container_client(container_name) as cc:
+                    async with cc.get_blob_client(blob=path) as bc:
+                        with open(lpath, "wb") as my_blob:
+                            stream = await bc.download_blob()
+                            data = await stream.readall()
+                            my_blob.write(data)
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
 
@@ -1421,9 +1415,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _setxattrs(self, rpath, **kwargs):
         container_name, path = self.split_path(rpath)
         try:
-            cc = self.service_client.get_container_client(container_name)
-            bc = cc.get_blob_client(blob=path)
-            await bc.set_blob_metadata(metadata=kwargs)
+            async with self.service_client.get_container_client(container_name) as cc:
+                async with cc.get_blob_client(blob=path) as bc:
+                    await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
