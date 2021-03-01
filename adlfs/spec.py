@@ -551,7 +551,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         path = self._strip_protocol(path)
         out = await self._ls(self._parent(path), **kwargs)
-        out = [o for o in out if o["name"].rstrip("/") == path]
+        out = [o for o in out if (o["name"].rstrip("/") + "/") == path]
         if out:
             return out[0]
         out = await self._ls(path, **kwargs)
@@ -701,7 +701,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if invalidate_cache:
             self.dircache.clear()
-
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             if path not in self.dircache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
@@ -731,7 +730,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     outblobs = []
                     try:
                         async for next_blob in blobs:
-                            # import pdb;pdb.set_trace()
                             if depth in [0, 1] and path == "":
                                 outblobs.append(next_blob)
                             elif isinstance(next_blob, BlobProperties):
@@ -743,7 +741,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                     outblobs.append(next_blob)
                             else:
                                 async for blob_ in next_blob:
-                                    # import pdb;pdb.set_trace()
                                     if isinstance(blob_, BlobProperties) or isinstance(
                                         blob_, BlobPrefix
                                     ):
@@ -802,7 +799,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         List of dicts
             Returns details about the contents, such as name, size and type
         """
-        # import pdb;pdb.set_trace()
         output = []
         for content in contents:
             data = {
@@ -841,7 +837,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self._find, self, path=path, withdirs=withdirs, prefix=prefix, **kwargs
         )
 
-    async def _find(self, path, withdirs=False, prefix="", **kwargs):
+    async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
         """List all files below path.
         Like posix ``find`` command without conditions
         Parameters
@@ -868,10 +864,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         try:
             infos = await self._details([b async for b in blobs])
-            import pdb;pdb.set_trace()
             for info in infos:
                 name = info["name"]
-                parent_dir = self._parent(name)
+                if name == target_path:
+                    continue
+                parent_dir = self._parent(name).rstrip("/") + "/"
                 if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
                     dir_set.add(parent_dir)
                     dirs[parent_dir] = {
@@ -879,11 +876,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         "type": "directory",
                         "size": 0,
                     }
-                files[name] = info
+                if info['type'] == 'directory':
+                    dirs[name] = info
+                if info['type'] == 'file':
+                    files[name] = info
+                    
         except ResourceNotFoundError:
             # find doesn't raise but returns [] or {} instead
             pass
         if withdirs:
+            if not with_parent:
+                dirs.pop(target_path, None)
             files.update(dirs)
         names = sorted(files)
         if not detail:
@@ -1009,7 +1012,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
-        # import pdb;pdb.set_trace()
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
@@ -1107,14 +1109,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
-        path = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth)
+        path = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth, with_parent=True)
         for p in reversed(path):
-            await self.rm_file(p)
+            await self._rm_file(p)
         self.invalidate_cache()
 
     rm = sync_wrapper(_rm)
 
-    async def rm_file(self, path, delimiter="/", **kwargs):
+    async def _rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
 
@@ -1128,31 +1130,31 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         try:
             kind = await self._info(path)
+            container_name, path = self.split_path(path, delimiter=delimiter)
             kind = kind["type"]
-            if kind == "file":
-                container_name, path = self.split_path(path, delimiter=delimiter)
+            if path != "":
+                if kind == 'directory':
+                    path = path.strip("/") + "/"
                 container_client = self.service_client.get_container_client(
                     container=container_name
                 )
                 logger.debug(f"Delete blob {path} in {container_name}")
                 await container_client.delete_blob(path)
             elif kind == "directory":
-                container_name, path = self.split_path(path, delimiter=delimiter)
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                _containers = await self._ls("")
-                _containers = [c["name"] for c in _containers]
-                if (container_name + delimiter in _containers) and (not path):
-                    logger.debug(f"Delete container {container_name}")
-                    await container_client.delete_container()
+                await self._rmdir(container_name)
             else:
-                raise RuntimeError(f"Unable to delete {path}!")
-            self.invalidate_cache(self._parent(path))
-
+                raise RuntimeError(f"Unable to remove {path}")
+        except ResourceNotFoundError:
+            pass
         except FileNotFoundError:
             pass
+        except Exception as e:
+            raise RuntimeError(f"Failed to remove {path} for {e}")
 
+        self.invalidate_cache()
+
+    sync_wrapper(_rm_file)
+    
     def rmdir(self, path: str, delimiter="/", **kwargs):
         maybe_sync(self._rmdir, self, path, delimiter=delimiter, **kwargs)
 
@@ -1169,6 +1171,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
+
 
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
@@ -1294,10 +1297,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def expand_path(self, path, recursive=False, maxdepth=None):
         return maybe_sync(self._expand_path, self, path, recursive, maxdepth)
 
-    async def _expand_path(self, path, recursive=False, maxdepth=None):
+    async def _expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
         """Turn one or more globs or directories into a list of all matching files"""
+
+        with_parent=kwargs.get('with_parent', False)   # Sets whether to return the parent dir
+
+        if isinstance(path, list):
+            path = [f"{p.strip('/')}/" for p in path if not p.endswith("*")]
+        else:
+            if not path.endswith("*"):
+                path = f"{path.strip('/')}/"
         if isinstance(path, str):
-            out = await self._expand_path([path], recursive, maxdepth)
+            out = await self._expand_path([path], recursive, maxdepth, with_parent=with_parent)
         else:
             out = set()
             path = [self._strip_protocol(p) for p in path]
@@ -1310,11 +1321,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         out |= bit2
                     continue
                 elif recursive:
-                    rec = set(await self._find(p, withdirs=True))
+                    rec = set(await self._find(p, withdirs=True, with_parent=with_parent))
                     out |= rec
-                if p not in out and (recursive is False or await self._exists(p)):
-                    # only check once for root
-                    out.add(p)
+                
+                if p not in out and (recursive is False or await self._exists(p) or await self._exists(p.rstrip("/"))):
+                    if not await self._exists(p):
+                        # This is to verify that we don't miss files
+                        p = p.rstrip("/")
+                        if not await self._exists(p):
+                            continue
+                    out.add(p) 
+                  
+
         if not out:
             raise FileNotFoundError
         return list(sorted(out))

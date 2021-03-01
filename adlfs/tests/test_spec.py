@@ -390,30 +390,30 @@ def test_find(storage):
 
     # all files and directories
     assert fs.find("data/root", withdirs=True) == [
-        "data/root/a",
+        "data/root/a/",
         "data/root/a/file.txt",
-        "data/root/a1",
+        "data/root/a1/",
         "data/root/a1/file1.txt",
-        "data/root/b",
+        "data/root/b/",
         "data/root/b/file.txt",
-        "data/root/c",
+        "data/root/c/",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d",
+        "data/root/d/",
         "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
-        "data/root/a",
+        "data/root/a/",
         "data/root/a/file.txt",
-        "data/root/a1",
+        "data/root/a1/",
         "data/root/a1/file1.txt",
-        "data/root/b",
+        "data/root/b/",
         "data/root/b/file.txt",
-        "data/root/c",
+        "data/root/c/",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d",
+        "data/root/d/",
         "data/root/d/file_with_metadata.txt",
         "data/root/rfile.txt",
     ]
@@ -428,9 +428,9 @@ def test_find(storage):
     ]
 
     assert fs.find("data/root", prefix="a", withdirs=True) == [
-        "data/root/a",
+        "data/root/a/",
         "data/root/a/file.txt",
-        "data/root/a1",
+        "data/root/a1/",
         "data/root/a1/file1.txt",
     ]
 
@@ -438,7 +438,7 @@ def test_find(storage):
     assert_blobs_equals(
         list(find_results.values()),
         [
-            {"name": "data/root/a1", "size": 0, "type": "directory"},
+            {"name": "data/root/a1/", "size": 0, "type": "directory"},
             {
                 "name": "data/root/a1/file1.txt",
                 "size": 10,
@@ -585,6 +585,7 @@ def test_open_file(storage, mocker):
 
     close = mocker.patch.object(f.container_client, "close")
     f.close()
+    print(fs.ls("/data/root/a"))
 
     close.assert_called_once()
 
@@ -606,7 +607,6 @@ def test_rm(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-
     fs.rm("/data/root/a/file.txt")
 
     with pytest.raises(FileNotFoundError):
@@ -648,7 +648,7 @@ def test_mkdir(storage):
 
     # Test creating subdirectory when container does not exist
     fs.mkdir("new-container/dir", create_parents=True)
-    assert "new-container/dir" in fs.ls("new-container")
+    assert "new-container/dir/" in fs.ls("new-container")
     fs.rm("new-container", recursive=True)
 
     # Test that creating a directory when already exists passes
@@ -675,7 +675,7 @@ def test_makedir(storage):
 
     # Test creating subdirectory when container does not exist
     fs.makedir("new-container/dir")
-    assert "new-container/dir" in fs.ls("new-container")
+    assert "new-container/dir/" in fs.ls("new-container")
     fs.rm("new-container", recursive=True)
 
 
@@ -704,18 +704,13 @@ def test_makedir_rmdir(storage, caplog):
 
     # Verify that mkdir creates a directory if exist_ok is False and the
     # directory does not exist
-    fs.makedir("new-container/file2.txt", exist_ok=False)
-    assert "new-container/file2.txt" in fs.ls("new-container")
+    fs.makedir("new-container/files0", exist_ok=False)
+    assert "new-container/files0/" in fs.ls("new-container")
 
     # Verify that mkdir will silently ignore an existing directory if
     # the directory exists and exist_ok is True
     fs.makedir("new-container/dir", exist_ok=True)
     assert "new-container/dir/" in fs.ls("new-container")
-
-    # Test to verify that the file contains expected contents
-    with fs.open("new-container/file2.txt", "rb") as f:
-        outfile = f.read()
-    assert outfile == b""
 
     # Check that trying to overwrite an existing nested file in append mode works as expected
     # if exist_ok is True
@@ -730,9 +725,11 @@ def test_makedir_rmdir(storage, caplog):
     fs.rm("new-container/dir2", recursive=True)
 
     fs.rm("new-container/dir", recursive=True)
+    fs.touch("new-container/file2.txt")
     assert fs.ls("new-container") == [
         "new-container/file.txt",
         "new-container/file2.txt",
+        "new-container/files0/",
     ]
 
     fs.rm("new-container/file.txt")
