@@ -1165,3 +1165,18 @@ def test_exists(storage):
     assert fs.exists("data/")
     assert fs.exists("")
     assert not fs.exists("data/not-a-key")
+
+
+def test_exists_directory(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("homedir")
+    fs.touch("homedir/dir/foo")
+    fs.touch("homedir/dir/bar")
+
+    fs.invalidate_cache()
+    assert fs.exists("homedir/dir")
+    assert fs.isdir("homedir/dir")
+
+    fs.rm("homedir", recursive=True)
