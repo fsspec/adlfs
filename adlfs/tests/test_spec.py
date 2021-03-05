@@ -23,25 +23,6 @@ def assert_almost_equal(x, y, threshold, prop_name=None):
     assert abs(x - y) <= threshold
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def spawn_azurite():
-    print("Starting azurite docker container")
-    client = docker.from_env()
-    azurite = client.containers.run(
-        "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
-    )
-    yield azurite
-    print("Teardown azurite docker container")
-    azurite.stop()
-
-
 def test_connect(storage):
     AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
 
@@ -579,14 +560,12 @@ def test_open_file(storage, mocker):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    future = asyncio.Future()
-    future.set_result("close")
     f = fs.open("/data/root/a/file.txt")
 
     result = f.read()
     assert result == b"0123456789"
 
-    close = mocker.patch.object(f.container_client, "close", return_value=future)
+    close = mocker.patch.object(f.container_client, "close")
     f.close()
     print(fs.ls("/data/root/a"))
 
@@ -1126,7 +1105,15 @@ def test_put_file(storage):
 
 @pytest.mark.skip
 def test_isdir(storage):
-    pass
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    BUCKET = "/name/of/the/bucket"
+    BASE_PATH = BUCKET + "/" + "012345"
+    # EMPTY_DIR = BASE_PATH + "/empty_dir"
+
+    fs.makedirs(BASE_PATH)
+    assert fs.isdir(BASE_PATH) is True
 
 
 def test_cat(storage):

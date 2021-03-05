@@ -1183,7 +1183,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception as e:
             raise RuntimeError(f"Failed to remove {path} for {e}")
 
-        self.invalidate_cache()
+        self.invalidate_cache(self._parent(path))
 
     sync_wrapper(_rm_file)
 
@@ -1268,6 +1268,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if self._ls_from_cache(path):
                 return True
         except FileNotFoundError:
+            pass
+        except KeyError:
             pass
 
         container_name, path = self.split_path(path)
@@ -1630,14 +1632,11 @@ class AzureBlobFile(AbstractBufferedFile):
             self.forced = False
             self.location = None
 
-    async def _close_async_client(self):
+    def close(self):
         """Close file and azure client."""
-        # maybe_sync(self.container_client.close, self)
-        await self.container_client.close()
+        maybe_sync(self.container_client.close, self)
         super().close()
     
-    close = sync_wrapper(_close_async_client)
-
     def connect_client(self):
         """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
