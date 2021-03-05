@@ -723,9 +723,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if target_path not in self.dircache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
                     # This is the case where the container name is passed
-                    async with self.service_client.get_container_client(container=container) as container_client:
+                    async with self.service_client.get_container_client(container=container) as cc:
                         path = path.strip("/")
-                        blobs = container_client.walk_blobs(
+                        blobs = cc.walk_blobs(
                             include=["metadata"], name_starts_with=path
                         )
 
@@ -1273,9 +1273,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # Empty paths exist by definition
             return True
 
-        async with self.service_client.get_container_client(container_name) as cc:
-            async with cc.get_blob_client(blob=path) as bc:
-                exists = await bc.exists()
+        async with self.service_client.get_blob_client(container_name, path) as bc:
+            exists = await bc.exists()
         return exists
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
@@ -1389,11 +1388,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             try:
                 with open(lpath, "rb") as f1:
-                    async with self.service_client.get_container_client(
-                        container_name
-                    ) as cc:
-                        async with cc.get_blob_client(blob=path) as bc:
-                            await bc.upload_blob(f1, overwrite=overwrite, metadata={"is_directory": "false"})
+                    async with self.service_client.get_blob_client(
+                        container_name, path
+                    ) as bc:
+                        await bc.upload_blob(f1, overwrite=overwrite, metadata={"is_directory": "false"})
                 self.invalidate_cache()
             except ResourceExistsError:
                 raise FileExistsError("File already exists!!")
@@ -1440,14 +1438,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if await self._isdir(rpath):
                 os.makedirs(lpath, exist_ok=True)
             else:
-                async with self.service_client.get_container_client(
+                async with self.service_client.get_blob_client(
                     container_name
-                ) as cc:
-                    async with cc.get_blob_client(blob=path) as bc:
-                        with open(lpath, "wb") as my_blob:
-                            stream = await bc.download_blob()
-                            data = await stream.readall()
-                            my_blob.write(data)
+                ) as bc:
+                    with open(lpath, "wb") as my_blob:
+                        stream = await bc.download_blob()
+                        data = await stream.readall()
+                        my_blob.write(data)
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
 
@@ -1460,9 +1457,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _setxattrs(self, rpath, **kwargs):
         container_name, path = self.split_path(rpath)
         try:
-            async with self.service_client.get_container_client(container_name) as cc:
-                async with cc.get_blob_client(blob=path) as bc:
-                    await bc.set_blob_metadata(metadata=kwargs)
+            async with self.service_client.get_blob_client(container_name) as bc:
+                await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
