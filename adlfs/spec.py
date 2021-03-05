@@ -539,7 +539,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return maybe_sync(self._info, self, path, refresh)
         return super().info(path)
 
-    async def _info(self, path, refresh, **kwargs):
+    async def _info(self, path, refresh=False, **kwargs):
         """Give details of entry at path
         Returns a single dictionary, with exactly the same information as ``ls``
         would with ``detail=True``.
@@ -1034,6 +1034,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
+        # import pdb;pdb.set_trace()
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
@@ -1064,8 +1065,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if container_name_as_dir not in _containers:
                 if create_parents:
                     # create new container
-                    await self.service_client.create_container(name=container_name)
-                    self.invalidate_cache(container_name)
+                    await self.service_client.create_container(name=container_name,
+                                                               metadata={"is_directory": "true"}
+                                                               )
+                    self.invalidate_cache(self._parent(container_name))
                     if path:
                         fpath = f"{container_name_as_dir}{path}"
                         await self._mkdir(fpath, exist_ok=True)
@@ -1079,7 +1082,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container=container_name, blob=path
                 ) as bc:
                     await bc.upload_blob(
-                        name=path, data="", overwrite=False, metadata={"is_directory": "true"}
+                        data="", overwrite=False, metadata={"is_directory": "true"}
                     )
         except PermissionError:
             raise PermissionError(
@@ -1283,7 +1286,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            result = await bc.upload_blob(data=value, overwrite=overwrite, metadata={"is_directory": "false"})
+            result = await bc.upload_blob(data=value, overwrite=overwrite, 
+                                          metadata={"is_directory": "false"}
+                                          )
         self.invalidate_cache(self._parent(path))
         return result
 
@@ -1391,7 +1396,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     async with self.service_client.get_blob_client(
                         container_name, path
                     ) as bc:
-                        await bc.upload_blob(f1, overwrite=overwrite, metadata={"is_directory": "false"})
+                        await bc.upload_blob(f1, overwrite=overwrite, 
+                                             metadata={"is_directory": "false"}
+                                             )
                 self.invalidate_cache()
             except ResourceExistsError:
                 raise FileExistsError("File already exists!!")
@@ -1439,7 +1446,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 os.makedirs(lpath, exist_ok=True)
             else:
                 async with self.service_client.get_blob_client(
-                    container_name
+                    container_name, path
                 ) as bc:
                     with open(lpath, "wb") as my_blob:
                         stream = await bc.download_blob()
@@ -1457,7 +1464,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _setxattrs(self, rpath, **kwargs):
         container_name, path = self.split_path(rpath)
         try:
-            async with self.service_client.get_blob_client(container_name) as bc:
+            async with self.service_client.get_blob_client(container_name, path) as bc:
                 await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
@@ -1623,10 +1630,13 @@ class AzureBlobFile(AbstractBufferedFile):
             self.forced = False
             self.location = None
 
-    def close(self):
+    async def _close_async_client(self):
         """Close file and azure client."""
-        maybe_sync(self.container_client.close, self)
+        # maybe_sync(self.container_client.close, self)
+        await self.container_client.close()
         super().close()
+    
+    close = sync_wrapper(_close_async_client)
 
     def connect_client(self):
         """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.

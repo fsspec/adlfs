@@ -35,7 +35,7 @@ def spawn_azurite():
     print("Starting azurite docker container")
     client = docker.from_env()
     azurite = client.containers.run(
-        "mcr.microsoft.com/azure-storage/azurite", "api_version='2020-12-12'", ports={"10000": "10000"}, detach=True
+        "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
     )
     yield azurite
     print("Teardown azurite docker container")
@@ -578,12 +578,15 @@ def test_open_file(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
+
+    future = asyncio.Future()
+    future.set_result("close")
     f = fs.open("/data/root/a/file.txt")
 
     result = f.read()
     assert result == b"0123456789"
 
-    close = mocker.patch.object(f.container_client, "close")
+    close = mocker.patch.object(f.container_client, "close", return_value=future)
     f.close()
     print(fs.ls("/data/root/a"))
 
