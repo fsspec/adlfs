@@ -26,7 +26,7 @@ from fsspec.asyn import (
 )
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
-from .utils import filter_blobs, get_blob_metadata
+from .utils import filter_blobs, get_blob_metadata, finalize_service_client
 
 
 logger = logging.getLogger(__name__)
@@ -401,7 +401,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
         self.do_connect()
-        weakref.finalize(self, maybe_sync, self.service_client.close, self)
+        weakref.finalize(self, finalize_service_client, self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
@@ -1787,3 +1787,13 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
+    
+    def __del__(self):
+        try:
+            print("Calling finalizer...")
+            if not self.closed:
+                self.close()
+        except Exception as e:
+            print(f"Caught exception in __del__ for {e}")
+            pass
+            

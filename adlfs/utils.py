@@ -1,5 +1,7 @@
 import re
 
+from fsspec.asyn import maybe_sync
+
 
 async def filter_blobs(blobs, target_path):
     """
@@ -24,3 +26,7 @@ async def get_blob_metadata(container_client, path):
         else:
             metadata = None
     return metadata
+
+def finalize_service_client(fs):
+    print("close service client!!")
+    maybe_sync(fs.service_client.close, fs)
