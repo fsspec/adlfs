@@ -26,7 +26,3 @@ async def get_blob_metadata(container_client, path):
         else:
             metadata = None
     return metadata
-
-def finalize_service_client(fs):
-    print("close service client!!")
-    maybe_sync(fs.service_client.close, fs)

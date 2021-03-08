@@ -26,7 +26,7 @@ from fsspec.asyn import (
 )
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
-from .utils import filter_blobs, get_blob_metadata, finalize_service_client
+from .utils import filter_blobs, get_blob_metadata
 
 
 logger = logging.getLogger(__name__)
@@ -401,7 +401,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
         self.do_connect()
-        weakref.finalize(self, finalize_service_client, self)
+        weakref.finalize(self, maybe_sync, self.service_client.close, self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
@@ -1034,7 +1034,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
-        # import pdb;pdb.set_trace()
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
@@ -1636,7 +1635,7 @@ class AzureBlobFile(AbstractBufferedFile):
         """Close file and azure client."""
         maybe_sync(self.container_client.close, self)
         super().close()
-    
+
     def connect_client(self):
         """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
@@ -1790,10 +1789,8 @@ class AzureBlobFile(AbstractBufferedFile):
     
     def __del__(self):
         try:
-            print("Calling finalizer...")
             if not self.closed:
                 self.close()
-        except Exception as e:
-            print(f"Caught exception in __del__ for {e}")
+        except TypeError:
             pass
             
