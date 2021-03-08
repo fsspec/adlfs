@@ -1,4 +1,14 @@
 **Change Log**
+v0.7.0
+------
+- Updated path structure, so virtual folders in Azure blobs are created with a
+  trailing "/", to fix #137
+- Converted all references to blob_clients to occur inside a context manager
+- Added metadata to blob reads and writes, with {"is_directory": "<true or false>"}
+  to help resolve ambiguous folder and file discrepancies
+- Minor update to assure compatibility with fsspec==0.8.7
+- Added error handling to AzureBlobFile finalizer
+
 v0.6.3
 ------
 - Added ability to connect with only connection_string.

@@ -1,7 +1,9 @@
 import datetime
 import pytest
 
+import asyncio
 from azure.storage.blob import BlobServiceClient
+import docker
 
 
 URL = "http://127.0.0.1:10000"
@@ -52,3 +54,22 @@ def storage(host):
         "root/d/file_with_metadata.txt", data, metadata=metadata
     )
     yield bbs
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def spawn_azurite():
+    print("Starting azurite docker container")
+    client = docker.from_env()
+    azurite = client.containers.run(
+        "mcr.microsoft.com/azure-storage/azurite", ports={"10000": "10000"}, detach=True
+    )
+    yield azurite
+    print("Teardown azurite docker container")
+    azurite.stop()
