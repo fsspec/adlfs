@@ -26,7 +26,7 @@ from fsspec.asyn import (
 )
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
-from .utils import filter_blobs
+from .utils import filter_blobs, get_blob_metadata
 
 
 logger = logging.getLogger(__name__)
@@ -531,12 +531,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return path.split(delimiter, 1)
 
     def info(self, path, refresh=False, **kwargs):
-        fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
+        try:
+            fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
+        except Exception:
+            fetch_from_azure = True
         if fetch_from_azure:
-            return maybe_sync(self._info, self, path)
+            return maybe_sync(self._info, self, path, refresh)
         return super().info(path)
 
-    async def _info(self, path, **kwargs):
+    async def _info(self, path, refresh=False, **kwargs):
         """Give details of entry at path
         Returns a single dictionary, with exactly the same information as ``ls``
         would with ``detail=True``.
@@ -549,12 +552,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
+        if refresh:
+            invalidate_cache = True
+        else:
+            invalidate_cache = False
         path = self._strip_protocol(path)
-        out = await self._ls(self._parent(path), **kwargs)
-        out = [o for o in out if o["name"].rstrip("/") == path]
+        out = await self._ls(
+            self._parent(path), invalidate_cache=invalidate_cache, **kwargs
+        )
+        out = [o for o in out if (o["name"].rstrip("/") + "/") == path]
         if out:
             return out[0]
-        out = await self._ls(path, **kwargs)
+        out = await self._ls(path, invalidate_cache=invalidate_cache, **kwargs)
         path = path.rstrip("/")
         out1 = [o for o in out if o["name"].rstrip("/") == path]
         if len(out1) == 1:
@@ -562,7 +571,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 out1[0]["size"] = None
             return out1[0]
         elif len(out1) > 1 or out:
-            return {"name": path, "size": 0, "type": "directory"}
+            return {"name": path, "size": None, "type": "directory"}
         else:
             raise FileNotFoundError
 
@@ -701,7 +710,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if invalidate_cache:
             self.dircache.clear()
-
         if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
             if path not in self.dircache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
@@ -718,13 +726,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if target_path not in self.dircache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
                     # This is the case where the container name is passed
-                    container_client = self.service_client.get_container_client(
+                    async with self.service_client.get_container_client(
                         container=container
-                    )
-                    path = path.strip("/")
-                    blobs = container_client.walk_blobs(
-                        include=["metadata"], name_starts_with=path
-                    )
+                    ) as cc:
+                        path = path.strip("/")
+                        blobs = cc.walk_blobs(
+                            include=["metadata"], name_starts_with=path
+                        )
 
                     # Check the depth that needs to be screened
                     depth = target_path.count("/")
@@ -751,6 +759,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                                 == depth
                                             ):
                                                 outblobs.append(blob_)
+                                            elif (
+                                                blob_["name"].count("/") == depth
+                                                and blob_["size"] == 0
+                                            ):
+                                                outblobs.append(blob_)
+                                            else:
+                                                pass
                                         elif blob_["name"].count("/") == (depth):
                                             outblobs.append(blob_)
                                         else:
@@ -796,7 +811,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         List of dicts
             Returns details about the contents, such as name, size and type
         """
-
         output = []
         for content in contents:
             data = {
@@ -813,6 +827,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     data.update({"size": 0})
                 if data["size"] == 0 and data["name"].endswith(delimiter):
                     data.update({"type": "directory"})
+                    data.update({"size": 0})
                 else:
                     data.update({"type": "file"})
             else:
@@ -820,6 +835,21 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data.update({"name": fname})
                 data.update({"size": 0})
                 data.update({"type": "directory"})
+            if "metadata" in data.keys():
+                if data["metadata"] is not None:
+                    if (
+                        "is_directory" in data["metadata"].keys()
+                        and data["metadata"]["is_directory"] == "true"
+                    ):
+                        data.update({"type": "directory"})
+                        data.update({"size": None})
+                    elif (
+                        "is_directory" in data["metadata"].keys()
+                        and data["metadata"]["is_directory"] == "false"
+                    ):
+                        data.update({"type": "file"})
+                    else:
+                        pass
             if return_glob:
                 data.update({"name": data["name"].rstrip("/")})
             output.append(data)
@@ -828,6 +858,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # This handles the case where path is a file passed to ls
                 return output
             output = await filter_blobs(output, target_path)
+
         return output
 
     def find(self, path, withdirs=False, prefix="", **kwargs):
@@ -835,7 +866,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self._find, self, path=path, withdirs=withdirs, prefix=prefix, **kwargs
         )
 
-    async def _find(self, path, withdirs=False, prefix="", **kwargs):
+    async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
         """List all files below path.
         Like posix ``find`` command without conditions
         Parameters
@@ -852,11 +883,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path = self._strip_protocol(path)
         parent_path = path.strip("/") + "/"
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
-        # target_path = path.strip("/")
         container, path = self.split_path(target_path)
 
-        container_client = self.service_client.get_container_client(container=container)
-        blobs = container_client.list_blobs(include=["metadata"], name_starts_with=path)
+        async with self.service_client.get_container_client(
+            container=container
+        ) as container_client:
+            blobs = container_client.list_blobs(
+                include=["metadata"], name_starts_with=path
+            )
         files = {}
         dir_set = set()
         dirs = {}
@@ -865,7 +899,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             infos = await self._details([b async for b in blobs])
             for info in infos:
                 name = info["name"]
-                parent_dir = self._parent(name)
+                if name == target_path:
+                    continue
+                parent_dir = self._parent(name).rstrip("/") + "/"
                 if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
                     dir_set.add(parent_dir)
                     dirs[parent_dir] = {
@@ -873,11 +909,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         "type": "directory",
                         "size": 0,
                     }
-                files[name] = info
+                if info["type"] == "directory":
+                    dirs[name] = info
+                if info["type"] == "file":
+                    files[name] = info
+
         except ResourceNotFoundError:
             # find doesn't raise but returns [] or {} instead
             pass
         if withdirs:
+            if not with_parent:
+                dirs.pop(target_path, None)
             files.update(dirs)
         names = sorted(files)
         if not detail:
@@ -1003,6 +1045,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
 
         """
+        fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
         _containers = [c["name"] for c in _containers]
@@ -1010,14 +1053,32 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # with a trailing "/", but the container_name will not have this.
         # Need a placeholder that presents the container_name in a directory format
         container_name_as_dir = f"{container_name}/"
+        if path and not path.endswith(delimiter):
+            try:
+                files = await self._ls(fullpath, detail=True)
+                if (
+                    (len(files) == 1)
+                    and (files[0]["name"] == fullpath)
+                    and (files[0]["type"] == "file")
+                ):
+                    # If the directory to be created is actually a file and already exists
+                    # skip this step, otherwise add a trailing delimiter
+                    raise FileExistsError("File exists at this location")
+                else:
+                    path = f"{path}{delimiter}"
+
+            except FileNotFoundError:
+                path = f"{path}{delimiter}"
         if _containers is None:
             _containers = []
         try:
             if container_name_as_dir not in _containers:
                 if create_parents:
                     # create new container
-                    await self.service_client.create_container(name=container_name)
-                    self.invalidate_cache(self._parent(path))
+                    await self.service_client.create_container(
+                        name=container_name, metadata={"is_directory": "true"}
+                    )
+                    self.invalidate_cache(self._parent(container_name))
                     if path:
                         fpath = f"{container_name_as_dir}{path}"
                         await self._mkdir(fpath, exist_ok=True)
@@ -1027,10 +1088,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
             else:
                 ## attempt to create prefix
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                await container_client.upload_blob(name=path, data="", overwrite=False)
+                async with self.service_client.get_blob_client(
+                    container=container_name, blob=path
+                ) as bc:
+                    await bc.upload_blob(
+                        data="", overwrite=False, metadata={"is_directory": "true"}
+                    )
         except PermissionError:
             raise PermissionError(
                 f"Unable to create Azure container {container_name_as_dir} with \
@@ -1046,7 +1109,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     f"Cannot overwrite existing Azure container -- {container_name} already exists. \
                         with Azure error {e}"
                 )
-        self.invalidate_cache(self._parent(path))
+        self.invalidate_cache(self._parent(fullpath))
 
     mkdir = sync_wrapper(_mkdir)
 
@@ -1087,14 +1150,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
-        path = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth)
+        path = await self._expand_path(
+            path, recursive=recursive, maxdepth=maxdepth, with_parent=True
+        )
         for p in reversed(path):
-            await self.rm_file(p)
+            await self._rm_file(p)
         self.invalidate_cache()
 
     rm = sync_wrapper(_rm)
 
-    async def rm_file(self, path, delimiter="/", **kwargs):
+    async def _rm_file(self, path, delimiter="/", **kwargs):
         """
         Delete a given file
 
@@ -1108,30 +1173,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         try:
             kind = await self._info(path)
+            container_name, path = self.split_path(path, delimiter=delimiter)
             kind = kind["type"]
-            if kind == "file":
-                container_name, path = self.split_path(path, delimiter=delimiter)
-                container_client = self.service_client.get_container_client(
+            if path != "":
+                if kind == "directory":
+                    path = path.strip("/") + "/"
+                async with self.service_client.get_container_client(
                     container=container_name
-                )
-                logger.debug(f"Delete blob {path} in {container_name}")
-                await container_client.delete_blob(path)
+                ) as cc:
+                    await cc.delete_blob(path)
             elif kind == "directory":
-                container_name, path = self.split_path(path, delimiter=delimiter)
-                container_client = self.service_client.get_container_client(
-                    container=container_name
-                )
-                _containers = await self._ls("")
-                _containers = [c["name"] for c in _containers]
-                if (container_name + delimiter in _containers) and (not path):
-                    logger.debug(f"Delete container {container_name}")
-                    await container_client.delete_container()
+                await self._rmdir(container_name)
             else:
-                raise RuntimeError(f"Unable to delete {path}!")
-            self.invalidate_cache(self._parent(path))
-
+                raise RuntimeError(f"Unable to remove {path}")
+        except ResourceNotFoundError:
+            pass
         except FileNotFoundError:
             pass
+        except Exception as e:
+            raise RuntimeError(f"Failed to remove {path} for {e}")
+
+        self.invalidate_cache(self._parent(path))
+
+    sync_wrapper(_rm_file)
 
     def rmdir(self, path: str, delimiter="/", **kwargs):
         maybe_sync(self._rmdir, self, path, delimiter=delimiter, **kwargs)
@@ -1215,6 +1279,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return True
         except FileNotFoundError:
             pass
+        except KeyError:
+            pass
 
         full_path = path
         container_name, path = self.split_path(path)
@@ -1223,9 +1289,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # Empty paths exist by definition
             return True
 
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob=path)
-        async with bc:
+        async with self.service_client.get_blob_client(container_name, path) as bc:
             exists = await bc.exists()
 
         # If the blob doesn't exist with the given name
@@ -1240,7 +1304,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            result = await bc.upload_blob(data=value, overwrite=overwrite)
+            result = await bc.upload_blob(
+                data=value, overwrite=overwrite, metadata={"is_directory": "false"}
+            )
         self.invalidate_cache(self._parent(path))
         return result
 
@@ -1279,10 +1345,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def expand_path(self, path, recursive=False, maxdepth=None):
         return maybe_sync(self._expand_path, self, path, recursive, maxdepth)
 
-    async def _expand_path(self, path, recursive=False, maxdepth=None):
+    async def _expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
         """Turn one or more globs or directories into a list of all matching files"""
+
+        with_parent = kwargs.get(
+            "with_parent", False
+        )  # Sets whether to return the parent dir
+
+        if isinstance(path, list):
+            path = [f"{p.strip('/')}/" for p in path if not p.endswith("*")]
+        else:
+            if not path.endswith("*"):
+                path = f"{path.strip('/')}/"
         if isinstance(path, str):
-            out = await self._expand_path([path], recursive, maxdepth)
+            out = await self._expand_path(
+                [path], recursive, maxdepth, with_parent=with_parent
+            )
         else:
             out = set()
             path = [self._strip_protocol(p) for p in path]
@@ -1295,11 +1373,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         out |= bit2
                     continue
                 elif recursive:
-                    rec = set(await self._find(p, withdirs=True))
+                    rec = set(
+                        await self._find(p, withdirs=True, with_parent=with_parent)
+                    )
                     out |= rec
-                if p not in out and (recursive is False or await self._exists(p)):
-                    # only check once for root
+
+                if p not in out and (
+                    recursive is False
+                    or await self._exists(p)
+                    or await self._exists(p.rstrip("/"))
+                ):
+                    if not await self._exists(p):
+                        # This is to verify that we don't miss files
+                        p = p.rstrip("/")
+                        if not await self._exists(p):
+                            continue
                     out.add(p)
+
         if not out:
             raise FileNotFoundError
         return list(sorted(out))
@@ -1315,17 +1405,21 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(rpath, delimiter=delimiter)
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob=path)
+
         if os.path.isdir(lpath):
             self.makedirs(rpath, exist_ok=True)
         else:
             try:
                 with open(lpath, "rb") as f1:
-                    await bc.upload_blob(f1, overwrite=overwrite)
+                    async with self.service_client.get_blob_client(
+                        container_name, path
+                    ) as bc:
+                        await bc.upload_blob(
+                            f1, overwrite=overwrite, metadata={"is_directory": "false"}
+                        )
                 self.invalidate_cache()
             except ResourceExistsError:
-                raise FileExistsError("File already exists!!")
+                raise FileExistsError("File already exists!")
             except ResourceNotFoundError:
                 if not await self._exists(container_name):
                     raise FileNotFoundError("Container does not exist.")
@@ -1366,16 +1460,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         files = [f["name"] for f in files]
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
-            cc = self.service_client.get_container_client(container_name)
-            bc = cc.get_blob_client(blob=path)
-
             if await self._isdir(rpath):
                 os.makedirs(lpath, exist_ok=True)
             else:
-                with open(lpath, "wb") as my_blob:
-                    stream = await bc.download_blob()
-                    data = await stream.readall()
-                    my_blob.write(data)
+                async with self.service_client.get_blob_client(
+                    container_name, path
+                ) as bc:
+                    with open(lpath, "wb") as my_blob:
+                        stream = await bc.download_blob()
+                        data = await stream.readall()
+                        my_blob.write(data)
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
 
@@ -1388,9 +1482,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _setxattrs(self, rpath, **kwargs):
         container_name, path = self.split_path(rpath)
         try:
-            cc = self.service_client.get_container_client(container_name)
-            bc = cc.get_blob_client(blob=path)
-            await bc.set_blob_metadata(metadata=kwargs)
+            async with self.service_client.get_blob_client(container_name, path) as bc:
+                await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
             raise FileNotFoundError(f"File not found for {e}")
@@ -1546,8 +1639,12 @@ class AzureBlobFile(AbstractBufferedFile):
             self.cache = caches[cache_type](
                 self.blocksize, self._fetch_range, self.size, **cache_options
             )
+            self.metadata = maybe_sync(
+                get_blob_metadata, self, self.container_client, self.blob
+            )
+
         else:
-            self.metadata = metadata
+            self.metadata = metadata or {"is_directory": "false"}
             self.buffer = io.BytesIO()
             self.offset = None
             self.forced = False
@@ -1708,3 +1805,10 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
+
+    def __del__(self):
+        try:
+            if not self.closed:
+                self.close()
+        except TypeError:
+            pass
