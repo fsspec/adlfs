@@ -533,7 +533,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def info(self, path, refresh=False, **kwargs):
         try:
             fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
-        except:
+        except Exception:
             fetch_from_azure = True
         if fetch_from_azure:
             return maybe_sync(self._info, self, path, refresh)
@@ -554,9 +554,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         if refresh:
             invalidate_cache = True
-        else: invalidate_cache = False
+        else:
+            invalidate_cache = False
         path = self._strip_protocol(path)
-        out = await self._ls(self._parent(path), invalidate_cache=invalidate_cache, **kwargs)
+        out = await self._ls(
+            self._parent(path), invalidate_cache=invalidate_cache, **kwargs
+        )
         out = [o for o in out if (o["name"].rstrip("/") + "/") == path]
         if out:
             return out[0]
@@ -723,7 +726,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if target_path not in self.dircache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
                     # This is the case where the container name is passed
-                    async with self.service_client.get_container_client(container=container) as cc:
+                    async with self.service_client.get_container_client(
+                        container=container
+                    ) as cc:
                         path = path.strip("/")
                         blobs = cc.walk_blobs(
                             include=["metadata"], name_starts_with=path
@@ -830,12 +835,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data.update({"name": fname})
                 data.update({"size": 0})
                 data.update({"type": "directory"})
-            if 'metadata' in data.keys():
-                if data['metadata'] is not None:
-                    if 'is_directory' in data['metadata'].keys() and data['metadata']['is_directory'] == 'true':
+            if "metadata" in data.keys():
+                if data["metadata"] is not None:
+                    if (
+                        "is_directory" in data["metadata"].keys()
+                        and data["metadata"]["is_directory"] == "true"
+                    ):
                         data.update({"type": "directory"})
                         data.update({"size": None})
-                    elif 'is_directory' in data['metadata'].keys() and data['metadata']['is_directory'] == 'false':
+                    elif (
+                        "is_directory" in data["metadata"].keys()
+                        and data["metadata"]["is_directory"] == "false"
+                    ):
                         data.update({"type": "file"})
                     else:
                         pass
@@ -1064,9 +1075,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if container_name_as_dir not in _containers:
                 if create_parents:
                     # create new container
-                    await self.service_client.create_container(name=container_name,
-                                                               metadata={"is_directory": "true"}
-                                                               )
+                    await self.service_client.create_container(
+                        name=container_name, metadata={"is_directory": "true"}
+                    )
                     self.invalidate_cache(self._parent(container_name))
                     if path:
                         fpath = f"{container_name_as_dir}{path}"
@@ -1287,9 +1298,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            result = await bc.upload_blob(data=value, overwrite=overwrite, 
-                                          metadata={"is_directory": "false"}
-                                          )
+            result = await bc.upload_blob(
+                data=value, overwrite=overwrite, metadata={"is_directory": "false"}
+            )
         self.invalidate_cache(self._parent(path))
         return result
 
@@ -1397,9 +1408,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     async with self.service_client.get_blob_client(
                         container_name, path
                     ) as bc:
-                        await bc.upload_blob(f1, overwrite=overwrite, 
-                                             metadata={"is_directory": "false"}
-                                             )
+                        await bc.upload_blob(
+                            f1, overwrite=overwrite, metadata={"is_directory": "false"}
+                        )
                 self.invalidate_cache()
             except ResourceExistsError:
                 raise FileExistsError("File already exists!!")
@@ -1622,8 +1633,10 @@ class AzureBlobFile(AbstractBufferedFile):
             self.cache = caches[cache_type](
                 self.blocksize, self._fetch_range, self.size, **cache_options
             )
-            self.metadata = maybe_sync(get_blob_metadata, self, self.container_client, self.blob)
-            
+            self.metadata = maybe_sync(
+                get_blob_metadata, self, self.container_client, self.blob
+            )
+
         else:
             self.metadata = metadata or {"is_directory": "false"}
             self.buffer = io.BytesIO()
@@ -1786,11 +1799,10 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
-    
+
     def __del__(self):
         try:
             if not self.closed:
                 self.close()
         except TypeError:
             pass
-            
