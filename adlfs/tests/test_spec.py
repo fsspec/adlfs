@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import dask.dataframe as dd
 from fsspec.implementations.local import LocalFileSystem
@@ -563,7 +564,9 @@ def test_open_file(storage, mocker):
     result = f.read()
     assert result == b"0123456789"
 
-    close = mocker.patch.object(f.container_client, "close")
+    future = asyncio.Future()
+    future.set_result("close")
+    close = mocker.patch.object(f.container_client, "close", return_value=future)
     f.close()
     print(fs.ls("/data/root/a"))
 
@@ -575,8 +578,10 @@ def test_open_context_manager(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
+    future = asyncio.Future()
+    future.set_result("close")
     with fs.open("/data/root/a/file.txt") as f:
-        close = mocker.patch.object(f.container_client, "close")
+        close = mocker.patch.object(f.container_client, "close", return_value=future)
         result = f.read()
         assert result == b"0123456789"
 
