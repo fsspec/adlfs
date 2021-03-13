@@ -8,6 +8,7 @@ v0.7.0
   to help resolve ambiguous folder and file discrepancies
 - Minor update to assure compatibility with fsspec==0.8.7
 - Added error handling to AzureBlobFile finalizer
+- Updated AzureBlobFile.close method to execute threadsafe with asyncio
 
 v0.6.3
 ------
