@@ -27,7 +27,12 @@ from fsspec.asyn import (
 )
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
-from .utils import filter_blobs, get_blob_metadata, close_client
+from .utils import (
+    filter_blobs,
+    get_blob_metadata,
+    close_service_client,
+    close_container_client,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -402,7 +407,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
         self.do_connect()
-        weakref.finalize(self, maybe_sync, close_client, self, self)
+        weakref.finalize(self, maybe_sync, close_service_client, self, self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
@@ -1647,9 +1652,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def close(self):
         """Close file and azure client."""
-        # asyncio.run_coroutine_threadsafe(self.container_client.close(), loop=self.loop)
-        asyncio.run_coroutine_threadsafe(close_client(self), loop=self.loop)
-
+        asyncio.run_coroutine_threadsafe(close_container_client(self), loop=self.loop)
         super().close()
 
     def connect_client(self):
