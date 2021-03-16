@@ -25,3 +25,19 @@ async def get_blob_metadata(container_client, path):
         else:
             metadata = None
     return metadata
+
+
+async def close_service_client(fs):
+    """
+    Implements asynchronous closure of service client for
+    AzureBlobFile objects
+    """
+    await fs.service_client.close()
+
+
+async def close_container_client(file_obj):
+    """
+    Implements asynchronous closure of container client for
+    AzureBlobFile objects
+    """
+    await file_obj.container_client.close()
