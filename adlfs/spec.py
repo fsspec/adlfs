@@ -716,7 +716,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if invalidate_cache:
             self.dircache.clear()
-        if (container in ["", ".", delimiter]) and (path in ["", delimiter]):
+        if (container in ["", ".", "*", delimiter]) and (path in ["", delimiter]):
             if path not in self.dircache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
                 logger.info(
