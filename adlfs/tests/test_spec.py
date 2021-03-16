@@ -75,6 +75,7 @@ def test_ls(storage):
     assert fs.ls("") == ["data/"]
     assert fs.ls("/") == ["data/"]
     assert fs.ls(".") == ["data/"]
+    assert fs.ls("*") == ["data/"]
 
     ## these are top-level directories and files
     assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
