@@ -490,6 +490,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         if cred is not None
                     ][0]
                 elif self.sas_token is not None:
+                    if not self.sas_token.startswith("?"):
+                        self.sas_token = f"?{self.sas_token}"
                     self.service_client = AIOBlobServiceClient(
                         account_url=self.account_url + self.sas_token, credential=None
                     )
