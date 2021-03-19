@@ -377,7 +377,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
             if k in kwargs
         }  # pass on to fsspec superclass
-        super().__init__(asynchronous=asynchronous, **super_kwargs)
+        super().__init__(asynchronous=asynchronous, loop=loop, **super_kwargs)
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.connection_string = connection_string or os.getenv(
@@ -391,7 +391,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.request_session = request_session
         self.socket_timeout = socket_timeout
         self.blocksize = blocksize
-        self.loop = loop or get_loop()
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
         if (
