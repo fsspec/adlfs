@@ -15,7 +15,6 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob.aio import BlobClient
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
@@ -1273,6 +1272,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return self.cat_file(paths[0])
 
     def url(self, path, expires=3600, **kwargs):
+        return maybe_sync(self._url, self, path, expires, **kwargs)
+
+    async def _url(self, path, expires=3600, **kwargs):
         """Generate presigned URL to access path by HTTP
 
         Parameters
@@ -1293,10 +1295,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             expiry=datetime.utcnow() + timedelta(seconds=expires),
         )
 
-        cc = self.service_client.get_container_client(container_name)
-        bc = cc.get_blob_client(blob)
-
-        return BlobClient.from_blob_url(bc.url, credential=sas_token).url
+        async with self.service_client.get_blob_client(container_name, blob) as bc:
+            url = bc.from_blob_url(bc.url, credential=sas_token).url
+        return url
 
     def expand_path(self, path, recursive=False, maxdepth=None):
         return maybe_sync(self._expand_path, self, path, recursive, maxdepth)
