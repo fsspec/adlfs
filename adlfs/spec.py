@@ -1296,7 +1296,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )
 
         async with self.service_client.get_blob_client(container_name, blob) as bc:
-            url = bc.from_blob_url(bc.url, credential=sas_token).url
+            url = f"{bc.url}?{sas_token}"
         return url
 
     def expand_path(self, path, recursive=False, maxdepth=None):
