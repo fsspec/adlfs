@@ -1038,7 +1038,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _mkdir(self, path, create_parents=True, delimiter="/", **kwargs):
         """
-        Mkdir is a no-op for creating anything except top-level containers.  
+        Mkdir is a no-op for creating anything except top-level containers.
         This aligns to the Azure Blob Filesystem flat hierarchy
 
         Parameters
