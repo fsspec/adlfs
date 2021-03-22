@@ -16,6 +16,7 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
@@ -34,6 +35,7 @@ from .utils import (
     close_container_client,
 )
 
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -1320,6 +1322,34 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return out
         else:
             return self.cat_file(paths[0])
+
+    def url(self, path, expires=3600, **kwargs):
+        return maybe_sync(self._url, self, path, expires, **kwargs)
+
+    async def _url(self, path, expires=3600, **kwargs):
+        """Generate presigned URL to access path by HTTP
+
+        Parameters
+        ----------
+        path : string
+            the key path we are interested in
+        expires : int
+            the number of seconds this signature will be good for.
+        """
+        container_name, blob = self.split_path(path)
+
+        sas_token = generate_blob_sas(
+            account_name=self.account_name,
+            container_name=container_name,
+            blob_name=blob,
+            account_key=self.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.utcnow() + timedelta(seconds=expires),
+        )
+
+        async with self.service_client.get_blob_client(container_name, blob) as bc:
+            url = f"{bc.url}?{sas_token}"
+        return url
 
     def expand_path(self, path, recursive=False, maxdepth=None):
         return maybe_sync(self._expand_path, self, path, recursive, maxdepth)

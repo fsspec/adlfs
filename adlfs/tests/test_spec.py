@@ -1128,6 +1128,24 @@ def test_cat(storage):
     fs.rm("catdir/catfile.txt")
 
 
+def test_url(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR, account_key=KEY
+    )
+    fs.mkdir("catdir")
+    data = b"0123456789"
+    with fs.open("catdir/catfile.txt", "wb") as f:
+        f.write(data)
+
+    import requests
+
+    r = requests.get(fs.url("catdir/catfile.txt"))
+    assert r.status_code == 200
+    assert r.content == data
+
+    fs.rm("catdir/catfile.txt")
+
+
 def test_cp_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
