@@ -72,30 +72,30 @@ def test_ls(storage):
     )
 
     ## these are containers
-    assert fs.ls("") == ["data/"]
-    assert fs.ls("/") == ["data/"]
-    assert fs.ls(".") == ["data/"]
-    assert fs.ls("*") == ["data/"]
+    assert fs.ls("") == ["data"]
+    assert fs.ls("/") == ["data"]
+    assert fs.ls(".") == ["data"]
+    assert fs.ls("*") == ["data"]
 
     ## these are top-level directories and files
-    assert fs.ls("data") == ["data/root/", "data/top_file.txt"]
-    assert fs.ls("/data") == ["data/root/", "data/top_file.txt"]
+    assert fs.ls("data") == ["data/root", "data/top_file.txt"]
+    assert fs.ls("/data") == ["data/root", "data/top_file.txt"]
 
     # root contains files and directories
     assert fs.ls("data/root") == [
-        "data/root/a/",
-        "data/root/a1/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/d/",
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
         "data/root/rfile.txt",
     ]
     assert fs.ls("data/root/") == [
-        "data/root/a/",
-        "data/root/a1/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/d/",
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
         "data/root/rfile.txt",
     ]
 
@@ -251,9 +251,9 @@ def test_info(storage):
     assert_blob_equals(
         container_info,
         {
-            "name": "data/",
+            "name": "data",
             "type": "directory",
-            "size": 0,
+            "size": None,
             "deleted": None,
             "last_modified": storage.insert_time,
             "metadata": None,
@@ -262,12 +262,12 @@ def test_info(storage):
 
     container2_info = fs.info("data/root")
     assert_blob_equals(
-        container2_info, {"name": "data/root/", "type": "directory", "size": 0}
+        container2_info, {"name": "data/root", "type": "directory", "size": None}
     )
 
     dir_info = fs.info("data/root/c")
     assert_blob_equals(
-        dir_info, {"name": "data/root/c/", "type": "directory", "size": 0}
+        dir_info, {"name": "data/root/c", "type": "directory", "size": None}
     )
 
     file_info = fs.info("data/root/a/file.txt")
@@ -602,14 +602,14 @@ def test_rm_recursive(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    assert "data/root/c/" in fs.ls("/data/root")
+    assert "data/root/c" in fs.ls("/data/root")
 
     assert fs.ls("data/root/c") == [
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
     ]
     fs.rm("data/root/c", recursive=True)
-    assert "data/root/c/" not in fs.ls("/data/root")
+    assert "data/root/c" not in fs.ls("/data/root")
 
     with pytest.raises(FileNotFoundError):
         fs.ls("data/root/c")
@@ -622,7 +622,7 @@ def test_mkdir(storage):
 
     # Verify mkdir will create a new container when create_parents is True
     fs.mkdir("new-container", create_parents=True)
-    assert "new-container/" in fs.ls(".")
+    assert "new-container" in fs.ls(".")
     fs.rm("new-container")
 
     # Verify a new container will not be created when create_parents
@@ -631,13 +631,16 @@ def test_mkdir(storage):
         fs.mkdir("new-container", create_parents=False)
 
     # Test creating subdirectory when container does not exist
+    # Since mkdir is a no-op, if create_parents=True, it will create
+    # the top level container, but will NOT create nested directories
     fs.mkdir("new-container/dir", create_parents=True)
-    assert "new-container/dir/" in fs.ls("new-container")
+    assert "new-container/dir" not in fs.ls("new-container")
+    assert "new-container" in fs.ls(".")
     fs.rm("new-container", recursive=True)
 
     # Test that creating a directory when already exists passes
     fs.mkdir("data")
-    assert "data/" in fs.ls(".")
+    assert "data" in fs.ls(".")
 
     # Test raising error when container does not exist
     with pytest.raises(PermissionError):
@@ -655,11 +658,13 @@ def test_makedir(storage):
 
     # The container and directory already exist.  Should pass
     fs.makedir("data", exist_ok=True)
-    assert "data/" in fs.ls(".")
+    assert "data" in fs.ls(".")
 
-    # Test creating subdirectory when container does not exist
+    # Test creating subdirectory when container does not exist.  Again
+    # Since makedir is a no-op, this can create the container, but not write nested directories
     fs.makedir("new-container/dir")
-    assert "new-container/dir/" in fs.ls("new-container")
+    assert "new-container/dir" not in fs.ls("new-container")
+    assert "new-container" in fs.ls(".")
     fs.rm("new-container", recursive=True)
 
 
@@ -669,7 +674,7 @@ def test_makedir_rmdir(storage, caplog):
     )
 
     fs.makedir("new-container")
-    assert "new-container/" in fs.ls("")
+    assert "new-container" in fs.ls("")
     assert fs.ls("new-container") == []
 
     with fs.open(path="new-container/file.txt", mode="wb") as f:
@@ -686,15 +691,10 @@ def test_makedir_rmdir(storage, caplog):
     with pytest.raises(FileExistsError):
         fs.makedir("new-container/dir/file.txt", exist_ok=False)
 
-    # Verify that mkdir creates a directory if exist_ok is False and the
-    # directory does not exist
-    fs.makedir("new-container/files0", exist_ok=False)
-    assert "new-container/files0/" in fs.ls("new-container")
-
-    # Verify that mkdir will silently ignore an existing directory if
-    # the directory exists and exist_ok is True
-    fs.makedir("new-container/dir", exist_ok=True)
-    assert "new-container/dir/" in fs.ls("new-container")
+    # mkdir should raise an error if the container exists and
+    # we try to create a nested directory, with exist_ok=False
+    with pytest.raises(FileExistsError):
+        fs.makedir("new-container/dir2", exist_ok=False)
 
     # Check that trying to overwrite an existing nested file in append mode works as expected
     # if exist_ok is True
@@ -702,7 +702,6 @@ def test_makedir_rmdir(storage, caplog):
     assert "new-container/dir/file2.txt" in fs.ls("new-container/dir")
 
     # Also verify you can make a nested directory structure
-    fs.makedir("new-container/dir2/file.txt", exist_ok=False)
     with fs.open("new-container/dir2/file.txt", "wb") as f:
         f.write(b"0123456789")
     assert "new-container/dir2/file.txt" in fs.ls("new-container/dir2")
@@ -713,14 +712,13 @@ def test_makedir_rmdir(storage, caplog):
     assert fs.ls("new-container") == [
         "new-container/file.txt",
         "new-container/file2.txt",
-        "new-container/files0/",
     ]
 
     fs.rm("new-container/file.txt")
     fs.rm("new-container/file2.txt")
     fs.rmdir("new-container")
 
-    assert "new-container/" not in fs.ls("")
+    assert "new-container" not in fs.ls("")
 
 
 @pytest.mark.skip
@@ -748,7 +746,7 @@ def test_mkdir_rm_recursive(storage):
     )
 
     fs.mkdir("test_mkdir_rm_recursive")
-    assert "test_mkdir_rm_recursive/" in fs.ls("")
+    assert "test_mkdir_rm_recursive" in fs.ls("")
 
     with fs.open("test_mkdir_rm_recursive/file.txt", "wb") as f:
         f.write(b"0123456789")
@@ -767,7 +765,7 @@ def test_mkdir_rm_recursive(storage):
 
     fs.rm("test_mkdir_rm_recursive", recursive=True)
 
-    assert "test_mkdir_rm_recursive/" not in fs.ls("")
+    assert "test_mkdir_rm_recursive" not in fs.ls("")
     assert fs.find("test_mkdir_rm_recursive") == []
 
 
@@ -777,15 +775,15 @@ def test_deep_paths(storage):
     )
 
     fs.mkdir("test_deep")
-    assert "test_deep/" in fs.ls("")
+    assert "test_deep" in fs.ls("")
 
     with fs.open("test_deep/a/b/c/file.txt", "wb") as f:
         f.write(b"0123456789")
 
-    assert fs.ls("test_deep") == ["test_deep/a/"]
-    assert fs.ls("test_deep/") == ["test_deep/a/"]
-    assert fs.ls("test_deep/a") == ["test_deep/a/b/"]
-    assert fs.ls("test_deep/a/") == ["test_deep/a/b/"]
+    assert fs.ls("test_deep") == ["test_deep/a"]
+    assert fs.ls("test_deep/") == ["test_deep/a"]
+    assert fs.ls("test_deep/a") == ["test_deep/a/b"]
+    assert fs.ls("test_deep/a/") == ["test_deep/a/b"]
     assert fs.find("test_deep") == ["test_deep/a/b/c/file.txt"]
     assert fs.find("test_deep/") == ["test_deep/a/b/c/file.txt"]
     assert fs.find("test_deep/a") == ["test_deep/a/b/c/file.txt"]
@@ -793,7 +791,7 @@ def test_deep_paths(storage):
 
     fs.rm("test_deep", recursive=True)
 
-    assert "test_deep/" not in fs.ls("")
+    assert "test_deep" not in fs.ls("")
     assert fs.find("test_deep") == []
 
 

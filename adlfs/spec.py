@@ -828,20 +828,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
             }
             if content.has_key("container"):  # NOQA
                 fname = f"{content.container}{delimiter}{content.name}"
-                data.update({"name": fname})
+                fname = fname.rstrip(delimiter)
                 if content.has_key("size"):  # NOQA
+                    data.update({"name": fname})
                     data.update({"size": content.size})
-                else:
-                    data.update({"size": 0})
-                if data["size"] == 0 and data["name"].endswith(delimiter):
-                    data.update({"type": "directory"})
-                    data.update({"size": 0})
-                else:
                     data.update({"type": "file"})
+                else:
+                    data.update({"name": fname})
+                    data.update({"size": None})
+                    data.update({"type": "directory"})
             else:
-                fname = f"{content.name}{delimiter}"
+                fname = f"{content.name}"
                 data.update({"name": fname})
-                data.update({"size": 0})
+                data.update({"size": None})
                 data.update({"type": "directory"})
             if "metadata" in data.keys():
                 if data["metadata"] is not None:
@@ -1039,7 +1038,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _mkdir(self, path, create_parents=True, delimiter="/", **kwargs):
         """
-        Create directory entry at path
+        Mkdir is a no-op for creating anything except top-level containers.
+        This aligns to the Azure Blob Filesystem flat hierarchy
 
         Parameters
         ----------
@@ -1057,58 +1057,37 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
         _containers = [c["name"] for c in _containers]
-        # The list of containers will be returned from _ls() in a directory format,
-        # with a trailing "/", but the container_name will not have this.
+        # The list of containers will be returned from _ls() in a directory format
         # Need a placeholder that presents the container_name in a directory format
-        container_name_as_dir = f"{container_name}/"
-        if path and not path.endswith(delimiter):
-            try:
-                files = await self._ls(fullpath, detail=True)
-                if (
-                    (len(files) == 1)
-                    and (files[0]["name"] == fullpath)
-                    and (files[0]["type"] == "file")
-                ):
-                    # If the directory to be created is actually a file and already exists
-                    # skip this step, otherwise add a trailing delimiter
-                    raise FileExistsError("File exists at this location")
-                else:
-                    path = f"{path}{delimiter}"
-
-            except FileNotFoundError:
-                path = f"{path}{delimiter}"
         if _containers is None:
             _containers = []
         try:
-            if container_name_as_dir not in _containers:
+            if container_name not in _containers:
                 if create_parents:
                     # create new container
                     await self.service_client.create_container(
                         name=container_name, metadata={"is_directory": "true"}
                     )
                     self.invalidate_cache(self._parent(container_name))
-                    if path:
-                        fpath = f"{container_name_as_dir}{path}"
-                        await self._mkdir(fpath, exist_ok=True)
                 else:
                     raise PermissionError(
                         "Azure Container does not exist.  Set create_parents=True to create!!"
                     )
             else:
-                ## attempt to create prefix
-                async with self.service_client.get_blob_client(
-                    container=container_name, blob=path
-                ) as bc:
-                    await bc.upload_blob(
-                        data="", overwrite=False, metadata={"is_directory": "true"}
-                    )
+                exist_ok = kwargs.get("exist_ok", True)
+                if exist_ok:
+                    pass
+                else:
+                    raise
+
         except PermissionError:
             raise PermissionError(
-                f"Unable to create Azure container {container_name_as_dir} with \
+                f"Unable to create Azure container {container_name} with \
                 create_parents=False"
             )
+
         except Exception as e:
-            ## everything else
+            # everything else
             exist_ok = kwargs.get("exist_ok", True)
             if exist_ok:
                 pass
@@ -1184,8 +1163,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             container_name, path = self.split_path(path, delimiter=delimiter)
             kind = kind["type"]
             if path != "":
-                if kind == "directory":
-                    path = path.strip("/") + "/"
                 async with self.service_client.get_container_client(
                     container=container_name
                 ) as cc:
@@ -1225,7 +1202,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(path, delimiter=delimiter)
         _containers = await self._ls("")
         _containers = [c["name"] for c in _containers]
-        if (container_name + delimiter in _containers) and (not path):
+        if (container_name in _containers) and (not path):
             # delete container
             await self.service_client.delete_container(container_name)
             self.invalidate_cache(self._parent(path))
