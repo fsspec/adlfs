@@ -9,6 +9,11 @@ v0.7.0
 - Minor update to assure compatibility with fsspec==0.8.7
 - Added error handling to AzureBlobFile finalizer
 - Updated AzureBlobFile.close method to execute threadsafe with asyncio
+- Added check for leading "?" in sas_token parameter
+- Fix for setting loop attribute on newer version of fsspec [#197](https://github.com/dask/adlfs/issues/197)
+- Converted self.mkdir() to a no-op to align to fsspec issue [#562](https://github.com/intake/filesystem_spec/issues/562)
+- Fixed errors with pyarrow write_dataset method related to pseudo-directories in [*171](https://github.com/dask/adlfs/issues/171).
+- Fixed race conditions with finalizer on AzureBlobFile object
 
 v0.6.3
 ------
