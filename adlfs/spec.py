@@ -1138,7 +1138,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
-
         path = await self._expand_path(
             path, recursive=recursive, maxdepth=maxdepth, with_parent=True
         )
