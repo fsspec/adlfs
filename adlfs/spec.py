@@ -545,7 +545,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception:
             fetch_from_azure = True
         if fetch_from_azure:
-            return sync(self._info, self, path, refresh)
+            return sync(self.loop, self._info, path, refresh)
         return super().info(path)
 
     async def _info(self, path, refresh=False, **kwargs):
@@ -585,7 +585,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
 
     def glob(self, path, **kwargs):
-        return sync(self._glob, self, path)
+        return sync(self.loop, self._glob, path)
 
     async def _glob(self, path, **kwargs):
         """
@@ -871,7 +871,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def find(self, path, withdirs=False, prefix="", **kwargs):
         return sync(
-            self._find, self, path=path, withdirs=withdirs, prefix=prefix, **kwargs
+            self.loop, self._find, path=path, withdirs=withdirs, prefix=prefix, **kwargs
         )
 
     async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
@@ -1184,7 +1184,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     sync_wrapper(_rm_file)
 
     def rmdir(self, path: str, delimiter="/", **kwargs):
-        sync(self._rmdir, self, path, delimiter=delimiter, **kwargs)
+        sync(self.loop, self._rmdir, path, delimiter=delimiter, **kwargs)
 
     async def _rmdir(self, path: str, delimiter="/", **kwargs):
         """
@@ -1209,7 +1209,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.invalidate_cache(self._parent(path))
 
     def size(self, path):
-        return sync(self._size, self, path)
+        return sync(self.loop, self._size, path)
 
     async def _size(self, path):
         """Size in bytes of file"""
@@ -1218,7 +1218,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return size
 
     def isfile(self, path):
-        return sync(self._isfile, self, path)
+        return sync(self.loop, self._isfile, path)
 
     async def _isfile(self, path):
         """Is this entry file-like?"""
@@ -1238,7 +1238,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
 
     def isdir(self, path):
-        return sync(self._isdir, self, path)
+        return sync(self.loop, self._isdir, path)
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
@@ -1256,7 +1256,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
 
     def exists(self, path):
-        return sync(self._exists, self, path)
+        return sync(self.loop, self._exists, path)
 
     async def _exists(self, path):
         """Is there a file at the given path"""
@@ -1323,7 +1323,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return self.cat_file(paths[0])
 
     def url(self, path, expires=3600, **kwargs):
-        return sync(self._url, self, path, expires, **kwargs)
+        return sync(self.loop, self._url, path, expires, **kwargs)
 
     async def _url(self, path, expires=3600, **kwargs):
         """Generate presigned URL to access path by HTTP
@@ -1351,7 +1351,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return url
 
     def expand_path(self, path, recursive=False, maxdepth=None):
-        return sync(self._expand_path, self, path, recursive, maxdepth)
+        return sync(self.loop, self._expand_path, path, recursive, maxdepth)
 
     async def _expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
         """Turn one or more globs or directories into a list of all matching files"""
@@ -1648,7 +1648,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.blocksize, self._fetch_range, self.size, **cache_options
             )
             self.metadata = sync(
-                get_blob_metadata, self, self.container_client, self.blob
+                self.loop, get_blob_metadata, self.container_client, self.blob
             )
 
         else:
