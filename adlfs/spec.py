@@ -1472,7 +1472,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 os.makedirs(lpath, exist_ok=True)
             else:
                 async with self.service_client.get_blob_client(
-                    container_name, path
+                    container_name, path.rstrip(delimiter)
                 ) as bc:
                     with open(lpath, "wb") as my_blob:
                         stream = await bc.download_blob()
