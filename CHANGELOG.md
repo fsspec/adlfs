@@ -1,4 +1,8 @@
 **Change Log**
+dev
+---
+- fsspec version updated to 0.9.0
+
 v0.7.0
 ------
 - Updated path structure, so virtual folders in Azure blobs are created with a
