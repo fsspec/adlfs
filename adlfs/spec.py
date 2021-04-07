@@ -1138,6 +1138,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             If None, there will be no limit and infinite recursion may be
             possible.
         """
+
         path = await self._expand_path(
             path, recursive=recursive, maxdepth=maxdepth, with_parent=True
         )
@@ -1167,7 +1168,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 async with self.service_client.get_container_client(
                     container=container_name
                 ) as cc:
-                    await cc.delete_blob(path)
+                    await cc.delete_blob(path.rstrip(delimiter))
             elif kind == "directory":
                 await self._rmdir(container_name)
             else:
