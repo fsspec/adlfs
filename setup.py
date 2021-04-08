@@ -33,7 +33,7 @@ setup(
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
         "azure-storage-blob>=12.5.0,<12.7.0",
-        "fsspec>=0.9.0,<0.10.0",
+        "fsspec>=0.9.0",
         "msrestazure",
         "requests>=2.22.0,<3.0",
     ],
