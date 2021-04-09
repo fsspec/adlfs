@@ -1168,5 +1168,7 @@ def test_exists(storage):
     assert fs.exists("data/top_file.txt")
     assert fs.exists("data")
     assert fs.exists("data/")
+    assert not fs.exists("non-existent-container")
+    assert not fs.exists("non-existent-container/")
     assert fs.exists("")
     assert not fs.exists("data/not-a-key")

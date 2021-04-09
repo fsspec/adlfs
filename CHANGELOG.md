@@ -1,7 +1,10 @@
 **Change Log**
 dev
 ---
-- Now can create containers with `mkdir()` even the account privileges doesn't support listing all containers
+- Now can create / destroy containers with `mkdir()`/`rmdir()` without needing to
+have the privilige of listing all containers.
+- When called with only container name, `exists()` now returns the proper result
+(about the existence of the container) instead of a hard-coded `True`
 
 v0.7.1
 ------

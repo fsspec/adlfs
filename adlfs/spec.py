@@ -1255,8 +1255,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(path)
 
         if not path:
-            # Empty paths exist by definition
-            return True
+            if container_name:
+                return self._container_exists(container_name)
+            else:
+                # Empty paths exist by definition
+                return True
 
         async with self.service_client.get_blob_client(container_name, path) as bc:
             exists = await bc.exists()
