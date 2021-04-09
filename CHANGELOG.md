@@ -1,5 +1,5 @@
 **Change Log**
-dev
+v0.7.1
 ---
 - fsspec version updated to 0.9.0
 
