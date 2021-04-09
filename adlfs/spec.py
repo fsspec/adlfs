@@ -1185,12 +1185,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(path, delimiter=delimiter)
-        _containers = await self._ls("")
-        _containers = [c["name"] for c in _containers]
-        if (container_name in _containers) and (not path):
-            # delete container
+        container_exists = await self._container_exists(container_name)
+        if container_exists and not path:
             await self.service_client.delete_container(container_name)
-            self.invalidate_cache(self._parent(path))
+            self.invalidate_cache(_ROOT_PATH)
 
     def size(self, path):
         return sync(self.loop, self._size, path)
