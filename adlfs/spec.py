@@ -1038,6 +1038,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ):
                 yield path, dirs, files
 
+    async def _container_exists(self, container_name):
+        try:
+            async with self.service_client.get_container_client(
+                container_name
+            ) as client:
+                await client.get_container_properties()
+        except ResourceNotFoundError:
+            return False
+        else:
+            return True
+
     async def _mkdir(self, path, create_parents=True, delimiter="/", **kwargs):
         """
         Mkdir is a no-op for creating anything except top-level containers.
@@ -1057,16 +1068,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
-        try:
-            async with self.service_client.get_container_client(
-                container_name
-            ) as client:
-                await client.get_container_properties()
-        except ResourceNotFoundError:
-            container_exists = False
-        else:
-            container_exists = True
-
+        container_exists = await self._container_exists(container_name)
         if not create_parents and not container_exists:
             raise PermissionError(
                 "Azure Container does not exist.  Set create_parents=True to create!!"
