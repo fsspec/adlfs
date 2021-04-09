@@ -1,6 +1,13 @@
 **Change Log**
-v0.7.1
+dev
 ---
+- Now can create / destroy containers with `mkdir()`/`rmdir()` without needing to
+have the privilige of listing all containers.
+- When called with only container name, `exists()` now returns the proper result
+(about the existence of the container) instead of a hard-coded `True`
+
+v0.7.1
+------
 - fsspec version updated to 0.9.0
 
 v0.7.0
