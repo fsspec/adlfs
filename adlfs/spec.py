@@ -54,6 +54,7 @@ FORWARDED_BLOB_PROPERTIES = [
     "tags",
     "tag_count",
 ]
+_ROOT_PATH = "/"
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
@@ -728,9 +729,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 contents = self.service_client.list_containers(include_metadata=True)
                 containers = [c async for c in contents]
                 files = await self._details(containers)
-                self.dircache[path] = files
+                self.dircache[_ROOT_PATH] = files
 
-            return self.dircache[path]
+            return self.dircache[_ROOT_PATH]
         else:
             if target_path not in self.dircache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
@@ -1078,6 +1079,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if not container_exists:
             await self.service_client.create_container(container_name)
+            self.invalidate_cache(_ROOT_PATH)
+
         self.invalidate_cache(self._parent(fullpath))
 
     mkdir = sync_wrapper(_mkdir)
