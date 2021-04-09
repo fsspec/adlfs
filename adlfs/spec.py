@@ -1256,7 +1256,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if not path:
             if container_name:
-                return self._container_exists(container_name)
+                return await self._container_exists(container_name)
             else:
                 # Empty paths exist by definition
                 return True
