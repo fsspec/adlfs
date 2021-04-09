@@ -4,7 +4,7 @@ dev
 - Now can create containers with `mkdir()` even the account privileges doesn't support listing all containers
 
 v0.7.1
----
+------
 - fsspec version updated to 0.9.0
 
 v0.7.0
