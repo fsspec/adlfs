@@ -1056,47 +1056,28 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         fullpath = path
         container_name, path = self.split_path(path, delimiter=delimiter)
-        _containers = await self._ls("")
-        _containers = [c["name"] for c in _containers]
-        # The list of containers will be returned from _ls() in a directory format
-        # Need a placeholder that presents the container_name in a directory format
-        if _containers is None:
-            _containers = []
         try:
-            if container_name not in _containers:
-                if create_parents:
-                    # create new container
-                    await self.service_client.create_container(
-                        name=container_name, metadata={"is_directory": "true"}
-                    )
-                    self.invalidate_cache(self._parent(container_name))
-                else:
-                    raise PermissionError(
-                        "Azure Container does not exist.  Set create_parents=True to create!!"
-                    )
-            else:
-                exist_ok = kwargs.get("exist_ok", True)
-                if exist_ok:
-                    pass
-                else:
-                    raise
+            async with self.service_client.get_container_client(
+                container_name
+            ) as client:
+                await client.get_container_properties()
+        except ResourceNotFoundError:
+            container_exists = False
+        else:
+            container_exists = True
 
-        except PermissionError:
+        if not create_parents and not container_exists:
             raise PermissionError(
-                f"Unable to create Azure container {container_name} with \
-                create_parents=False"
+                "Azure Container does not exist.  Set create_parents=True to create!!"
             )
 
-        except Exception as e:
-            # everything else
-            exist_ok = kwargs.get("exist_ok", True)
-            if exist_ok:
-                pass
-            else:
-                raise FileExistsError(
-                    f"Cannot overwrite existing Azure container -- {container_name} already exists. \
-                        with Azure error {e}"
-                )
+        if container_exists and not kwargs.get("exist_ok", True):
+            raise FileExistsError(
+                f"Cannot overwrite existing Azure container -- {container_name} already exists."
+            )
+
+        if not container_exists:
+            await self.service_client.create_container(container_name)
         self.invalidate_cache(self._parent(fullpath))
 
     mkdir = sync_wrapper(_mkdir)
