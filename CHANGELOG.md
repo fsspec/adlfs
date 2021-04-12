@@ -1,6 +1,6 @@
 **Change Log**
-dev
----
+v0.7.2
+-----
 - Now can create / destroy containers with `mkdir()`/`rmdir()` without needing to
 have the privilige of listing all containers.
 - When called with only container name, `exists()` now returns the proper result
