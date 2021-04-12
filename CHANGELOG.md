@@ -5,6 +5,8 @@ dev
 have the privilige of listing all containers.
 - When called with only container name, `exists()` now returns the proper result
 (about the existence of the container) instead of a hard-coded `True`
+- Removed version constraints on azure-storage-blob, pytest, and docker
+- Updated conftest script to start Azurite docker container
 
 v0.7.1
 ------
