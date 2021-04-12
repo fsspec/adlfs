@@ -32,11 +32,11 @@ setup(
         "azure-core>=1.5.0",
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
-        "azure-storage-blob>=12.5.0,<12.7.0",
+        "azure-storage-blob",
         "fsspec>=0.9.0",
         "msrestazure",
         "requests>=2.22.0,<3.0",
     ],
-    tests_require=["pytest>5.0,<6.0", "docker"],
+    tests_require=["pytest", "docker"],
     zip_safe=False,
 )
