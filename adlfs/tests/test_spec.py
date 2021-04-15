@@ -448,7 +448,6 @@ def test_find(storage):
     )
 
 
-# @pytest.mark.xfail
 def test_find_missing(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -572,10 +571,11 @@ def test_open_file(storage, mocker):
 
 
 # def test_open_context_manager(storage, mocker):
-#  """ Memory profiling shows this is working, but its failing the test
-#      Due to the behavior of the MagicMock.  Needs to be fixed
-# """
-#     "test closing azure client with context manager"
+#     """
+#     Memory profiling shows this is working, but its failing the test
+#     Due to the behavior of the MagicMock.  Needs to be fixed
+#     """
+#     # "test closing azure client with context manager"
 #     fs = AzureBlobFileSystem(
 #         account_name=storage.account_name, connection_string=CONN_STR
 #     )
