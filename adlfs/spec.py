@@ -570,7 +570,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         out = await self._ls(
             self._parent(path), invalidate_cache=invalidate_cache, **kwargs
         )
-        out = [o for o in out if (o["name"].rstrip("/") + "/") == path]
+        out = [o for o in out if o["name"].rstrip("/") == path]
         if out:
             return out[0]
         out = await self._ls(path, invalidate_cache=invalidate_cache, **kwargs)
@@ -1348,10 +1348,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )  # Sets whether to return the parent dir
 
         if isinstance(path, list):
-            path = [f"{p.strip('/')}/" for p in path if not p.endswith("*")]
+            path = [f"{p.strip('/')}" for p in path if not p.endswith("*")]
         else:
             if not path.endswith("*"):
-                path = f"{path.strip('/')}/"
+                path = f"{path.strip('/')}"
         if isinstance(path, str):
             out = await self._expand_path(
                 [path], recursive, maxdepth, with_parent=with_parent
