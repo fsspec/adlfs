@@ -2,3 +2,4 @@
 git+https://github.com/intake/filesystem_spec
 azure-core
 azure-datalake-store
+azure-storage-blob
