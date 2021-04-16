@@ -1,0 +1,4 @@
+-r base.txt
+fsspec
+azure-core
+azure-datalake-store
