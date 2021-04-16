@@ -9,26 +9,28 @@ pool:
 
 jobs:
   - job: Lint
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
+    steps:
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        displayName: Add conda to PATH
 
-    - script: |
-        conda install -y -c conda-forge python=3 pre-commit
-        pre-commit install --install-hooks
-      displayName: 'Install dependencies'
+      - script: |
+          conda install -y -c conda-forge python=3 pre-commit
+          pre-commit install --install-hooks
+        displayName: 'Install dependencies'
 
-    - script: |
-        pre-commit run --all-files --show-diff-on-failure
-      displayName: 'Lint'
+      - script: |
+          pre-commit run --all-files --show-diff-on-failure
+        displayName: 'Lint'
 
   - job: Test
-    matrix:
-      EARLIEST:
-        REQUIREMENTS_FILE: requirements/earliest.txt
-      LATEST:
-        REQUIREMENTS_FILE: requirements/latest.txt
-      DEV:
-        REQUIREMENTS_FILE: requirements/dev.txt
+    strategy:
+      matrix:
+        EARLIEST:
+          REQUIREMENTS_FILE: requirements/earliest.txt
+        LATEST:
+          REQUIREMENTS_FILE: requirements/latest.txt
+        DEV:
+          REQUIREMENTS_FILE: requirements/dev.txt
 
     steps:
       - bash: echo "##vso[task.prependpath]$CONDA/bin"
