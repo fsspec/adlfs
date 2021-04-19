@@ -1,0 +1,11 @@
+aiohttp
+azure-identity
+dask[dataframe]
+docker
+msrestazure
+pyarrow
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+requests

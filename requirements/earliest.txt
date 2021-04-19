@@ -1,0 +1,5 @@
+-r base.txt
+fsspec==0.9
+azure-core==1.7.0
+azure-datalake-store==0.0.46
+azure-storage-blob==12.5.0

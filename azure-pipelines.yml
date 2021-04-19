@@ -4,36 +4,54 @@ trigger:
     - master
     - refs/tags/*
 
+pool:
+  vmImage: 'ubuntu-latest'
+
 jobs:
-- job: RunUnitTests
-  pool:
-    vmImage: 'ubuntu-latest'
+  - job: Lint
+    steps:
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        displayName: Add conda to PATH
 
-  steps:
-  - bash: echo "##vso[task.prependpath]$CONDA/bin"
-    displayName: Add conda to PATH
+      - script: |
+          conda install -y -c conda-forge python=3 pre-commit
+          pre-commit install --install-hooks
+        displayName: 'Install dependencies'
 
-  - script: |
-      conda install -y -c conda-forge python=3 pre-commit
-      pip install -r dev-requirements.txt
-    displayName: 'Install dependencies'
+      - script: |
+          pre-commit run --all-files --show-diff-on-failure
+        displayName: 'Lint'
 
-  - script: |
-      pytest --host="localhost:10000" adlfs/tests --junitxml=junit/test-results.xml --cov=. --cov-report=xml
-    displayName: 'Run Tests'
+  - job: Test
+    strategy:
+      matrix:
+        EARLIEST:
+          REQUIREMENTS_FILE: requirements/earliest.txt
+        LATEST:
+          REQUIREMENTS_FILE: requirements/latest.txt
+        DEV:
+          REQUIREMENTS_FILE: requirements/dev.txt
 
-  - script: |
-      pre-commit install --install-hooks
-      pre-commit run --all-files --show-diff-on-failure
-    displayName: 'Lint'
+    steps:
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        displayName: Add conda to PATH
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: '**/test-*.xml'
-      testRunTitle: 'Publish test results for Python $(python.version)'
+      - script: |
+          conda install -y -c conda-forge python=3 pre-commit
+          pip install -r $(REQUIREMENTS_FILE)
+        displayName: 'Install dependencies'
 
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: Cobertura
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      - script: |
+          pytest --host="localhost:10000" adlfs/tests --junitxml=junit/test-results.xml --cov=. --cov-report=xml
+        displayName: 'Run Tests'
+
+      - task: PublishTestResults@2
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFiles: '**/test-*.xml'
+          testRunTitle: 'Publish test results for Python $(REQUIREMENTS_FILE)'
+
+      - task: PublishCodeCoverageResults@1
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
