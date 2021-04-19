@@ -422,7 +422,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.account_key is None
             and self.sas_token is None
         ):
-            if(self.client_id is not None):
+            if self.client_id is not None:
                 (
                     self.credential,
                     self.sync_credential,
@@ -507,8 +507,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         from azure.identity.aio import (
             DefaultAzureCredential as AIODefaultAzureCredential,
         )
-        return (AIODefaultAzureCredential(), DefaultAzureCredential())
 
+        return (AIODefaultAzureCredential(), DefaultAzureCredential())
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
