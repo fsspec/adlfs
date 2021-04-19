@@ -496,7 +496,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def _get_default_credential(self):
         """
         Use azure identity default credential resolver method. This is useful both for local development
-        (eg. to use VS Code token cache) and on Azure by using managed identity. 
+        (eg. to use VS Code token cache) and on Azure by using managed identity.
         https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential
 
         Returns
