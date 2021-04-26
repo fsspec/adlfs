@@ -370,7 +370,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_secret: str = None,
         tenant_id: str = None,
         location_mode: str = "primary",
-        protocol: str = "blob"
+        protocol: str = "blob",
         loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
