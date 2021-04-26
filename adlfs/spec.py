@@ -392,7 +392,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
-        self.protocol = protocol
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
@@ -485,7 +484,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     conn_str=self.connection_string
                 )
             elif self.account_name:
-                self.account_url: str = f"https://{self.account_name}.{self.protocol}.core.windows.net"
+                self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
@@ -1664,13 +1663,13 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         try:
             self.fs.account_url: str = (
-                f"https://{self.fs.account_name}.dfs.core.windows.net"
+                f"https://{self.fs.account_name}.blob.core.windows.net"
             )
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
                 self.container_client = [
                     AIOBlobServiceClient(
-                        account_url=self.fs.account_url, credential=cred
+                        account_url=self.fs.account_url, credential=cred, _location_mode=self.fs.location_mode
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
