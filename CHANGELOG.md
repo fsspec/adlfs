@@ -1,4 +1,9 @@
 **Change Log**
+v0.7.4
+------
+- Added the location_mode parameter to AzureBlobFileSystem object, and set default to "primary" to enable Access Control Lists and RA-GRS access.  Valid values are "primary" and "secondary"
+
+
 v0.7.2
 -----
 - Now can create / destroy containers with `mkdir()`/`rmdir()` without needing to

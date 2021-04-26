@@ -71,7 +71,8 @@ Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob S
         account_key
         sas_token
         connection_string
-        or Azure ServicePrincipal credentials (tenant_id, client_id, client_secret)
+        Azure ServicePrincipal credentials (which requires tenant_id, client_id, client_secret)
+        location_mode:  valid value are "primary" or "secondary" and apply to RA-GRS accounts
 
     The following enviornmental variables can also be set and picked up for authentication:
         "AZURE_STORAGE_CONNECTION_STRING"
