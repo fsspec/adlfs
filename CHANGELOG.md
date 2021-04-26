@@ -1,4 +1,9 @@
 **Change Log**
+v0.7.4
+------
+- Updated endpoint from blob to dfs to enable access control lists in abfs protocol
+
+
 v0.7.2
 -----
 - Now can create / destroy containers with `mkdir()`/`rmdir()` without needing to

@@ -1660,7 +1660,7 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         try:
             self.fs.account_url: str = (
-                f"https://{self.fs.account_name}.blob.core.windows.net"
+                f"https://{self.fs.account_name}.dfs.core.windows.net"
             )
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
