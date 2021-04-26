@@ -369,7 +369,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
-        location_mode: str = None,
+        location_mode: str = "primary",
+        protocol: str = "blob"
         loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
@@ -391,7 +392,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
-        self.location_mode = location_mode or os.getenv("AZURE_STORAGE_LOCATION_MODE")
+        self.protocol = protocol
+        self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
         self.socket_timeout = socket_timeout
@@ -483,7 +485,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     conn_str=self.connection_string
                 )
             elif self.account_name:
-                self.account_url: str = f"https://{self.account_name}.dfs.core.windows.net"
+                self.account_url: str = f"https://{self.account_name}.{self.protocol}.core.windows.net"
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
