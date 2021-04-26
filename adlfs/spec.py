@@ -481,7 +481,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     conn_str=self.connection_string
                 )
             elif self.account_name:
-                self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
+                self.account_url: str = f"https://{self.account_name}.dfs.core.windows.net"
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
