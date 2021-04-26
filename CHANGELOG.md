@@ -1,7 +1,7 @@
 **Change Log**
 v0.7.4
 ------
-- Updated endpoint from blob to dfs to enable access control lists in abfs protocol
+- Added the location_mode parameter to AzureBlobFileSystem object, and set default to "primary" to enable Access Control Lists and RA-GRS access.  Valid values are "primary" and "secondary"
 
 
 v0.7.2
