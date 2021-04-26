@@ -486,7 +486,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if any(creds):
                     self.service_client = [
                         AIOBlobServiceClient(
-                            account_url=self.account_url, credential=cred
+                            account_url=self.account_url, credential=cred, _location_mode="primary",
                         )
                         for cred in creds
                         if cred is not None
