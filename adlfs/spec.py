@@ -505,7 +505,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
                 else:
                     self.service_client = AIOBlobServiceClient(
-                        account_url=self.account_url
+                        account_url=self.account_url, loop=self.loop
                     )
             else:
                 raise ValueError(
