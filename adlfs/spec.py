@@ -140,7 +140,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
             path=path, detail=detail, invalidate_cache=invalidate_cache
         )
 
-        for file in files:
+        for file in (file for file in files if type(file) is dict):
             if "type" in file:
                 file["type"] = file["type"].lower()
             if "length" in file:
