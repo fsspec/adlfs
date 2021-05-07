@@ -356,6 +356,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     protocol = "abfs"
 
+
     def __init__(
         self,
         account_name: str = None,
@@ -381,7 +382,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
             if k in kwargs
         }  # pass on to fsspec superclass
-        super().__init__(asynchronous=asynchronous, loop=loop, **super_kwargs)
+        super().__init__(
+            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
+        )
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.connection_string = connection_string or os.getenv(
@@ -459,6 +462,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             tenant_id=self.tenant_id,
             client_id=self.client_id,
             client_secret=self.client_secret,
+            # loop = self.loop,
         )
 
         sync_credential = ClientSecretCredential(
