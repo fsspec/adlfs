@@ -444,6 +444,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
+    @contextmanager
+    def _temp_event_loop():
+        try:
+            original_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            original_loop = None
+        
+        loop = original_loop or asyncio.new_event_loop()
+    
+        try:
+            asyncio.set_event_loop(loop)
+            yield
+        finally:
+            if original_loop is None:
+                loop.close()
+            asyncio.set_event_loop(original_loop)
+
     def _get_credential_from_service_principal(self):
         """
         Create a Credential for authentication.  This can include a TokenCredential
@@ -458,12 +475,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ClientSecretCredential as AIOClientSecretCredential,
         )
 
-        async_credential = AIOClientSecretCredential(
-            tenant_id=self.tenant_id,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            loop = self.loop,
-        )
+        with _temp_event_loop():
+            async_credential = AIOClientSecretCredential(
+                tenant_id=self.tenant_id,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+            )
 
         sync_credential = ClientSecretCredential(
             tenant_id=self.tenant_id,
