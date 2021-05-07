@@ -383,8 +383,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(
-            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
+            asynchronous=asynchronous, loop=loop or get_loop(),
+            **super_kwargs
         )
+
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.connection_string = connection_string or os.getenv(
@@ -444,22 +446,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-    @contextmanager
-    def _temp_event_loop():
-        try:
-            original_loop = asyncio.get_event_loop()
-        except RuntimeError:
-            original_loop = None
-        
-        loop = original_loop or asyncio.new_event_loop()
-    
-        try:
-            asyncio.set_event_loop(loop)
-            yield
-        finally:
-            if original_loop is None:
-                loop.close()
-            asyncio.set_event_loop(original_loop)
 
     def _get_credential_from_service_principal(self):
         """
@@ -475,8 +461,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ClientSecretCredential as AIOClientSecretCredential,
         )
 
-        with _temp_event_loop():
-            async_credential = AIOClientSecretCredential(
+        async_credential = AIOClientSecretCredential(
                 tenant_id=self.tenant_id,
                 client_id=self.client_id,
                 client_secret=self.client_secret,
@@ -490,6 +475,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return (async_credential, sync_credential)
 
+
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
@@ -498,7 +484,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ------
         ValueError if none of the connection details are available
         """
+
         try:
+
             if self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.connection_string
@@ -532,6 +520,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 raise ValueError(
                     "Must provide either a connection_string or account_name with credentials!!"
                 )
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+            self.do_connect()
 
         except Exception as e:
             raise ValueError(f"unable to connect to account for {e}")
@@ -1625,6 +1618,8 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
+        self.loop = self.fs.loop or get_loop()
+
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
             or self.connect_client()
@@ -1637,7 +1632,6 @@ class AzureBlobFile(AbstractBufferedFile):
         self.end = None
         self.start = None
         self.closed = False
-        self.loop = self.fs.loop or get_loop()
 
         if cache_options is None:
             cache_options = {}
@@ -1686,6 +1680,7 @@ class AzureBlobFile(AbstractBufferedFile):
         ValueError if none of the connection details are available
         """
         try:
+
             self.fs.account_url: str = (
                 f"https://{self.fs.account_name}.blob.core.windows.net"
             )
@@ -1716,7 +1711,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
-            ) from e
+            )
 
     async def _async_fetch_range(self, start: int, end: int, **kwargs):
         """
