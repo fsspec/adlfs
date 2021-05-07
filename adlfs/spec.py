@@ -462,7 +462,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             tenant_id=self.tenant_id,
             client_id=self.client_id,
             client_secret=self.client_secret,
-            # loop = self.loop,
+            loop = self.loop,
         )
 
         sync_credential = ClientSecretCredential(
