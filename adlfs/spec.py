@@ -482,7 +482,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         try:
-
             if self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
                     conn_str=self.connection_string
@@ -1615,7 +1614,6 @@ class AzureBlobFile(AbstractBufferedFile):
         self.blob = blob
         self.block_size = block_size
         self.loop = self.fs.loop or get_loop()
-
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
             or self.connect_client()
