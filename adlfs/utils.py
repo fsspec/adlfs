@@ -41,4 +41,3 @@ async def close_container_client(file_obj):
     AzureBlobFile objects
     """
     await file_obj.container_client.close()
-

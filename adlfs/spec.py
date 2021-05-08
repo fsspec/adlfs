@@ -356,7 +356,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     protocol = "abfs"
 
-
     def __init__(
         self,
         account_name: str = None,
@@ -383,8 +382,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(
-            asynchronous=asynchronous, loop=loop or get_loop(),
-            **super_kwargs
+            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
         )
 
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
@@ -446,7 +444,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
 
-
     def _get_credential_from_service_principal(self):
         """
         Create a Credential for authentication.  This can include a TokenCredential
@@ -462,10 +459,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )
 
         async_credential = AIOClientSecretCredential(
-                tenant_id=self.tenant_id,
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-            )
+            tenant_id=self.tenant_id,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )
 
         sync_credential = ClientSecretCredential(
             tenant_id=self.tenant_id,
@@ -474,7 +471,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )
 
         return (async_credential, sync_credential)
-
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
