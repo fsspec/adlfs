@@ -1615,9 +1615,9 @@ class AzureBlobFile(AbstractBufferedFile):
         self.block_size = block_size
 
         try:
-            # Need to confirm there is an event loop running in 
+            # Need to confirm there is an event loop running in
             # the thread. If not, create the fsspec loop
-            # and set it.  This is to handle issues with 
+            # and set it.  This is to handle issues with
             # Async Credentials from the Azure SDK
             loop = asyncio.get_running_loop()
 
