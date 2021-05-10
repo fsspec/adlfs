@@ -1613,6 +1613,18 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
+
+        try:
+            # Need to confirm there is an event loop running in 
+            # the thread. If not, create the fsspec loop
+            # and set it.  This is to handle issues with 
+            # Async Credentials from the Azure SDK
+            loop = asyncio.get_running_loop()
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+
         self.loop = self.fs.loop or get_loop()
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
