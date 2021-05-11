@@ -382,8 +382,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(
-            asynchronous=asynchronous, loop=loop or get_loop(),
-            **super_kwargs
+            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
         )
 
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
