@@ -381,7 +381,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
             if k in kwargs
         }  # pass on to fsspec superclass
-        super().__init__(asynchronous=asynchronous, loop=loop, **super_kwargs)
+        super().__init__(
+            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
+        )
+
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.account_key = account_key or os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.connection_string = connection_string or os.getenv(
@@ -477,6 +480,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ------
         ValueError if none of the connection details are available
         """
+
         try:
             if self.connection_string is not None:
                 self.service_client = AIOBlobServiceClient.from_connection_string(
@@ -511,6 +515,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 raise ValueError(
                     "Must provide either a connection_string or account_name with credentials!!"
                 )
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+            self.do_connect()
 
         except Exception as e:
             raise ValueError(f"unable to connect to account for {e}")
@@ -1604,6 +1613,19 @@ class AzureBlobFile(AbstractBufferedFile):
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
+
+        try:
+            # Need to confirm there is an event loop running in
+            # the thread. If not, create the fsspec loop
+            # and set it.  This is to handle issues with
+            # Async Credentials from the Azure SDK
+            loop = asyncio.get_running_loop()
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+
+        self.loop = self.fs.loop or get_loop()
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
             or self.connect_client()
@@ -1616,7 +1638,6 @@ class AzureBlobFile(AbstractBufferedFile):
         self.end = None
         self.start = None
         self.closed = False
-        self.loop = self.fs.loop or get_loop()
 
         if cache_options is None:
             cache_options = {}
@@ -1665,6 +1686,7 @@ class AzureBlobFile(AbstractBufferedFile):
         ValueError if none of the connection details are available
         """
         try:
+
             self.fs.account_url: str = (
                 f"https://{self.fs.account_name}.blob.core.windows.net"
             )
@@ -1695,7 +1717,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
-            ) from e
+            )
 
     async def _async_fetch_range(self, start: int, end: int, **kwargs):
         """
