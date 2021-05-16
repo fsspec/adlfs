@@ -53,6 +53,8 @@ def storage(host):
     container_client.upload_blob(
         "root/d/file_with_metadata.txt", data, metadata=metadata
     )
+    container_client.upload_blob("root/e+f/file1.txt", data)
+    container_client.upload_blob("root/e+f/file2.txt", data)
     yield bbs
 
 
