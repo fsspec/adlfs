@@ -110,8 +110,14 @@ def test_ls(storage):
     assert fs.ls("data/root/b/") == ["data/root/b/file.txt"]
     assert fs.ls("data/root/a1") == ["data/root/a1/file1.txt"]
     assert fs.ls("data/root/a1/") == ["data/root/a1/file1.txt"]
-    assert fs.ls("data/root/e+f") == ["data/root/e+f/file1.txt", "data/root/e+f/file2.txt"]
-    assert fs.ls("data/root/e+f/") == ["data/root/e+f/file1.txt", "data/root/e+f/file2.txt"]
+    assert fs.ls("data/root/e+f") == [
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+    ]
+    assert fs.ls("data/root/e+f/") == [
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+    ]
 
     ## file details
     files = fs.ls("data/root/a/file.txt", detail=True)

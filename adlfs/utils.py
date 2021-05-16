@@ -12,9 +12,9 @@ async def filter_blobs(blobs, target_path, delimiter="/"):
             Delimiter used to separate containers and files
     """
     # remove delimiter and spaces, then add delimiter at the end
-    target_path = target_path.strip(" "+delimiter)+delimiter
+    target_path = target_path.strip(" " + delimiter) + delimiter
     finalblobs = [
-        b for b in blobs if b["name"].strip(" "+delimiter).startswith(target_path)
+        b for b in blobs if b["name"].strip(" " + delimiter).startswith(target_path)
     ]
     return finalblobs
 
