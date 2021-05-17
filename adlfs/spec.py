@@ -881,7 +881,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if len(output) == 1 and output[0]["type"] == "file":
                 # This handles the case where path is a file passed to ls
                 return output
-            output = await filter_blobs(output, target_path)
+            output = await filter_blobs(output, target_path, delimiter)
 
         return output
 

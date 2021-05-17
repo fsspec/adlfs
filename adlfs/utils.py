@@ -1,7 +1,4 @@
-import re
-
-
-async def filter_blobs(blobs, target_path):
+async def filter_blobs(blobs, target_path, delimiter="/"):
     """
     Filters out blobs that do not come from target_path
 
@@ -10,9 +7,14 @@ async def filter_blobs(blobs, target_path):
     blobs:  A list of candidate blobs to be returned from Azure
 
     target_path: Actual prefix of the blob folder
+
+    delimiter: str
+            Delimiter used to separate containers and files
     """
+    # remove delimiter and spaces, then add delimiter at the end
+    target_path = target_path.strip(" " + delimiter) + delimiter
     finalblobs = [
-        b for b in blobs if re.search(r"\b" + target_path + r"(?=/)" + r"\b", b["name"])
+        b for b in blobs if b["name"].strip(" " + delimiter).startswith(target_path)
     ]
     return finalblobs
 

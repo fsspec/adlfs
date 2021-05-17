@@ -88,6 +88,7 @@ def test_ls(storage):
         "data/root/b",
         "data/root/c",
         "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
     assert fs.ls("data/root/") == [
@@ -96,6 +97,7 @@ def test_ls(storage):
         "data/root/b",
         "data/root/c",
         "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
 
@@ -108,6 +110,14 @@ def test_ls(storage):
     assert fs.ls("data/root/b/") == ["data/root/b/file.txt"]
     assert fs.ls("data/root/a1") == ["data/root/a1/file1.txt"]
     assert fs.ls("data/root/a1/") == ["data/root/a1/file1.txt"]
+    assert fs.ls("data/root/e+f") == [
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+    ]
+    assert fs.ls("data/root/e+f/") == [
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+    ]
 
     ## file details
     files = fs.ls("data/root/a/file.txt", detail=True)
@@ -356,6 +366,8 @@ def test_find(storage):
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root", withdirs=False) == [
@@ -365,6 +377,8 @@ def test_find(storage):
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
 
@@ -381,6 +395,9 @@ def test_find(storage):
         "data/root/c/file2.txt",
         "data/root/d/",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
@@ -395,6 +412,9 @@ def test_find(storage):
         "data/root/c/file2.txt",
         "data/root/d/",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
 
@@ -470,6 +490,7 @@ def test_glob(storage):
         "data/root/b",
         "data/root/c",
         "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
     assert fs.glob("data/root/*") == [
@@ -478,6 +499,7 @@ def test_glob(storage):
         "data/root/b",
         "data/root/c",
         "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
 
@@ -495,6 +517,8 @@ def test_glob(storage):
         "data/root/a1/file1.txt",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
     ]
 
     ## text files
@@ -505,6 +529,8 @@ def test_glob(storage):
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
     ]
 
     ## all text files
@@ -515,6 +541,8 @@ def test_glob(storage):
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
 
@@ -531,6 +559,9 @@ def test_glob(storage):
         "data/root/c/file2.txt",
         "data/root/d",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.glob("data/roo**") == [
@@ -546,6 +577,9 @@ def test_glob(storage):
         "data/root/c/file2.txt",
         "data/root/d",
         "data/root/d/file_with_metadata.txt",
+        "data/root/e+f",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
 
