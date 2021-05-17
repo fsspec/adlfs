@@ -206,6 +206,14 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     def size(self, path):
         return self.info(path)["length"]
 
+    def rmdir(self, path):
+        """Remove a directory, if empty"""
+        self.azure_fs.rmdir(path)
+
+    def rm_file(self, path):
+        """Delete a file"""
+        self.azure_fs.rm(path)
+
     def __getstate__(self):
         dic = self.__dict__.copy()
         logger.debug("Serialize with state: %s", dic)
