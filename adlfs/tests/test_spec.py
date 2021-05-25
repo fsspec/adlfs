@@ -1206,3 +1206,21 @@ def test_exists(storage):
     assert not fs.exists("non-existent-container/")
     assert fs.exists("")
     assert not fs.exists("data/not-a-key")
+
+
+def test_exists_directory(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    fs.mkdir("temp_exists")
+    fs.touch("temp_exists/data/data.txt")
+    fs.touch("temp_exists/data/something/data.txt")
+    fs.invalidate_cache()
+
+    assert fs.exists("temp_exists/data/something/")
+    assert fs.exists("temp_exists/data/something")
+    assert fs.exists("temp_exists/data/")
+    assert fs.exists("temp_exists/data")
+    assert fs.exists("temp_exists/")
+    assert fs.exists("temp_exists")
