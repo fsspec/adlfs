@@ -1,3 +1,5 @@
+import os
+import tempfile
 import datetime
 import dask.dataframe as dd
 from fsspec.implementations.local import LocalFileSystem
@@ -830,7 +832,6 @@ def test_deep_paths(storage):
 
 
 def test_large_blob(storage):
-    import tempfile
     import hashlib
     import io
     import shutil
@@ -1125,14 +1126,20 @@ def test_put_file(storage):
     lfs.rm("sample2.txt")
 
     # Check that put on a file with data works
-    with open("sample3.txt", "wb") as f:
+    with tempfile.NamedTemporaryFile("wb") as f:
         f.write(b"01234567890")
-    fs.put("sample3.txt", "putdir/sample3.txt")
-    fs.get("putdir/sample3.txt", "sample4.txt")
-    with open("sample3.txt", "rb") as f:
-        f3 = f.read()
-    with open("sample4.txt", "rb") as f:
-        f4 = f.read()
+
+        fs.put(f.name, "putdir/sample3.txt")
+        with open(f.name, "rb") as g:
+            f3 = g.read()
+
+    with tempfile.TemporaryDirectory() as td:
+        dst = os.path.join(td, "sample4.txt")
+        fs.get("putdir/sample3.txt", dst)
+
+        with open(dst, "rb") as f:
+            f4 = f.read()
+
     assert f3 == f4
     fs.rm("putdir", recursive=True)
 
