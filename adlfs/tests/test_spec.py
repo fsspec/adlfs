@@ -1242,3 +1242,21 @@ def test_exists(storage):
     assert not fs.exists("non-existent-container/")
     assert fs.exists("")
     assert not fs.exists("data/not-a-key")
+
+
+def test_ls_no_listings_cache(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        use_listings_cache=False,
+    )
+    result = fs.ls("data/root")
+    assert result == [
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
+        "data/root/e+f",
+        "data/root/rfile.txt",
+    ]

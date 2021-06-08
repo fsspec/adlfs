@@ -743,6 +743,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if invalidate_cache:
             self.dircache.clear()
+
+        cache = {}
         if (container in ["", ".", "*", delimiter]) and (path in ["", delimiter]):
             if _ROOT_PATH not in self.dircache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
@@ -752,9 +754,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 contents = self.service_client.list_containers(include_metadata=True)
                 containers = [c async for c in contents]
                 files = await self._details(containers)
-                self.dircache[_ROOT_PATH] = files
+                # self.dircache[_ROOT_PATH] = files
+                cache[_ROOT_PATH] = files
 
-            return self.dircache[_ROOT_PATH]
+            self.dircache.update(cache)
+            return cache[_ROOT_PATH]
         else:
             if target_path not in self.dircache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
@@ -815,9 +819,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         if not await self._exists(target_path):
                             raise FileNotFoundError
                         return []
+                    cache[target_path] = finalblobs
                     self.dircache[target_path] = finalblobs
 
-            return self.dircache[target_path]
+            return cache[target_path]
 
     async def _details(
         self,
