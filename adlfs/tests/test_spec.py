@@ -1158,7 +1158,8 @@ def test_cat(storage):
     data = b"0123456789"
     with fs.open("catdir/catfile.txt", "wb") as f:
         f.write(data)
-    assert fs.cat("catdir/catfile.txt") == data
+    result = fs.cat("catdir/catfile.txt")
+    assert result == data
     fs.rm("catdir/catfile.txt")
 
 
