@@ -1309,6 +1309,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     pipe_file = sync_wrapper(_pipe_file)
 
+    async def _cat_file(self, path, start=None, end=None, **kwargs):
+        path = self._strip_protocol(path)
+        if end is not None:
+            start = start or 0  # download_blob requires start if length is provided.
+            length = end - start
+        else:
+            length = None
+        container_name, path = self.split_path(path)
+        async with self.service_client.get_blob_client(
+            container=container_name, blob=path
+        ) as bc:
+            try:
+                stream = await bc.download_blob(offset=start, length=length)
+            except ResourceNotFoundError as e:
+                raise FileNotFoundError from e
+            result = await stream.readall()
+            return result
+
     def cat(self, path, recursive=False, on_error="raise", **kwargs):
         """Fetch (potentially multiple) paths' contents
         Returns a dict of {path: contents} if there are multiple paths
