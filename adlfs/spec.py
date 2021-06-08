@@ -1275,8 +1275,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except KeyError:
             pass
 
-        full_path = self._strip_protocol(path)
-        container_name, path = self.split_path(full_path)
+        container_name, path = self.split_path(path)
 
         if not path:
             if container_name:
