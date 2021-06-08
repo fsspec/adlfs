@@ -931,8 +931,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             infos = await self._details([b async for b in blobs])
             for info in infos:
                 name = info["name"]
-                if name == target_path:
-                    continue
                 parent_dir = self._parent(name).rstrip("/") + "/"
                 if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
                     dir_set.add(parent_dir)
