@@ -1,4 +1,8 @@
 **Change Log**
+v0.7.5
+------
+- `exists()` calls now also checks whether a directory with that name exists or not. Previously this was only checked from the cache.
+
 v0.7.4
 ------
 - Added the location_mode parameter to AzureBlobFileSystem object, and set default to "primary" to enable Access Control Lists and RA-GRS access.  Valid values are "primary" and "secondary"
