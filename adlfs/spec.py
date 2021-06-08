@@ -1289,7 +1289,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if await bc.exists():
                 return True
 
-        dir_path = path.lstrip("/") + "/"
+        dir_path = path.rstrip("/") + "/"
         async with self.service_client.get_container_client(
             container=container_name
         ) as container_client:
