@@ -912,8 +912,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Only return files that match `^{path}/{prefix}`
         kwargs are passed to ``ls``.
         """
-        path = self._strip_protocol(path)
-        parent_path = path.strip("/") + "/"
+        full_path = self._strip_protocol(path)
+        parent_path = full_path.strip("/") + "/"
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
         container, path = self.split_path(target_path)
 
@@ -931,8 +931,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             infos = await self._details([b async for b in blobs])
         except ResourceNotFoundError:
             # find doesn't raise but returns [] or {} instead
-            pass
-        else:
             infos = []
 
         for info in infos:
@@ -952,7 +950,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if not infos:
             try:
-                file = await self._info(target_path)
+                file = await self._info(full_path)
             except FileNotFoundError:
                 pass
             else:
