@@ -1293,7 +1293,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_container_client(
             container=container_name
         ) as container_client:
-            async for blob in container_client.list_blobs(name_starts_with=dir_path):
+            async for blob in container_client.list_blobs(
+                results_per_page=1, name_starts_with=dir_path
+            ):
                 return True
             else:
                 return False
