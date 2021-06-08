@@ -912,8 +912,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Only return files that match `^{path}/{prefix}`
         kwargs are passed to ``ls``.
         """
-        path = self._strip_protocol(path)
-        parent_path = path.strip("/") + "/"
+        full_path = self._strip_protocol(path)
+        parent_path = full_path.strip("/") + "/"
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
         container, path = self.split_path(target_path)
 
@@ -929,26 +929,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         try:
             infos = await self._details([b async for b in blobs])
-            for info in infos:
-                name = info["name"]
-                if name == target_path:
-                    continue
-                parent_dir = self._parent(name).rstrip("/") + "/"
-                if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
-                    dir_set.add(parent_dir)
-                    dirs[parent_dir] = {
-                        "name": parent_dir,
-                        "type": "directory",
-                        "size": 0,
-                    }
-                if info["type"] == "directory":
-                    dirs[name] = info
-                if info["type"] == "file":
-                    files[name] = info
-
         except ResourceNotFoundError:
             # find doesn't raise but returns [] or {} instead
-            pass
+            infos = []
+
+        for info in infos:
+            name = info["name"]
+            parent_dir = self._parent(name).rstrip("/") + "/"
+            if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
+                dir_set.add(parent_dir)
+                dirs[parent_dir] = {
+                    "name": parent_dir,
+                    "type": "directory",
+                    "size": 0,
+                }
+            if info["type"] == "directory":
+                dirs[name] = info
+            if info["type"] == "file":
+                files[name] = info
+
+        if not infos:
+            try:
+                file = await self._info(full_path)
+            except FileNotFoundError:
+                pass
+            else:
+                files[file["name"]] = file
+
         if withdirs:
             if not with_parent:
                 dirs.pop(target_path, None)

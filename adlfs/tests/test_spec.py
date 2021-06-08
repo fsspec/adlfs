@@ -1260,3 +1260,31 @@ def test_exists_directory(storage):
     assert fs.exists("temp_exists/data")
     assert fs.exists("temp_exists/")
     assert fs.exists("temp_exists")
+
+
+def test_find_with_prefix(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    test_bucket_name = "data"
+
+    for cursor in range(25):
+        fs.touch(test_bucket_name + f"/prefixes/test_{cursor}")
+
+    fs.touch(test_bucket_name + "/prefixes2")
+    assert len(fs.find(test_bucket_name + "/prefixes")) == 25
+    assert len(fs.find(test_bucket_name, prefix="prefixes")) == 26
+
+    assert len(fs.find(test_bucket_name + "/prefixes/test_")) == 0
+    assert len(fs.find(test_bucket_name + "/prefixes", prefix="test_")) == 25
+    assert len(fs.find(test_bucket_name + "/prefixes/", prefix="test_")) == 25
+
+    test_1s = fs.find(test_bucket_name + "/prefixes/test_1")
+    assert len(test_1s) == 1
+    assert test_1s[0] == test_bucket_name + "/prefixes/test_1"
+
+    test_1s = fs.find(test_bucket_name + "/prefixes/", prefix="test_1")
+    assert len(test_1s) == 11
+    assert test_1s == [test_bucket_name + "/prefixes/test_1"] + [
+        test_bucket_name + f"/prefixes/test_{cursor}" for cursor in range(10, 20)
+    ]
