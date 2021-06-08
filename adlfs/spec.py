@@ -1292,8 +1292,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return True
 
         async with self.service_client.get_blob_client(container_name, path) as bc:
-            exists = await bc.exists()
-        return exists
+            if await bc.exists():
+                return True
+
+        dir_path = path.rstrip("/") + "/"
+        async with self.service_client.get_container_client(
+            container=container_name
+        ) as container_client:
+            async for blob in container_client.list_blobs(
+                results_per_page=1, name_starts_with=dir_path
+            ):
+                return True
+            else:
+                return False
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""

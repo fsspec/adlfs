@@ -1244,11 +1244,28 @@ def test_exists(storage):
     assert not fs.exists("data/not-a-key")
 
 
-def test_find_with_prefix(storage):
+def test_exists_directory(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
+    fs.mkdir("temp_exists")
+    fs.touch("temp_exists/data/data.txt")
+    fs.touch("temp_exists/data/something/data.txt")
+    fs.invalidate_cache()
+
+    assert fs.exists("temp_exists/data/something/")
+    assert fs.exists("temp_exists/data/something")
+    assert fs.exists("temp_exists/data/")
+    assert fs.exists("temp_exists/data")
+    assert fs.exists("temp_exists/")
+    assert fs.exists("temp_exists")
+
+
+def test_find_with_prefix(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
     test_bucket_name = "data"
 
     for cursor in range(25):
