@@ -1304,7 +1304,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _cat_file(self, path, start=None, end=None, **kwargs):
         if end is not None:
-            length = end - (start or 0)
+            start = start or 0  # download_blob requires start if length is provided.
+            length = end - start
         else:
             length = None
         container_name, path = self.split_path(path)
