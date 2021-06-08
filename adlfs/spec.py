@@ -1275,8 +1275,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except KeyError:
             pass
 
-        full_path = path
-        container_name, path = self.split_path(path)
+        full_path = self._strip_protocol(path)
+        container_name, path = self.split_path(full_path)
 
         if not path:
             if container_name:
@@ -1286,9 +1286,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return True
 
         async with self.service_client.get_blob_client(container_name, path) as bc:
-            exists = await bc.exists()
+            if await bc.exists():
+                return True
 
-        return exists or await super()._exists(full_path)
+        dir_path = path.lstrip("/") + "/"
+        async with self.service_client.get_container_client(
+            container=container_name
+        ) as container_client:
+            async for blob in container_client.list_blobs(name_starts_with=dir_path):
+                return True
+            else:
+                return False
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""
