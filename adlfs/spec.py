@@ -929,6 +929,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         try:
             infos = await self._details([b async for b in blobs])
+            try:
+                return [await self._info(target_path)]
+            except FileNotFoundError:
+                return []
+
             for info in infos:
                 name = info["name"]
                 parent_dir = self._parent(name).rstrip("/") + "/"
