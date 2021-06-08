@@ -1303,6 +1303,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     pipe_file = sync_wrapper(_pipe_file)
 
     async def _cat_file(self, path, start=None, end=None, **kwargs):
+        path = self._strip_protocol(path)
         if end is not None:
             start = start or 0  # download_blob requires start if length is provided.
             length = end - start
@@ -1312,7 +1313,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            stream = await bc.download_blob(offset=start, length=length)
+            try:
+                stream = await bc.download_blob(offset=start, length=length)
+            except ResourceNotFoundError as e:
+                raise FileNotFoundError from e
             result = await stream.readall()
             return result
 

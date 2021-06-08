@@ -1180,7 +1180,22 @@ def test_cat_file(storage):
 
     result = fs.cat_file("catdir/catfile.txt", end=2)
     assert result == b"01"
+
+    result = fs.cat_file("abfs://catdir/catfile.txt")
+    assert result == data
     fs.rm("catdir/catfile.txt")
+
+
+def test_cat_file_missing(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("catdir")
+    with pytest.raises(FileNotFoundError):
+        fs.cat_file("catdir/not/exist")
+
+    with pytest.raises(FileNotFoundError):
+        fs.cat_file("does/not/exist")
 
 
 def test_url(storage):
