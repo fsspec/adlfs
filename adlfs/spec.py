@@ -754,7 +754,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 contents = self.service_client.list_containers(include_metadata=True)
                 containers = [c async for c in contents]
                 files = await self._details(containers)
-                # self.dircache[_ROOT_PATH] = files
                 cache[_ROOT_PATH] = files
 
             self.dircache.update(cache)
