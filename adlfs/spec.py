@@ -929,29 +929,35 @@ class AzureBlobFileSystem(AsyncFileSystem):
         detail = kwargs.pop("detail", False)
         try:
             infos = await self._details([b async for b in blobs])
-            try:
-                return [await self._info(target_path)]
-            except FileNotFoundError:
-                return []
-
-            for info in infos:
-                name = info["name"]
-                parent_dir = self._parent(name).rstrip("/") + "/"
-                if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
-                    dir_set.add(parent_dir)
-                    dirs[parent_dir] = {
-                        "name": parent_dir,
-                        "type": "directory",
-                        "size": 0,
-                    }
-                if info["type"] == "directory":
-                    dirs[name] = info
-                if info["type"] == "file":
-                    files[name] = info
-
         except ResourceNotFoundError:
             # find doesn't raise but returns [] or {} instead
             pass
+        else:
+            infos = []
+
+        for info in infos:
+            name = info["name"]
+            parent_dir = self._parent(name).rstrip("/") + "/"
+            if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
+                dir_set.add(parent_dir)
+                dirs[parent_dir] = {
+                    "name": parent_dir,
+                    "type": "directory",
+                    "size": 0,
+                }
+            if info["type"] == "directory":
+                dirs[name] = info
+            if info["type"] == "file":
+                files[name] = info
+
+        if not infos:
+            try:
+                file = await self._info(target_path)
+            except FileNotFoundError:
+                pass
+            else:
+                files[file["name"]] = file
+
         if withdirs:
             if not with_parent:
                 dirs.pop(target_path, None)
