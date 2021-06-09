@@ -1,5 +1,5 @@
 **Change Log**
-v0.7.5
+v0.7.6
 ------
 
 - Compatability with fsspec 2021.6.0
