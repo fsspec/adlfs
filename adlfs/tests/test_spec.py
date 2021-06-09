@@ -254,6 +254,16 @@ def test_ls(storage):
         fs.ls("data/root/not-a-file.txt")
 
 
+def test_ls_no_listings_cache(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        use_listings_cache=False,
+    )
+    result = fs.ls("data/root")
+    assert len(result) > 0  # some state leaking between tests
+
+
 def test_info(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR

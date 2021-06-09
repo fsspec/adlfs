@@ -737,14 +737,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return_glob: bool
 
         """
-        logger.debug(f"abfs.ls() is searching for {path}")
+        logger.debug("abfs.ls() is searching for %s", path)
         target_path = path.strip("/")
         container, path = self.split_path(path)
 
         if invalidate_cache:
             self.dircache.clear()
+
+        cache = {}
+        cache.update(self.dircache)
+
         if (container in ["", ".", "*", delimiter]) and (path in ["", delimiter]):
-            if _ROOT_PATH not in self.dircache or invalidate_cache or return_glob:
+            if _ROOT_PATH not in cache or invalidate_cache or return_glob:
                 # This is the case where only the containers are being returned
                 logger.info(
                     "Returning a list of containers in the azure blob storage account"
@@ -752,11 +756,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 contents = self.service_client.list_containers(include_metadata=True)
                 containers = [c async for c in contents]
                 files = await self._details(containers)
-                self.dircache[_ROOT_PATH] = files
+                cache[_ROOT_PATH] = files
 
-            return self.dircache[_ROOT_PATH]
+            self.dircache.update(cache)
+            return cache[_ROOT_PATH]
         else:
-            if target_path not in self.dircache or invalidate_cache or return_glob:
+            if target_path not in cache or invalidate_cache or return_glob:
                 if container not in ["", delimiter]:
                     # This is the case where the container name is passed
                     async with self.service_client.get_container_client(
@@ -815,9 +820,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         if not await self._exists(target_path):
                             raise FileNotFoundError
                         return []
+                    cache[target_path] = finalblobs
                     self.dircache[target_path] = finalblobs
 
-            return self.dircache[target_path]
+            return cache[target_path]
 
     async def _details(
         self,
