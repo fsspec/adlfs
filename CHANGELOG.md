@@ -1,7 +1,12 @@
 **Change Log**
-v0.7.5
+v0.7.6
 ------
-- `exists()` calls now also checks whether a directory with that name exists or not. Previously this was only checked from the cache.
+
+- Compatability with fsspec 2021.6.0
+- `exists()` calls now also checks whether a directory with that name exists or not. Previously this was only checked from the cache
+- Fixed bug in `find` not returning exact matches
+- Added `AzureDatalakeFileSystem.rm_file` and `AzureDatalakeFileSystem.rmdir`
+- Fixed bug in `filter_blobs` when target path contained a special character
 
 v0.7.4
 ------
