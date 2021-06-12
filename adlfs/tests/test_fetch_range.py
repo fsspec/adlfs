@@ -1,6 +1,4 @@
-import pytest
-
-from adlfs import AzureBlobFileSystem, AzureBlobFile
+from adlfs import AzureBlobFileSystem
 
 
 URL = "http://127.0.0.1:10000"
@@ -22,7 +20,7 @@ def test_fetch_first_half(storage):
         account_name=storage.account_name, connection_string=CONN_STR,
     )
     blob = fs.open("data/top_file.txt")
-    assert len(blob._fetch_range(start=0, length=5)) == 5
+    assert len(blob._fetch_range(start=0, end=5)) == 5
 
 
 def test_fetch_second_half(storage):
@@ -31,7 +29,7 @@ def test_fetch_second_half(storage):
         account_name=storage.account_name, connection_string=CONN_STR,
     )
     blob = fs.open("data/top_file.txt")
-    assert len(blob._fetch_range(start=5, length=10)) == 5
+    assert len(blob._fetch_range(start=5, end=10)) == 5
 
 
 def test_fetch_middle(storage):
@@ -39,11 +37,12 @@ def test_fetch_middle(storage):
         account_name=storage.account_name, connection_string=CONN_STR,
     )
     blob = fs.open("data/top_file.txt")
-    assert len(blob._fetch_range(start=2, length=7)) == 7
+    assert len(blob._fetch_range(start=2, end=7)) == 5
+
 
 def test_fetch_length_is_none(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
     )
     blob = fs.open("data/top_file.txt")
-    assert len(blob._fetch_range(start=2, length=None)) == 8
+    assert len(blob._fetch_range(start=2, end=None)) == 8

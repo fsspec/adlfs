@@ -1709,10 +1709,10 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.details = self.fs.info(self.path)
             self.size = self.details["size"]
             self.cache = caches[cache_type](
-                blocksize = self.blocksize, 
-                fetcher = self._fetch_range, 
-                size = self.size, 
-                **cache_options
+                blocksize=self.blocksize,
+                fetcher=self._fetch_range,
+                size=self.size,
+                **cache_options,
             )
             self.metadata = sync(
                 self.loop, get_blob_metadata, self.container_client, self.blob
@@ -1772,7 +1772,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 f"Unable to fetch container_client with provided params for {e}!!"
             )
 
-    async def _async_fetch_range(self, start: int, length: int = None, **kwargs):
+    async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
         """
         Download a chunk of data specified by start and length
 
@@ -1780,12 +1780,16 @@ class AzureBlobFile(AbstractBufferedFile):
         ----------
         start: int
             Start byte position to download blob from
-        length: int
-            Length to download
+        end: int
+            End of the file chunk to download
         """
-        if length is not None:
-            if start + length > self.size:
+        if not end:
+            length = None
+        else:
+            if end > self.size:
                 length = self.size - start
+            else:
+                length = end - start
         async with self.container_client:
             stream = await self.container_client.download_blob(
                 blob=self.blob, offset=start, length=length
