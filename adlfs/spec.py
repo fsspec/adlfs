@@ -1785,7 +1785,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
     async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
         """
-        Download a chunk of data specified by start and length
+        Download a chunk of data specified by start and end
 
         Parameters
         ----------
