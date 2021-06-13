@@ -675,7 +675,7 @@ def test_mkdir(storage):
     # is False
     with pytest.raises(PermissionError):
         fs.mkdir("new-container", create_parents=False)
-    
+
     with pytest.raises(ValueError):
         fs.mkdir("bad_container_name", create_parents=True)
 
