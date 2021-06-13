@@ -1794,13 +1794,7 @@ class AzureBlobFile(AbstractBufferedFile):
         end: int
             End of the file chunk to download
         """
-        if not end:
-            length = None
-        else:
-            if end > self.size:
-                length = self.size - start
-            else:
-                length = end - start
+        length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
                 blob=self.blob, offset=start, length=length
