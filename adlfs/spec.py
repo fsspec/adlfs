@@ -1116,8 +1116,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
 
         if not container_exists:
-            await self.service_client.create_container(container_name)
-            self.invalidate_cache(_ROOT_PATH)
+            # Confirm that the container_name matches Azure conventions
+            if (2 < len(container_name) < 64) and container_name.islower() and (
+                not set(container_name).intersection("._,#()[]*%&^!@{}?<>/|"
+            )
+            ):
+                await self.service_client.create_container(container_name)
+                self.invalidate_cache(_ROOT_PATH)
+            else:
+                raise ValueError("Proposed container_name of %s does not meet Azure Requirements!", container_name)
 
         self.invalidate_cache(self._parent(fullpath))
 
