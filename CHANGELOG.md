@@ -1,5 +1,5 @@
 **Change Log**
-v0.7.7
+2021.07.0
 ------
 - Fixed bug in fetch_range that caused attempted reads beyond end of file
 - Added check to mkdir when creating a container to confirm container_name conforms
