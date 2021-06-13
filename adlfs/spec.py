@@ -1117,10 +1117,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if not container_exists:
             # Confirm that the container_name matches Azure conventions
-            if (
-                (2 < len(container_name) < 64)
-                and container_name.islower()
-                and (not set(container_name).intersection("._,#()[]*%&^!@{}?<>/|"))
+            if all([
+                (2 < len(container_name) < 64),
+                container_name.islower(),
+                (not set(container_name).intersection("._,#()[]*%&^!@{}?<>/|")),
+            ]
             ):
                 await self.service_client.create_container(container_name)
                 self.invalidate_cache(_ROOT_PATH)
@@ -1794,7 +1795,10 @@ class AzureBlobFile(AbstractBufferedFile):
         end: int
             End of the file chunk to download
         """
-        length = None if end is None else (end - start)
+        if end and (end > self.size):
+            length = self.size - start
+        else:
+            length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
                 blob=self.blob, offset=start, length=length
