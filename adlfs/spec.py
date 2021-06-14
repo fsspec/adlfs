@@ -11,13 +11,18 @@ import os
 import warnings
 import weakref
 
-from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
+from azure.core.exceptions import (
+    HttpResponseError,
+    ResourceNotFoundError,
+    ResourceExistsError,
+)
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
+from azure.storage.blob._generated.models._models_py3 import StorageError
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
 from fsspec.asyn import (
@@ -1116,19 +1121,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
 
         if not container_exists:
-            # Confirm that the container_name matches Azure conventions
-            if all([
-                (2 < len(container_name) < 64),
-                container_name.islower(),
-                (not set(container_name).intersection("._,#()[]*%&^!@{}?<>/|")),
-            ]
-            ):
+            try:
                 await self.service_client.create_container(container_name)
                 self.invalidate_cache(_ROOT_PATH)
-            else:
+
+            except Exception as e:
                 raise ValueError(
-                    "Proposed container_name of %s does not meet Azure Requirements!",
-                    container_name,
+                    f"Proposed container_name of {container_name} does not meet Azure requirements with error {e}!"
                 )
 
         self.invalidate_cache(self._parent(fullpath))

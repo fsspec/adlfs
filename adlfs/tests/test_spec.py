@@ -677,7 +677,7 @@ def test_mkdir(storage):
         fs.mkdir("new-container", create_parents=False)
 
     with pytest.raises(ValueError):
-        fs.mkdir("bad_container_name", create_parents=True)
+        fs.mkdir("bad_container_name")
 
     # Test creating subdirectory when container does not exist
     # Since mkdir is a no-op, if create_parents=True, it will create
