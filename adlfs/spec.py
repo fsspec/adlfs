@@ -12,7 +12,6 @@ import warnings
 import weakref
 
 from azure.core.exceptions import (
-    HttpResponseError,
     ResourceNotFoundError,
     ResourceExistsError,
 )
@@ -22,7 +21,6 @@ from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
-from azure.storage.blob._generated.models._models_py3 import StorageError
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
 from fsspec.asyn import (
@@ -1084,7 +1082,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             async with self.service_client.get_container_client(
                 container_name
             ) as client:
-                await client.get_container_properties()
+                try:
+                    await client.get_container_properties()
+                except Exception as e:
+                    raise ValueError(
+                        f"Failed to get {container_name} properties with exception {e}!"
+                    )
         except ResourceNotFoundError:
             return False
         else:
