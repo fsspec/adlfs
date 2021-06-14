@@ -1082,14 +1082,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             async with self.service_client.get_container_client(
                 container_name
             ) as client:
-                try:
-                    await client.get_container_properties()
-                except Exception as e:
-                    raise ValueError(
-                        f"Failed to get {container_name} properties with exception {e}!"
-                    )
+                await client.get_container_properties()
         except ResourceNotFoundError:
             return False
+        except Exception as e:
+            raise ValueError(
+                f"Failed to fetch container properties for {container_name} for {e}"
+            ) from e
         else:
             return True
 
