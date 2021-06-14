@@ -11,7 +11,10 @@ import os
 import warnings
 import weakref
 
-from azure.core.exceptions import ResourceNotFoundError, ResourceExistsError
+from azure.core.exceptions import (
+    ResourceNotFoundError,
+    ResourceExistsError,
+)
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -1082,6 +1085,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 await client.get_container_properties()
         except ResourceNotFoundError:
             return False
+        except Exception as e:
+            raise ValueError(
+                f"Failed to fetch container properties for {container_name} for {e}"
+            ) from e
         else:
             return True
 
@@ -1116,8 +1123,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
 
         if not container_exists:
-            await self.service_client.create_container(container_name)
-            self.invalidate_cache(_ROOT_PATH)
+            try:
+                await self.service_client.create_container(container_name)
+                self.invalidate_cache(_ROOT_PATH)
+
+            except Exception as e:
+                raise ValueError(
+                    f"Proposed container_name of {container_name} does not meet Azure requirements with error {e}!"
+                ) from e
 
         self.invalidate_cache(self._parent(fullpath))
 
@@ -1709,7 +1722,10 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.details = self.fs.info(self.path)
             self.size = self.details["size"]
             self.cache = caches[cache_type](
-                self.blocksize, self._fetch_range, self.size, **cache_options
+                blocksize=self.blocksize,
+                fetcher=self._fetch_range,
+                size=self.size,
+                **cache_options,
             )
             self.metadata = sync(
                 self.loop, get_blob_metadata, self.container_client, self.blob
@@ -1769,7 +1785,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 f"Unable to fetch container_client with provided params for {e}!!"
             )
 
-    async def _async_fetch_range(self, start: int, end: int, **kwargs):
+    async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -1778,11 +1794,15 @@ class AzureBlobFile(AbstractBufferedFile):
         start: int
             Start byte position to download blob from
         end: int
-            End byte position to download blob from
+            End of the file chunk to download
         """
+        if end and (end > self.size):
+            length = self.size - start
+        else:
+            length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
-                blob=self.blob, offset=start, length=end
+                blob=self.blob, offset=start, length=length
             )
             blob = await stream.readall()
         return blob
