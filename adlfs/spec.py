@@ -1130,7 +1130,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             except Exception as e:
                 raise ValueError(
                     f"Proposed container_name of {container_name} does not meet Azure requirements with error {e}!"
-                )
+                ) from e
 
         self.invalidate_cache(self._parent(fullpath))
 
