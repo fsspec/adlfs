@@ -661,6 +661,16 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
+@pytest.mark.skip
+def test_mkdir_bad_directory(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR,
+    )
+    # Underscores are not permitted in Azure container names
+    with pytest.raises(ValueError):
+        fs.mkdir("bad_container_name")
+
+
 def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
@@ -675,9 +685,6 @@ def test_mkdir(storage):
     # is False
     with pytest.raises(PermissionError):
         fs.mkdir("new-container", create_parents=False)
-
-    with pytest.raises(ValueError):
-        fs.mkdir("bad_container_name")
 
     # Test creating subdirectory when container does not exist
     # Since mkdir is a no-op, if create_parents=True, it will create
