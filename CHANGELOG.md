@@ -1,4 +1,10 @@
 **Change Log**
+2021.07.0
+---------
+- Align version system to match dask and fsspec project conventions
+- Add support for authentication with DefaultAzureCredential object
+- Add keyword anon for explicit access of public Azure containers
+
 v0.7.7
 ------
 - Fixed bug in fetch_range that caused attempted reads beyond end of file

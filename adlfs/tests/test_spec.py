@@ -676,9 +676,6 @@ def test_mkdir(storage):
     with pytest.raises(PermissionError):
         fs.mkdir("new-container", create_parents=False)
 
-    with pytest.raises(ValueError):
-        fs.mkdir("bad_container_name")
-
     # Test creating subdirectory when container does not exist
     # Since mkdir is a no-op, if create_parents=True, it will create
     # the top level container, but will NOT create nested directories
@@ -696,11 +693,19 @@ def test_mkdir(storage):
         fs.mkdir("new-container/dir", create_parents=False)
 
 
+@pytest.mark.skip
+def test_mkdir_bad_format(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR,
+    )
+    with pytest.raises(ValueError):
+        fs.mkdir("bad_container_name")
+
+
 def test_makedir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
     )
-
     # Verify makedir will create a new container when create_parents is True
     with pytest.raises(FileExistsError):
         fs.makedir("data", exist_ok=False)
