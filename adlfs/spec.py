@@ -12,6 +12,7 @@ import warnings
 import weakref
 
 from azure.core.exceptions import (
+    HttpResponseError,
     ResourceNotFoundError,
     ResourceExistsError,
 )
@@ -1849,12 +1850,7 @@ class AzureBlobFile(AbstractBufferedFile):
         """Prepare a remote file upload"""
         self._block_list = []
         if self.mode == "wb":
-            try:
-                await self.container_client.delete_blob(self.blob)
-            except ResourceNotFoundError:
-                pass
-            else:
-                await self._reinitiate_async_upload()
+            await self._reinitiate_async_upload()
 
         elif self.mode == "ab":
             if not await self.fs._exists(self.path):
