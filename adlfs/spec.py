@@ -28,6 +28,7 @@ from fsspec.asyn import (
     AsyncFileSystem,
     get_loop,
     sync_wrapper,
+    get_running_loop,
 )
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
@@ -1715,7 +1716,7 @@ class AzureBlobFile(AbstractBufferedFile):
             # the thread. If not, create the fsspec loop
             # and set it.  This is to handle issues with
             # Async Credentials from the Azure SDK
-            loop = asyncio.get_running_loop()
+            loop = get_running_loop()
 
         except RuntimeError:
             loop = get_loop()
