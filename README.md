@@ -42,8 +42,7 @@ ddf = dd.read_parquet('az://{CONTAINER}/folder.parquet', storage_options=storage
 
 or optionally, if AZURE_STORAGE_ACCOUNT_NAME and an AZURE_STORAGE_<CREDENTIAL> is 
 set as an environmental variable, then storage_options will be read from the environmental
-variables. In case none of them is specified, it will fall back to the azure identity library [default authentication methods](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential)
-
+variables
 ```
 
 To read from a public storage blob you are required to specify the `'account_name'`.

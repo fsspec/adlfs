@@ -328,8 +328,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Client secret to use when authenticating using an AD Service Principal client/secret.
     tenant_id: str
         Tenant ID to use when authenticating using an AD Service Principal client/secret.
-    anon: bool
-        Explicit support for anonymous login
     default_fill_cache: bool = True
         Whether to use cache filling with opoen by default
     default_cache_type: string ('bytes')
@@ -360,11 +358,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
 
-    Authentication with environment based identity which can be  EnvironmentCredential, ManagedIdentityCredential,
-    SharedTokenCache(Windows only), AzureCLI identity
-    >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID)
-
-
     **  Read files as: **
         -------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
@@ -388,7 +381,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
-        anon: bool = False,
         location_mode: str = "primary",
         loop=None,
         asynchronous: bool = False,
@@ -414,7 +406,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
-        self.anon = anon
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
@@ -426,17 +417,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.credential is None
             and self.account_key is None
             and self.sas_token is None
+            and self.client_id is not None
         ):
-            if self.client_id is not None:
-                (
-                    self.credential,
-                    self.sync_credential,
-                ) = self._get_credential_from_service_principal()
-            else:
-                (
-                    self.credential,
-                    self.sync_credential,
-                ) = self._get_default_credential()
+            (
+                self.credential,
+                self.sync_credential,
+            ) = self._get_credential_from_service_principal()
         else:
             self.sync_credential = None
         self.do_connect()
@@ -498,26 +484,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return (async_credential, sync_credential)
 
-    def _get_default_credential(self):
-        """
-        Use azure identity default credential resolver method. This is useful both for local development
-        (eg. to use VS Code token cache) and on Azure by using managed identity.
-        https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential
-
-        Returns
-        -------
-        Tuple of (Async Credential, Sync Credential).
-        """
-        from azure.identity import DefaultAzureCredential
-        from azure.identity.aio import (
-            DefaultAzureCredential as AIODefaultAzureCredential,
-        )
-
-        return (AIODefaultAzureCredential(), DefaultAzureCredential())
-
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
-        Tries credentials first, then connection string and finally account key.
+        Tries credentials first, then connection string and finally account key
 
         Raises
         ------
@@ -550,12 +519,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         credential=None,
                         _location_mode=self.location_mode,
                     )
-                elif self.anon is True:
+                else:
                     self.service_client = AIOBlobServiceClient(
                         account_url=self.account_url
                     )
-                else:
-                    raise ValueError()
             else:
                 raise ValueError(
                     "Must provide either a connection_string or account_name with credentials!!"
