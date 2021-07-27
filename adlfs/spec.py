@@ -382,7 +382,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_secret: str = None,
         tenant_id: str = None,
         location_mode: str = "primary",
-        loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
@@ -394,7 +393,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(
-            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
+            asynchronous=asynchronous, **super_kwargs
         )
 
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
@@ -1689,7 +1688,10 @@ class AzureBlobFile(AbstractBufferedFile):
             loop = get_loop()
             asyncio.set_event_loop(loop)
 
-        self.loop = self.fs.loop or get_loop()
+        if not self.fs.asynchronous:
+            self.loop = self.fs.loop or get_loop()
+        else:
+            self.loop = None
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
             or self.connect_client()
