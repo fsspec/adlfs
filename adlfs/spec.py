@@ -1265,9 +1265,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         return True
         except KeyError:
             pass
+        except FileNotFoundError:
+            pass
         try:
-            info = await self._info(path)
-            return info["type"] == "file"
+            container_name, path = self.split_path(path)
+            if not path:
+                # A container can not be a file
+                return False
+            else:
+                async with self.service_client.get_blob_client(container_name, path) as bc:
+                    props = await bc.get_blob_properties()
+                try:
+                    if props["metadata"]["is_directory"] == "false":
+                        return True
+                except KeyError:
+                    details = self._details([props])
+                    return details["type"] == "file"               
         except:  # noqa: E722
             return False
 
