@@ -1291,7 +1291,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
-
+        # import pdb;pdb.set_trace()
         if path in self.dircache:
             for fp in self.dircache[path]:
                 # Files will contain themselves in the cache, but
@@ -1299,8 +1299,27 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if fp["name"] != path:
                     return True
         try:
-            info = await self._info(path)
-            return info["type"] == "directory"
+            container_name, path = self.split_path(path)
+            if not path:
+                return await self._container_exists(container_name)
+            else:
+                path = path.strip("/")
+                key = path + "/"
+                key_length = len(key)
+                async with self.service_client.get_container_client(
+                    container_name
+                ) as cc:
+                    blob_pages = cc.list_blobs(name_starts_with=key)
+                    async for blob in blob_pages:
+                        if (blob["metadata"].get("is_directory", None) == "true") and (
+                            blob["name"] == path
+                        ):
+                            return True
+                        if (blob.name[:key_length] == key) and (
+                            len(blob["name"]) > len(key)
+                        ):
+                            return True
+                    return False
         except IOError:
             return False
 

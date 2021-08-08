@@ -661,6 +661,7 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
+@pytest.mark.skip
 def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
