@@ -1,4 +1,9 @@
 **Change Log**
+v2021.08.1
+------
+- Added DefaultAzureCredential as an authentication method.  Activated if anon is False, and
+  no explicit credentials are passed.  See authentication methods enabled [here](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python). 
+
 v0.7.7
 ------
 - Fixed bug in fetch_range that caused attempted reads beyond end of file
