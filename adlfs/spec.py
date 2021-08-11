@@ -12,6 +12,7 @@ import warnings
 import weakref
 
 from azure.core.exceptions import (
+    ClientAuthenticationError,
     ResourceNotFoundError,
     ResourceExistsError,
 )
@@ -381,6 +382,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
+        anon: bool = True,
         location_mode: str = "primary",
         loop=None,
         asynchronous: bool = False,
@@ -406,6 +408,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
+        self.anon = anon
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
@@ -484,6 +487,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return (async_credential, sync_credential)
 
+    def _get_default_azure_credential(self, **kwargs):
+        try:
+            from azure.identity.aio import (
+                DefaultAzureCredential as AIODefaultAzureCredential,
+            )
+
+            asyncio.get_child_watcher().attach_loop(self.loop)
+            self.credential = AIODefaultAzureCredential()
+            self.do_connect()
+        except:  # noqa: E722
+            raise ClientAuthenticationError(
+                "No explict credentials provided. Failed with DefaultAzureCredential!"
+            )
+
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
@@ -519,7 +536,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         credential=None,
                         _location_mode=self.location_mode,
                     )
+                elif self.anon is False:
+                    self._get_default_azure_credential()
                 else:
+                    # Fall back to anonymous login, and assume public container
                     self.service_client = AIOBlobServiceClient(
                         account_url=self.account_url
                     )
