@@ -359,6 +359,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
 
+    Authentication with DefaultAzureCredential
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", anon=False)
+    >>> abfs.ls('')
+
     **  Read files as: **
         -------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
