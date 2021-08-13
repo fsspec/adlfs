@@ -13,6 +13,7 @@ import weakref
 
 from azure.core.exceptions import (
     ClientAuthenticationError,
+    HttpResponseError,
     ResourceNotFoundError,
     ResourceExistsError,
 )
@@ -1877,6 +1878,8 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 await self.container_client.delete_blob(self.blob)
             except ResourceNotFoundError:
+                pass
+            except HttpResponseError:
                 pass
             else:
                 await self._reinitiate_async_upload()

@@ -6,6 +6,7 @@ v2021.08.1
 - Updated unit test for isdir
 - Added DefaultAzureCredential as an authentication method.  Activated if anon is False, and
   no explicit credentials are passed.  See authentication methods enabled [here](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python). 
+- Updated initiate_upload() method to allow overwriting a blob if the credentials do not have delete priveleges.  
 
 v0.7.7
 ------
