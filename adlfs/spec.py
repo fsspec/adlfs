@@ -1291,7 +1291,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
-        # import pdb;pdb.set_trace()
         if path in self.dircache:
             for fp in self.dircache[path]:
                 # Files will contain themselves in the cache, but

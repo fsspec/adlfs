@@ -3,6 +3,7 @@ v2021.08.1
 ----------
 - Fixed call to isdir(), to run direct call to Azure container, instead of calling .ls on the directory
 - Fixed call to isfile() to directly evaluate the file, insteading of calling ls on the directory
+- Updated unit test for isdir
 
 v0.7.7
 ------
