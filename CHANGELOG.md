@@ -1,6 +1,9 @@
 **Change Log**
 v2021.08.1
-------
+----------
+- Fixed call to isdir(), to run direct call to Azure container, instead of calling .ls on the directory
+- Fixed call to isfile() to directly evaluate the file, insteading of calling ls on the directory
+- Updated unit test for isdir
 - Added DefaultAzureCredential as an authentication method.  Activated if anon is False, and
   no explicit credentials are passed.  See authentication methods enabled [here](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python). 
 
