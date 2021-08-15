@@ -1306,7 +1306,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     if props["metadata"]["is_directory"] == "false":
                         return True
                 except KeyError:
-                    details = self._details([props])
+                    details = await self._details([props])
                     return details["type"] == "file"
         except:  # noqa: E722
             return False
