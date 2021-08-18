@@ -661,7 +661,6 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
-# @pytest.mark.skip
 def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR,
@@ -1156,6 +1155,34 @@ def test_put_file(storage):
 
     assert f3 == f4
     fs.rm("putdir", recursive=True)
+
+
+def test_isdir(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.touch("data/root/a/file.txt")
+    assert fs.isdir("data") is True
+    assert fs.isdir("data/top_file.txt") is False
+    assert fs.isdir("data/root") is True
+    assert fs.isdir("data/root/") is True
+    assert fs.isdir("data/root/rfile.txt") is False
+    assert fs.isdir("data/root/a") is True
+    assert fs.isdir("data/root/a/") is True
+
+
+def test_isfile(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert fs.isfile("data") is False
+    assert fs.isfile("data/top_file.txt") is True
+    assert fs.isfile("data/root") is False
+    assert fs.isfile("data/root/") is False
+    assert fs.isfile("data/root/rfile.txt") is True
+    fs.touch("data/root/null_file.txt")
+    assert fs.isfile("data/root/null_file.txt") is True
 
 
 def test_isdir(storage):
