@@ -1298,13 +1298,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # A container can not be a file
                 return False
             else:
-                async with self.service_client.get_blob_client(
-                    container_name, path
-                ) as bc:
-                    props = await bc.get_blob_properties()
                 try:
+                    async with self.service_client.get_blob_client(
+                        container_name, path
+                    ) as bc:
+                        import pdb;pdb.set_trace()
+                        props = await bc.get_blob_properties()
                     if props["metadata"]["is_directory"] == "false":
                         return True
+
+                except ResourceNotFoundError:
+                    return False
+                
                 except KeyError:
                     details = self._details([props])
                     return details["type"] == "file"
