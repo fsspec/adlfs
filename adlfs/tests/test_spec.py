@@ -486,7 +486,7 @@ def test_find_missing(storage):
     )
     assert fs.find("data/roo") == []
 
-@pytest.mark.skip
+
 def test_glob(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -910,7 +910,7 @@ def test_large_blob(storage):
         assert local_blob.exists()
         assert local_blob.stat().st_size == blob_size
 
-@pytest.mark.skip
+
 def test_dask_parquet(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1175,16 +1175,15 @@ def test_isfile(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    # fs.mkdir("mycontainer")
-    # file = b"0123456789"
-    
+
     assert fs.isfile("data") is False
-    # assert fs.isfile("data/top_file.txt") is True
+    assert fs.isfile("data/top_file.txt") is True
     assert fs.isfile("data/root") is False
     assert fs.isfile("data/root/") is False
     assert fs.isfile("data/root/rfile.txt") is True
     fs.touch("data/root/null_file.txt")
     assert fs.isfile("data/root/null_file.txt") is True
+
 
 def test_isdir(storage):
     fs = AzureBlobFileSystem(
@@ -1198,6 +1197,7 @@ def test_isdir(storage):
     assert fs.isdir("data/root/rfile.txt") is False
     assert fs.isdir("data/root/a") is True
     assert fs.isdir("data/root/a/") is True
+
 
 def test_isdir_cache(storage):
     fs = AzureBlobFileSystem(

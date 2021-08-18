@@ -1302,17 +1302,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     async with self.service_client.get_blob_client(
                         container_name, path
                     ) as bc:
-                        import pdb;pdb.set_trace()
                         props = await bc.get_blob_properties()
                     if props["metadata"]["is_directory"] == "false":
                         return True
 
                 except ResourceNotFoundError:
                     return False
-                
+
                 except KeyError:
                     details = await self._details([props])
-                    return details["type"] == "file"
+                    return details[0]["type"] == "file"
         except:  # noqa: E722
             return False
 
