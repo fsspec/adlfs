@@ -1311,7 +1311,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     return False
                 
                 except KeyError:
-                    details = self._details([props])
+                    details = await self._details([props])
                     return details["type"] == "file"
         except:  # noqa: E722
             return False
