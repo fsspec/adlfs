@@ -1,5 +1,6 @@
 import os
 import random
+import datetime
 from pathlib import Path
 
 import numpy as np
@@ -101,7 +102,8 @@ def test_put_azure_blob(auth_method):
     else:
         fs = AzureBlobFileSystem()
 
-    blob_path = "az://" + config["env"].get("AZURE_CONTAINER")
+    blob_path = config["env"].get("AZURE_CONTAINER")
+    blob_name= f"{blob_path}/test_file.csv"
     
     # Create a Pandas DataFrame and verify its larger than 200MB
     A = np.random.random_sample(size=(5000000, 6))
@@ -109,17 +111,17 @@ def test_put_azure_blob(auth_method):
     assert (df.memory_usage(deep=True).sum() / 1e6) > 200
     
     with tempfile.TemporaryDirectory() as td:
-        test_file: Path = Path(td) 
-
+        test_file: Path = Path(td) / "test_file.csv"
+        df.to_csv(test_file, index=False)
+        assert test_file.exists()
+        now = datetime.datetime.now()
+        fs.put(test_file, blob_name, overwrite=True, max_concurrency=1)
+        done = datetime.datetime.now()
+        diff1 = done - now
+        now = datetime.datetime.now()
+        fs.put(test_file, blob_name, overwrite=True)
+        done = datetime.datetime.now()
+        diff2 = done - now
+        assert diff2 < diff1
 
     
-
-
-    response = data_item.get()
-    assert response.decode() == test_string, "Result differs from original test"
-
-    response = data_item.get(offset=20)
-    assert response.decode() == test_string[20:], "Partial result not as expected"
-
-    stat = data_item.stat()
-    assert stat.size == len(test_string), "Stat size different than expected"
