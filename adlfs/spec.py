@@ -39,6 +39,7 @@ from .utils import (
     get_blob_metadata,
     close_service_client,
     close_container_client,
+    get_max_concurrency,
 )
 
 from datetime import datetime, timedelta
@@ -1530,7 +1531,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, **kwargws):
+    async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, max_concurrency = None, **kwargws):
         """
         Copy single file to remote
 
@@ -1541,6 +1542,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         container_name, path = self.split_path(rpath, delimiter=delimiter)
+        max_concurrency_ = max_concurrency or get_max_concurrency()
 
         if os.path.isdir(lpath):
             self.makedirs(rpath, exist_ok=True)
@@ -1551,7 +1553,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         container_name, path
                     ) as bc:
                         await bc.upload_blob(
-                            f1, overwrite=overwrite, metadata={"is_directory": "false"}
+                            f1, overwrite=overwrite, metadata={"is_directory": "false"},
+                            max_concurrency = max_concurrency_
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1559,7 +1562,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             except ResourceNotFoundError:
                 if not await self._exists(container_name):
                     raise FileNotFoundError("Container does not exist.")
-                await self._put_file(lpath, rpath, delimiter, overwrite)
+                await self._put_file(lpath, rpath, delimiter, overwrite, max_concurrency_)
                 self.invalidate_cache()
 
     put_file = sync_wrapper(_put_file)
@@ -1582,19 +1585,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     cp_file = sync_wrapper(_cp_file)
 
-    def upload(self, lpath, rpath, recursive=False, **kwargs):
+    def upload(self, lpath, rpath, recursive=False, max_concurrency : int = None, **kwargs):
         """Alias of :ref:`FilesystemSpec.put`."""
-        return self.put(lpath, rpath, recursive=recursive, **kwargs)
+        return self.put(lpath, rpath, recursive=recursive, max_concurrency=max_concurrency, **kwargs)
 
-    def download(self, rpath, lpath, recursive=False, **kwargs):
+    def download(self, rpath, lpath, recursive=False, max_concurrency = None, **kwargs):
         """Alias of :ref:`FilesystemSpec.get`."""
-        return self.get(rpath, lpath, recursive=recursive, **kwargs)
+        return self.get(rpath, lpath, recursive=recursive, max_concurrency=max_concurrency, **kwargs)
 
-    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
+    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", max_concurrency:int = None, **kwargs):
         """ Copy single file remote to local """
         files = await self._ls(rpath)
         files = [f["name"] for f in files]
         container_name, path = self.split_path(rpath, delimiter=delimiter)
+        max_concurrency_ = get_max_concurrency() or max_concurrency
         try:
             if await self._isdir(rpath):
                 os.makedirs(lpath, exist_ok=True)
@@ -1603,7 +1607,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     container_name, path.rstrip(delimiter)
                 ) as bc:
                     with open(lpath, "wb") as my_blob:
-                        stream = await bc.download_blob()
+                        stream = await bc.download_blob(max_concurrency=max_concurrency_)
                         data = await stream.readall()
                         my_blob.write(data)
         except Exception as e:
@@ -1642,6 +1646,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cache_options: dict = {},
         cache_type="readahead",
         metadata=None,
+        max_concurency: int = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1665,6 +1670,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Caching policy in read mode.
             See the definitions here:
             https://filesystem-spec.readthedocs.io/en/latest/api.html#readbuffering
+
+        max_concurrency: Passed to azure storage client upload and download operations.
+            adlfs will attempt to select an optimized value based on system
+            attributes
         """
         logger.debug(f"_open:  {path}")
         return AzureBlobFile(
@@ -1676,6 +1685,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_options=cache_options,
             cache_type=cache_type,
             metadata=metadata,
+            max_concurrency=max_concurency,
             **kwargs,
         )
 
@@ -1695,6 +1705,7 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_type: str = "bytes",
         cache_options: dict = {},
         metadata=None,
+        max_concurrency: int = None,
         **kwargs,
     ):
         """
@@ -1800,6 +1811,11 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
+        if max_concurrency is None:
+            self._max_concurrency = get_max_concurrency() or 1
+        else:
+            self._max_concurrency = max_concurrency
+        
 
     def close(self):
         """Close file and azure client."""
@@ -1865,7 +1881,7 @@ class AzureBlobFile(AbstractBufferedFile):
             length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
-                blob=self.blob, offset=start, length=length
+                blob=self.blob, offset=start, length=length, max_concurrency=self._max_concurrency,
             )
             blob = await stream.readall()
         return blob
@@ -1939,7 +1955,7 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.upload_blob(data=data, metadata=self.metadata)
+                        await bc.upload_blob(data=data, metadata=self.metadata, max_concurrency=self._max_concurrency)
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -1958,6 +1974,7 @@ class AzureBlobFile(AbstractBufferedFile):
                     length=length,
                     blob_type=BlobType.AppendBlob,
                     metadata=self.metadata,
+                    max_concurrency = self._max_concurrency,
                 )
         else:
             raise ValueError(
