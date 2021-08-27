@@ -1327,26 +1327,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if fp["name"] != path:
                     return True
         try:
-            container_name, path = self.split_path(path)
-            if not path:
+            container_name, path_ = self.split_path(path)
+            if not path_:
                 return await self._container_exists(container_name)
             else:
-                path = path.strip("/")
-                key = path + "/"
-                key_length = len(key)
-                async with self.service_client.get_container_client(
-                    container_name
-                ) as cc:
-                    blob_pages = cc.list_blobs(name_starts_with=key)
-                    async for blob in blob_pages:
-                        if (blob["metadata"].get("is_directory", None) == "true") and (
-                            blob["name"] == path
-                        ):
-                            return True
-                        if (blob.name[:key_length] == key) and (
-                            len(blob["name"]) > len(key)
-                        ):
-                            return True
+                if await self._exists(path) and not await self._isfile(path):
+                    return True
+                else:
                     return False
         except IOError:
             return False
