@@ -18,11 +18,12 @@ if hasattr(fsspec, "register_implementation"):
     fsspec.register_implementation("abfss", AzureBlobFileSystem, clobber=True)
 else:
     from fsspec.registry import known_implementations
+
     known_implementations["abfss"] = {
         "class": "adlfs.AzureBlobFileSystem",
-        "err": "Please install adlfs to use the abfss protocol"
+        "err": "Please install adlfs to use the abfss protocol",
     }
-    
+
     del known_implementations
 
 del fsspec  # clear the module namespace

@@ -1,10 +1,8 @@
 import dask.dataframe as dd
-from fsspec.implementations.local import LocalFileSystem
 import pandas as pd
 from pandas.testing import assert_frame_equal
-import pytest
 
-from adlfs import AzureBlobFileSystem, AzureBlobFile
+from adlfs import AzureBlobFileSystem
 
 
 URL = "http://127.0.0.1:10000"

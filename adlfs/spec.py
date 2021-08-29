@@ -464,12 +464,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # the format {host}/{path}
         # here host is the container_name
         elif ops.get("host", None):
-            if ops["host"].count(STORE_SUFFIX) == 0:  # no store-suffix, so this is container-name
+            if (
+                ops["host"].count(STORE_SUFFIX) == 0
+            ):  # no store-suffix, so this is container-name
                 ops["path"] = ops["host"] + ops["path"]
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
-
 
     def _get_credential_from_service_principal(self):
         """
