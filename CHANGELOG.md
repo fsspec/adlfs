@@ -1,4 +1,9 @@
 **Change Log**
+v2021.09.1
+----------
+- Fixed isdir() bug causing some directories to be labeled incorrectly as files
+- Added flexible url handling to improve compatibility with other applications using Spark and fsspec
+
 v2021.08.1
 ----------
 - Fixed call to isdir(), to run direct call to Azure container, instead of calling .ls on the directory
