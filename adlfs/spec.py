@@ -451,15 +451,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
         str
             Returns a path without the protocol
         """
+        STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
+        if not path.startswith(("abfs://", "az://")):
+            path = path.lstrip("/")
+            path = "abfs://" + path
         ops = infer_storage_options(path)
-
+        if "username" in ops:
+            if ops.get("username", None):
+                ops["path"] = ops["username"] + ops["path"]
         # we need to make sure that the path retains
         # the format {host}/{path}
         # here host is the container_name
-        if ops.get("host", None):
-            ops["path"] = ops["host"] + ops["path"]
-        ops["path"] = ops["path"].lstrip("/")
+        elif ops.get("host", None):
+            if (
+                ops["host"].count(STORE_SUFFIX) == 0
+            ):  # no store-suffix, so this is container-name
+                ops["path"] = ops["host"] + ops["path"]
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
