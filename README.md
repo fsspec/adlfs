@@ -40,6 +40,10 @@ storage_options={'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY}
 ddf = dd.read_csv('abfs://{CONTAINER}/{FOLDER}/*.csv', storage_options=storage_options)
 ddf = dd.read_parquet('az://{CONTAINER}/folder.parquet', storage_options=storage_options)
 
+Accepted protocol / uri formats include:
+'PROTOCOL://container/path-part/file'
+'PROTOCOL://container@account.dfs.core.windows.net/path-part/file'
+
 or optionally, if AZURE_STORAGE_ACCOUNT_NAME and an AZURE_STORAGE_<CREDENTIAL> is 
 set as an environmental variable, then storage_options will be read from the environmental
 variables
