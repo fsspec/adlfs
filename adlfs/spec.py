@@ -453,7 +453,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
-        if not path.startswith(("abfs://", "az://", "abfss")):
+        if not path.startswith(("abfs://", "az://", "abfss://")):
             path = path.lstrip("/")
             path = "abfs://" + path
         ops = infer_storage_options(path)
