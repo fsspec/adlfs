@@ -1525,7 +1525,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, **kwargws):
+    async def _put_file(
+        self, lpath, rpath, delimiter="/", overwrite=False, callback=None, **kwargws
+    ):
         """
         Copy single file to remote
 
@@ -1546,7 +1548,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         container_name, path
                     ) as bc:
                         await bc.upload_blob(
-                            f1, overwrite=overwrite, metadata={"is_directory": "false"}
+                            f1,
+                            overwrite=overwrite,
+                            metadata={"is_directory": "false"},
+                            raw_response_hook=make_callback(
+                                "upload_stream_current", callback
+                            ),
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
