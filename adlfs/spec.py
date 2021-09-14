@@ -287,6 +287,25 @@ class AzureDatalakeFile(AzureDLFile):
         return self.loc
 
 
+# https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
+def make_callback(key, callback):
+    if callback is None:
+        return None
+
+    sent_total = False
+
+    def wrapper(response):
+        nonlocal sent_total
+
+        current = response.context.get(key)
+        total = response.context["data_stream_total"]
+        if not sent_total:
+            callback.set_size(total)
+        callback.absolute_update(current)
+
+    return wrapper
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -1592,24 +1611,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
 
-    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
+    async def _get_file(
+        self, rpath, lpath, recursive=False, delimiter="/", callback=None, **kwargs
+    ):
         """ Copy single file remote to local """
-        files = await self._ls(rpath)
-        files = [f["name"] for f in files]
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
-            if await self._isdir(rpath):
-                os.makedirs(lpath, exist_ok=True)
-            else:
-                async with self.service_client.get_blob_client(
-                    container_name, path.rstrip(delimiter)
-                ) as bc:
-                    with open(lpath, "wb") as my_blob:
-                        stream = await bc.download_blob()
-                        data = await stream.readall()
-                        my_blob.write(data)
-        except Exception as e:
-            raise FileNotFoundError(f"File not found for {e}")
+            async with self.service_client.get_blob_client(
+                container_name, path.rstrip(delimiter)
+            ) as bc:
+                with open(lpath, "wb") as my_blob:
+                    stream = await bc.download_blob(
+                        raw_response_hook=make_callback(
+                            "download_stream_current", callback
+                        )
+                    )
+                    await stream.readinto(my_blob)
+        except ResourceNotFoundError as exception:
+            raise FileNotFoundError from exception
 
     get_file = sync_wrapper(_get_file)
 
