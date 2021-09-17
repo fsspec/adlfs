@@ -942,6 +942,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         and data["metadata"]["is_directory"] == "false"
                     ):
                         data.update({"type": "file"})
+                    elif (
+                        "hdi_isfolder" in data["metadata"].keys()
+                        and data["metadata"]["hdi_isfolder"] == "true"
+                    ):
+                        data.update({"type": "directory"})
+                        data.update({"size": None})
                     else:
                         pass
             if return_glob:
