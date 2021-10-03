@@ -1,4 +1,10 @@
 **Change Log**
+v2021.10.1
+----------
+- Added support for Hierarchical Namespaces in Gen2 to enable multilevel Hive partitioned tables in pyarrow
+- Registered abfss:// as an entrypoint instead of registering at runtime
+- Implemented support for fsspec callbacks in put_file and get_file
+
 v2021.09.1
 ----------
 - Fixed isdir() bug causing some directories to be labeled incorrectly as files
