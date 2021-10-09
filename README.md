@@ -1,4 +1,4 @@
-Filesystem interface to Azure-Datalake Gen1 and Gen2 Storage 
+Filesystem interface to Azure-Datalake Gen 1 and Gen 2 Storage 
 ------------------------------------------------------------
 
 
@@ -98,4 +98,5 @@ Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob S
 
 The AzureBlobFileSystem accepts [all of the Async BlobServiceClient arguments](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python).
 
-    By default, write operations create BlockBlobs in Azure, which, once written can not be appended.  It is possible to create an AppendBlob using an `mode="ab"` when creating, and then when operating on blobs.  Currently AppendBlobs are not available if hierarchical namespaces are enabled.
+    By default,write operations create BlockBlobs in Azure, which, once written can not be appended.  It is possible to create an AppendBlob using an `mode="ab"` when creating, and then when operating on blobs.  Currently AppendBlobs are not available if hierarchical namespaces are enabled.
+.
