@@ -60,7 +60,7 @@ ddf = dd.read_parquet('az://nyctlc/green/puYear=2019/puMonth=*/*.parquet', stora
 
 Details
 -------
-The package includes pythonic filesystem implementations for both 
+The package must includes pythonic filesystem implementations for both 
 Azure Datalake Gen1 and Azure Datalake Gen2, that facilitate 
 interactions between both Azure Datalake implementations and Dask.  This is done leveraging the 
 [intake/filesystem_spec](https://github.com/intake/filesystem_spec/tree/master/fsspec) base class and Azure Python SDKs.
@@ -70,7 +70,7 @@ with suitable credentials to perform operations on the resources of choice.
 
 Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
 
-    The filesystem can be instantiated with a variety of credentials, including:
+    The filesystem can be instantiated with a variety of credentials and also including:
         account_name
         account_key
         sas_token
