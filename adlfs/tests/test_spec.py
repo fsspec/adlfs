@@ -1,5 +1,7 @@
+import asyncio
 import os
 import tempfile
+from unittest import mock
 import datetime
 import dask.dataframe as dd
 from fsspec.implementations.local import LocalFileSystem
@@ -1348,3 +1350,17 @@ def test_find_with_prefix(storage):
     assert test_1s == [test_bucket_name + "/prefixes/test_1"] + [
         test_bucket_name + f"/prefixes/test_{cursor}" for cursor in range(10, 20)
     ]
+
+
+def test_max_concurrency(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR, max_concurrency=2
+    )
+
+    assert isinstance(fs._blob_client_semaphore, asyncio.Semaphore)
+
+    fs._blob_client_semaphore = mock.MagicMock(fs._blob_client_semaphore)
+    path = {f"/data/{i}": b"value" for i in range(10)}
+    fs.pipe(path)
+
+    assert fs._blob_client_semaphore.__aenter__.call_count == 10
