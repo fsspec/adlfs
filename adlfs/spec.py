@@ -41,6 +41,7 @@ from .utils import (
     get_blob_metadata,
     close_service_client,
     close_container_client,
+    _nullcontext,
 )
 
 from datetime import datetime, timedelta
@@ -452,7 +453,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.max_concurrency = max_concurrency
 
         if self.max_concurrency is None:
-            self._blob_client_semaphore = contextlib.nullcontext()
+            self._blob_client_semaphore = _nullcontext()
         else:
             self._blob_client_semaphore = asyncio.Semaphore(max_concurrency)
 
