@@ -357,7 +357,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         If given, the default cache_type value used for "open()".  Set to none if no caching
         is desired.  Docs in fsspec
     max_concurrency : int, optional
-        The maximum number of BlobClient connections to make for this filesystem instance.
+        The maximum number of BlobClient connections that can exist simultaneously for this
+        filesystem instance. By default, there is no limit. Setting this might be helpful if
+        you have a very large number of small, independent blob operations to perform. By
+        default a single BlobClient is created per blob, which might cause high memory usage
+        and clogging the asyncio event loop as many instances are created and quickly destroyed.
 
     Pass on to fsspec:
 
