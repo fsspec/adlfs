@@ -1621,6 +1621,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self, rpath, lpath, recursive=False, delimiter="/", callback=None, **kwargs
     ):
         """ Copy single file remote to local """
+        if os.path.isdir(lpath):
+            return
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
             async with self.service_client.get_blob_client(
