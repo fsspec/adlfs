@@ -1,7 +1,7 @@
 **Change Log**
 v2022.01.0
 ----------
-- Updated requirements to fsspec 2021.10.1 to fix #280
+- Updated requirements to fsspec >= 2021.10.1 to fix #280
 
 v2021.10.1
 ----------
