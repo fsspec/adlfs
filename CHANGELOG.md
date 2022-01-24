@@ -2,6 +2,7 @@
 v2022.01.0
 ----------
 - Updated requirements to fsspec >= 2021.10.1 to fix #280
+- Fixed deprecation warning in pytest_asyncio by setting asycio_mode = True
 
 v2021.10.1
 ----------

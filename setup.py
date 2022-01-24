@@ -37,5 +37,9 @@ setup(
     ],
     tests_require=["pytest", "docker"],
     zip_safe=False,
-    entry_points={"fsspec.specs": ["abfss=adlfs.AzureBlobFileSystem",],},
+    entry_points={
+        "fsspec.specs": [
+            "abfss=adlfs.AzureBlobFileSystem",
+        ],
+    },
 )
