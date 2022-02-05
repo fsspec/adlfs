@@ -1949,9 +1949,7 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
-                        block_id=block_id,
-                        data=data,
-                        length=length,
+                        block_id=block_id, data=data, length=length,
                     )
                 self._block_list.append(block_id)
 

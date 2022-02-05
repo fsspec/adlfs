@@ -70,8 +70,7 @@ def assert_blobs_equals(blobs, expected_blobs):
 
 def test_ls(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
     ## these are containers
@@ -664,8 +663,7 @@ def test_rm_recursive(storage):
 
 def test_mkdir(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
     # Verify mkdir will create a new container when create_parents is True
@@ -700,8 +698,7 @@ def test_mkdir(storage):
 
 def test_makedir(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
     # Verify makedir will create a new container when create_parents is True
@@ -722,8 +719,7 @@ def test_makedir(storage):
 
 def test_makedir_rmdir(storage, caplog):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+        account_name=storage.account_name, connection_string=CONN_STR,
     )
 
     fs.makedir("new-container")
