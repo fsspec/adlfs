@@ -35,6 +35,9 @@ setup(
         "azure-storage-blob>=12.5.0",
         "fsspec>=2021.10.1",
     ],
+    extras_require={
+        "docs": ["sphinx", "myst-parser", "furo", "numpydoc"],
+    },
     tests_require=["pytest", "docker"],
     zip_safe=False,
     entry_points={"fsspec.specs": ["abfss=adlfs.AzureBlobFileSystem",],},
