@@ -1511,7 +1511,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )  # Sets whether to return the parent dir
 
         if isinstance(path, list):
-            path = [f"{p.strip('/')}" for p in path if not p.endswith("*")]
+            path = [f"{p.strip('/')}" if not p.endswith("*") else p for p in path]
         else:
             if not path.endswith("*"):
                 path = f"{path.strip('/')}"
