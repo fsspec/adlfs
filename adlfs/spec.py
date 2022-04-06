@@ -1036,7 +1036,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return {name: files[name] for name in names}
 
     async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        """List all files below path in a recusrsive manner.
+        """List all files below path in a recursive manner.
         Like posix ``find`` command without conditions
         Parameters
         ----------
