@@ -1049,6 +1049,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         # TODO: allow equivalent of -name parameter
+
+        path = path.rstrip('*')
+        path = path.rstrip('/')
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
