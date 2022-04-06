@@ -1570,7 +1570,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
-            self.makedirs(rpath, exist_ok=True)
+            return
         else:
             try:
                 with open(lpath, "rb") as f1:
