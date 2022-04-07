@@ -123,7 +123,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
-        """ Get the store_name from the urlpath and pass to storage_options """
+        """Get the store_name from the urlpath and pass to storage_options"""
         ops = infer_storage_options(paths)
         out = {}
         if ops.get("host", None):
@@ -168,7 +168,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return info
 
     def _trim_filename(self, fn, **kwargs):
-        """ Determine what kind of filestore this is and return the path """
+        """Determine what kind of filestore this is and return the path"""
         so = infer_storage_options(fn)
         fileparts = so["path"]
         return fileparts
@@ -575,7 +575,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     conn_str=self.connection_string
                 )
             elif self.account_name:
-                self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
+                self.account_url: str = (
+                    f"https://{self.account_name}.blob.core.windows.net"
+                )
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
@@ -1611,7 +1613,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     put_file = sync_wrapper(_put_file)
 
     async def _cp_file(self, path1, path2, **kwargs):
-        """ Copy the file at path1 to path2 """
+        """Copy the file at path1 to path2"""
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
 
@@ -1635,7 +1637,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _get_file(
         self, rpath, lpath, recursive=False, delimiter="/", callback=None, **kwargs
     ):
-        """ Copy single file remote to local """
+        """Copy single file remote to local"""
+        if os.path.isdir(lpath):
+            return
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
             async with self._get_blob_client(
@@ -1723,7 +1727,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
 
 class AzureBlobFile(AbstractBufferedFile):
-    """ File-like operations on Azure Blobs """
+    """File-like operations on Azure Blobs"""
 
     DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
 

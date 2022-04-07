@@ -1,5 +1,5 @@
 -r base.txt
-fsspec==2021.6.1
+fsspec==2021.10.1
 azure-core==1.7.0
 azure-datalake-store==0.0.46
 azure-storage-blob==12.5.0
