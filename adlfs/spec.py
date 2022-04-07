@@ -12,9 +12,12 @@ import weakref
 from datetime import datetime, timedelta
 from glob import has_magic
 
-from azure.core.exceptions import (ClientAuthenticationError,
-                                   HttpResponseError, ResourceExistsError,
-                                   ResourceNotFoundError)
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+)
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob import BlobSasPermissions, generate_blob_sas
@@ -23,13 +26,16 @@ from azure.storage.blob._shared.base_client import create_configuration
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from fsspec import AbstractFileSystem
-from fsspec.asyn import (AsyncFileSystem, get_loop, get_running_loop, sync,
-                         sync_wrapper)
+from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
 
-from .utils import (close_container_client, close_service_client, filter_blobs,
-                    get_blob_metadata)
+from .utils import (
+    close_container_client,
+    close_service_client,
+    filter_blobs,
+    get_blob_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +235,7 @@ class AzureDatalakeFile(AzureDLFile):
         path,
         mode="rb",
         autocommit=True,
-        block_size=2 ** 25,
+        block_size=2**25,
         cache_type="bytes",
         cache_options=None,
         *,
@@ -489,8 +495,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Tuple of (Async Credential, Sync Credential).
         """
         from azure.identity import ClientSecretCredential
-        from azure.identity.aio import \
-            ClientSecretCredential as AIOClientSecretCredential
+        from azure.identity.aio import (
+            ClientSecretCredential as AIOClientSecretCredential,
+        )
 
         async_credential = AIOClientSecretCredential(
             tenant_id=self.tenant_id,
@@ -508,8 +515,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def _get_default_azure_credential(self, **kwargs):
         try:
-            from azure.identity.aio import \
-                DefaultAzureCredential as AIODefaultAzureCredential
+            from azure.identity.aio import (
+                DefaultAzureCredential as AIODefaultAzureCredential,
+            )
 
             asyncio.get_child_watcher().attach_loop(self.loop)
             self.credential = AIODefaultAzureCredential()
@@ -1700,7 +1708,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
+    DEFAULT_BLOCK_SIZE = 5 * 2**20
 
     def __init__(
         self,
@@ -1935,7 +1943,9 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
-                        block_id=block_id, data=data, length=length,
+                        block_id=block_id,
+                        data=data,
+                        length=length,
                     )
                 self._block_list.append(block_id)
 
