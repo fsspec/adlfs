@@ -1,15 +1,15 @@
+import datetime
 import os
 import tempfile
-import datetime
+
 import dask.dataframe as dd
-from fsspec.implementations.local import LocalFileSystem
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal
 import pytest
+from fsspec.implementations.local import LocalFileSystem
+from pandas.testing import assert_frame_equal
 
-from adlfs import AzureBlobFileSystem, AzureBlobFile
-
+from adlfs import AzureBlobFile, AzureBlobFileSystem
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
