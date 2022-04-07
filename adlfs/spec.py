@@ -1930,6 +1930,13 @@ class AzureBlobFile(AbstractBufferedFile):
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
+    def get_chunks(self, data, chunk_size=1024**3):
+        start = 0
+        while start < len(data):
+            end = min(start + chunk_size - 1, len(data) - 1)
+            yield data[start:end]
+            start = end + 1
+
     async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
         Write one part of a multi-block file upload
@@ -1941,6 +1948,7 @@ class AzureBlobFile(AbstractBufferedFile):
             self.autocommit is True.
 
         """
+        MAX_UPLOAD_SIZE = 2*1024**3
         data = self.buffer.getvalue()
         length = len(data)
         block_id = len(self._block_list)
@@ -1948,10 +1956,20 @@ class AzureBlobFile(AbstractBufferedFile):
         if self.mode == "wb":
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                    await bc.stage_block(
-                        block_id=block_id, data=data, length=length,
-                    )
-                self._block_list.append(block_id)
+                    if length >= MAX_UPLOAD_SIZE:
+                        for chunk in self.get_chunks(data):
+                            await bc.stage_block(
+                                block_id=block_id, data=chunk, length=len(chunk),
+                            )
+                            self._block_list.append(block_id)
+                            block_id = len(self._block_list)
+                            block_id = f"{block_id:07d}"
+
+                    else:
+                        await bc.stage_block(
+                            block_id=block_id, data=data, length=length,
+                        )
+                        self._block_list.append(block_id)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
