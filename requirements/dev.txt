@@ -3,3 +3,7 @@ git+https://github.com/intake/filesystem_spec
 azure-core
 azure-datalake-store
 azure-storage-blob
+black
+flake8
+isort
+pre-commit

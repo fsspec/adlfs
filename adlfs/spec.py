@@ -4,47 +4,38 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-import contextlib
-from glob import has_magic
 import io
 import logging
 import os
 import warnings
 import weakref
-from typing import Optional
+from datetime import datetime, timedelta
+from glob import has_magic
 
 from azure.core.exceptions import (
     ClientAuthenticationError,
     HttpResponseError,
-    ResourceNotFoundError,
     ResourceExistsError,
+    ResourceNotFoundError,
 )
-from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
+from azure.storage.blob._shared.base_client import create_configuration
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from fsspec import AbstractFileSystem
-from fsspec.asyn import (
-    sync,
-    AsyncFileSystem,
-    get_loop,
-    sync_wrapper,
-    get_running_loop,
-)
+from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
+
 from .utils import (
+    close_container_client,
+    close_service_client,
     filter_blobs,
     get_blob_metadata,
-    close_service_client,
-    close_container_client,
-    _nullcontext,
 )
-
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +77,9 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     Examples
     --------
-
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx",
     ...                               client_secret="xxxx")
+
     >>> adl.ls('')
 
     Sharded Parquet & CSV files can be read as
@@ -244,7 +235,7 @@ class AzureDatalakeFile(AzureDLFile):
         path,
         mode="rb",
         autocommit=True,
-        block_size=2 ** 25,
+        block_size=2**25,
         cache_type="bytes",
         cache_options=None,
         *,
@@ -357,12 +348,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
     default_cache_type: string ('bytes')
         If given, the default cache_type value used for "open()".  Set to none if no caching
         is desired.  Docs in fsspec
-    max_concurrency : int, optional
-        The maximum number of BlobClient connections that can exist simultaneously for this
-        filesystem instance. By default, there is no limit. Setting this might be helpful if
-        you have a very large number of small, independent blob operations to perform. By
-        default a single BlobClient is created per blob, which might cause high memory usage
-        and clogging the asyncio event loop as many instances are created and quickly destroyed.
 
     Pass on to fsspec:
 
@@ -371,36 +356,33 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     Examples
     --------
-
     Authentication with an account_key
-
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
     >>> abfs.ls('')
 
-    Authentication with an Azure ServicePrincipal
+    **  Sharded Parquet & csv files can be read as: **
+        ------------------------------------------
+        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY})
 
+        ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
+        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
+
+    Authentication with an Azure ServicePrincipal
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID,
-    ...                            client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+        ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
 
     Authentication with DefaultAzureCredential
-
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", anon=False)
     >>> abfs.ls('')
 
-    Read files as
-
-    >>> ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
-    ...     'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-    ...     'client_secret': CLIENT_SECRET})
-    ... })
-
-    Sharded Parquet & csv files can be read as:
-
-    >>> ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
-    ...                   'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY})
-    >>> ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
-    ...                       'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
+    **  Read files as: **
+        -------------
+        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+            'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+            'client_secret': CLIENT_SECRET})
+        })
     """
 
     protocol = "abfs"
@@ -424,7 +406,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         asynchronous: bool = False,
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
-        max_concurrency: Optional[int] = None,
         **kwargs,
     ):
         super_kwargs = {
@@ -453,13 +434,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.blocksize = blocksize
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
-        self.max_concurrency = max_concurrency
-
-        if self.max_concurrency is None:
-            self._blob_client_semaphore = _nullcontext()
-        else:
-            self._blob_client_semaphore = asyncio.Semaphore(max_concurrency)
-
         if (
             self.credential is None
             and self.account_key is None
@@ -472,7 +446,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ) = self._get_credential_from_service_principal()
         else:
             self.sync_credential = None
-
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
 
@@ -511,15 +484,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
-
-    @contextlib.asynccontextmanager
-    async def _get_blob_client(self, container_name, path):
-        """
-        Get a blob client, respecting `self.max_concurrency` if set.
-        """
-        async with self._blob_client_semaphore:
-            async with self.service_client.get_blob_client(container_name, path) as bc:
-                yield bc
 
     def _get_credential_from_service_principal(self):
         """
@@ -1066,7 +1030,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return {name: files[name] for name in names}
 
     async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        """List all files below path in a recursive manner.
+        """List all files below path in a recusrsive manner.
         Like posix ``find`` command without conditions
         Parameters
         ----------
@@ -1079,9 +1043,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         # TODO: allow equivalent of -name parameter
-
-        path = path.rstrip('*')
-        path = path.rstrip('/')
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
@@ -1367,7 +1328,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return False
             else:
                 try:
-                    async with self._get_blob_client(container_name, path) as bc:
+                    async with self.service_client.get_blob_client(
+                        container_name, path
+                    ) as bc:
                         props = await bc.get_blob_properties()
                     if props["metadata"]["is_directory"] == "false":
                         return True
@@ -1426,7 +1389,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # Empty paths exist by definition
                 return True
 
-        async with self._get_blob_client(container_name, path) as bc:
+        async with self.service_client.get_blob_client(container_name, path) as bc:
             if await bc.exists():
                 return True
 
@@ -1444,7 +1407,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""
         container_name, path = self.split_path(path)
-        async with self._get_blob_client(container_name, path) as bc:
+        async with self.service_client.get_blob_client(
+            container=container_name, blob=path
+        ) as bc:
             result = await bc.upload_blob(
                 data=value, overwrite=overwrite, metadata={"is_directory": "false"}
             )
@@ -1461,7 +1426,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             length = None
         container_name, path = self.split_path(path)
-        async with self._get_blob_client(container_name, path) as bc:
+        async with self.service_client.get_blob_client(
+            container=container_name, blob=path
+        ) as bc:
             try:
                 stream = await bc.download_blob(offset=start, length=length)
             except ResourceNotFoundError as e:
@@ -1523,7 +1490,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             expiry=datetime.utcnow() + timedelta(seconds=expires),
         )
 
-        async with self._get_blob_client(container_name, blob) as bc:
+        async with self.service_client.get_blob_client(container_name, blob) as bc:
             url = f"{bc.url}?{sas_token}"
         return url
 
@@ -1538,7 +1505,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )  # Sets whether to return the parent dir
 
         if isinstance(path, list):
-            path = [f"{p.strip('/')}" if not p.endswith("*") else p for p in path]
+            path = [f"{p.strip('/')}" for p in path if not p.endswith("*")]
         else:
             if not path.endswith("*"):
                 path = f"{path.strip('/')}"
@@ -1554,7 +1521,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
-                        bit2 = set(await self._glob_find(p, withdirs=True))
+                        bit2 = set(await self._expand_path(p))
                         out |= bit2
                     continue
                 elif recursive:
@@ -1594,11 +1561,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
-            return
+            self.makedirs(rpath, exist_ok=True)
         else:
             try:
                 with open(lpath, "rb") as f1:
-                    async with self._get_blob_client(container_name, path) as bc:
+                    async with self.service_client.get_blob_client(
+                        container_name, path
+                    ) as bc:
                         await bc.upload_blob(
                             f1,
                             overwrite=overwrite,
@@ -1623,10 +1592,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
 
-        # TODO: this could cause a deadlock. Can we protect the user?
-        async with self._get_blob_client(container1, path1) as blobclient1:
-            async with self._get_blob_client(container2, path1) as blobclient2:
-                await blobclient2.start_copy_from_url(blobclient1.url)
+        cc1 = self.service_client.get_container_client(container1)
+        blobclient1 = cc1.get_blob_client(blob=path1)
+        if container1 == container2:
+            blobclient2 = cc1.get_blob_client(blob=path2)
+        else:
+            cc2 = self.service_client.get_container_client(container2)
+            blobclient2 = cc2.get_blob_client(blob=path2)
+        await blobclient2.start_copy_from_url(blobclient1.url)
         self.invalidate_cache(container1)
         self.invalidate_cache(container2)
 
@@ -1648,7 +1621,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
-            async with self._get_blob_client(
+            async with self.service_client.get_blob_client(
                 container_name, path.rstrip(delimiter)
             ) as bc:
                 with open(lpath, "wb") as my_blob:
@@ -1670,7 +1643,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     async def _setxattrs(self, rpath, **kwargs):
         container_name, path = self.split_path(rpath)
         try:
-            async with self._get_blob_client(container_name, path) as bc:
+            async with self.service_client.get_blob_client(container_name, path) as bc:
                 await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
@@ -1735,7 +1708,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
+    DEFAULT_BLOCK_SIZE = 5 * 2**20
 
     def __init__(
         self,
@@ -1970,7 +1943,9 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
-                        block_id=block_id, data=data, length=length,
+                        block_id=block_id,
+                        data=data,
+                        length=length,
                     )
                 self._block_list.append(block_id)
 
