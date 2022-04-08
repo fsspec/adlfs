@@ -1,29 +1,4 @@
 **Change Log**
-v2022.02.0
-----------
-- Updated requirements to fsspec >= 2021.10.1 to fix #280
-- Fixed deprecation warning in pytest_asyncio by setting asycio_mode = True
-
-v2021.10.1
-----------
-- Added support for Hierarchical Namespaces in Gen2 to enable multilevel Hive partitioned tables in pyarrow
-- Registered abfss:// as an entrypoint instead of registering at runtime
-- Implemented support for fsspec callbacks in put_file and get_file
-
-v2021.09.1
-----------
-- Fixed isdir() bug causing some directories to be labeled incorrectly as files
-- Added flexible url handling to improve compatibility with other applications using Spark and fsspec
-
-v2021.08.1
-----------
-- Fixed call to isdir(), to run direct call to Azure container, instead of calling .ls on the directory
-- Fixed call to isfile() to directly evaluate the file, insteading of calling ls on the directory
-- Updated unit test for isdir
-- Added DefaultAzureCredential as an authentication method.  Activated if anon is False, and
-  no explicit credentials are passed.  See authentication methods enabled [here](https://docs.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python). 
-- Updated initiate_upload() method to allow overwriting a blob if the credentials do not have delete priveleges.  
-
 v0.7.7
 ------
 - Fixed bug in fetch_range that caused attempted reads beyond end of file

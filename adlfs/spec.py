@@ -4,38 +4,42 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
+from glob import has_magic
 import io
 import logging
 import os
 import warnings
 import weakref
-from datetime import datetime, timedelta
-from glob import has_magic
 
 from azure.core.exceptions import (
-    ClientAuthenticationError,
-    HttpResponseError,
-    ResourceExistsError,
     ResourceNotFoundError,
+    ResourceExistsError,
 )
+from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
-from azure.storage.blob._shared.base_client import create_configuration
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
+from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from fsspec import AbstractFileSystem
-from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
+from fsspec.asyn import (
+    sync,
+    AsyncFileSystem,
+    get_loop,
+    sync_wrapper,
+    get_running_loop,
+)
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
-
 from .utils import (
-    close_container_client,
-    close_service_client,
     filter_blobs,
     get_blob_metadata,
+    close_service_client,
+    close_container_client,
 )
+
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +118,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     @staticmethod
     def _get_kwargs_from_urls(paths):
-        """Get the store_name from the urlpath and pass to storage_options"""
+        """ Get the store_name from the urlpath and pass to storage_options """
         ops = infer_storage_options(paths)
         out = {}
         if ops.get("host", None):
@@ -159,7 +163,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
         return info
 
     def _trim_filename(self, fn, **kwargs):
-        """Determine what kind of filestore this is and return the path"""
+        """ Determine what kind of filestore this is and return the path """
         so = infer_storage_options(fn)
         fileparts = so["path"]
         return fileparts
@@ -235,7 +239,7 @@ class AzureDatalakeFile(AzureDLFile):
         path,
         mode="rb",
         autocommit=True,
-        block_size=2**25,
+        block_size=2 ** 25,
         cache_type="bytes",
         cache_options=None,
         *,
@@ -279,25 +283,6 @@ class AzureDatalakeFile(AzureDLFile):
             raise ValueError("Seek before start of file")
         self.loc = nloc
         return self.loc
-
-
-# https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
-def make_callback(key, callback):
-    if callback is None:
-        return None
-
-    sent_total = False
-
-    def wrapper(response):
-        nonlocal sent_total
-
-        current = response.context.get(key)
-        total = response.context["data_stream_total"]
-        if not sent_total:
-            callback.set_size(total)
-        callback.absolute_update(current)
-
-    return wrapper
 
 
 class AzureBlobFileSystem(AsyncFileSystem):
@@ -373,10 +358,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
 
-    Authentication with DefaultAzureCredential
-    >>> abfs = AzureBlobFileSystem(account_name="XXXX", anon=False)
-    >>> abfs.ls('')
-
     **  Read files as: **
         -------------
         ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
@@ -400,8 +381,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
-        anon: bool = True,
         location_mode: str = "primary",
+        loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
@@ -413,7 +394,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if k in kwargs
         }  # pass on to fsspec superclass
         super().__init__(
-            asynchronous=asynchronous, **super_kwargs
+            asynchronous=asynchronous, loop=loop or get_loop(), **super_kwargs
         )
 
         self.account_name = account_name or os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
@@ -425,7 +406,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
-        self.anon = anon
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
@@ -463,23 +443,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         str
             Returns a path without the protocol
         """
-        STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
-        if not path.startswith(("abfs://", "az://", "abfss://")):
-            path = path.lstrip("/")
-            path = "abfs://" + path
         ops = infer_storage_options(path)
-        if "username" in ops:
-            if ops.get("username", None):
-                ops["path"] = ops["username"] + ops["path"]
+
         # we need to make sure that the path retains
         # the format {host}/{path}
         # here host is the container_name
-        elif ops.get("host", None):
-            if (
-                ops["host"].count(STORE_SUFFIX) == 0
-            ):  # no store-suffix, so this is container-name
-                ops["path"] = ops["host"] + ops["path"]
+        if ops.get("host", None):
+            ops["path"] = ops["host"] + ops["path"]
+        ops["path"] = ops["path"].lstrip("/")
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
@@ -512,20 +484,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return (async_credential, sync_credential)
 
-    def _get_default_azure_credential(self, **kwargs):
-        try:
-            from azure.identity.aio import (
-                DefaultAzureCredential as AIODefaultAzureCredential,
-            )
-
-            asyncio.get_child_watcher().attach_loop(self.loop)
-            self.credential = AIODefaultAzureCredential()
-            self.do_connect()
-        except:  # noqa: E722
-            raise ClientAuthenticationError(
-                "No explict credentials provided. Failed with DefaultAzureCredential!"
-            )
-
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
         Tries credentials first, then connection string and finally account key
@@ -541,9 +499,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     conn_str=self.connection_string
                 )
             elif self.account_name:
-                self.account_url: str = (
-                    f"https://{self.account_name}.blob.core.windows.net"
-                )
+                self.account_url: str = f"https://{self.account_name}.blob.core.windows.net"
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
@@ -563,10 +519,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         credential=None,
                         _location_mode=self.location_mode,
                     )
-                elif self.anon is False:
-                    self._get_default_azure_credential()
                 else:
-                    # Fall back to anonymous login, and assume public container
                     self.service_client = AIOBlobServiceClient(
                         account_url=self.account_url
                     )
@@ -937,12 +890,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         and data["metadata"]["is_directory"] == "false"
                     ):
                         data.update({"type": "file"})
-                    elif (
-                        "hdi_isfolder" in data["metadata"].keys()
-                        and data["metadata"]["hdi_isfolder"] == "true"
-                    ):
-                        data.update({"type": "directory"})
-                        data.update({"size": None})
                     else:
                         pass
             if return_glob:
@@ -1318,28 +1265,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         return True
         except KeyError:
             pass
-        except FileNotFoundError:
-            pass
         try:
-            container_name, path = self.split_path(path)
-            if not path:
-                # A container can not be a file
-                return False
-            else:
-                try:
-                    async with self.service_client.get_blob_client(
-                        container_name, path
-                    ) as bc:
-                        props = await bc.get_blob_properties()
-                    if props["metadata"]["is_directory"] == "false":
-                        return True
-
-                except ResourceNotFoundError:
-                    return False
-
-                except KeyError:
-                    details = await self._details([props])
-                    return details[0]["type"] == "file"
+            info = await self._info(path)
+            return info["type"] == "file"
         except:  # noqa: E722
             return False
 
@@ -1348,6 +1276,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _isdir(self, path):
         """Is this entry directory-like?"""
+
         if path in self.dircache:
             for fp in self.dircache[path]:
                 # Files will contain themselves in the cache, but
@@ -1355,14 +1284,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if fp["name"] != path:
                     return True
         try:
-            container_name, path_ = self.split_path(path)
-            if not path_:
-                return await self._container_exists(container_name)
-            else:
-                if await self._exists(path) and not await self._isfile(path):
-                    return True
-                else:
-                    return False
+            info = await self._info(path)
+            return info["type"] == "directory"
         except IOError:
             return False
 
@@ -1545,9 +1468,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
         return list(sorted(out))
 
-    async def _put_file(
-        self, lpath, rpath, delimiter="/", overwrite=False, callback=None, **kwargws
-    ):
+    async def _put_file(self, lpath, rpath, delimiter="/", overwrite=False, **kwargws):
         """
         Copy single file to remote
 
@@ -1568,12 +1489,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         container_name, path
                     ) as bc:
                         await bc.upload_blob(
-                            f1,
-                            overwrite=overwrite,
-                            metadata={"is_directory": "false"},
-                            raw_response_hook=make_callback(
-                                "upload_stream_current", callback
-                            ),
+                            f1, overwrite=overwrite, metadata={"is_directory": "false"}
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1587,7 +1503,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     put_file = sync_wrapper(_put_file)
 
     async def _cp_file(self, path1, path2, **kwargs):
-        """Copy the file at path1 to path2"""
+        """ Copy the file at path1 to path2 """
         container1, path1 = self.split_path(path1, delimiter="/")
         container2, path2 = self.split_path(path2, delimiter="/")
 
@@ -1612,26 +1528,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
 
-    async def _get_file(
-        self, rpath, lpath, recursive=False, delimiter="/", callback=None, **kwargs
-    ):
-        """Copy single file remote to local"""
-        if os.path.isdir(lpath):
-            return
+    async def _get_file(self, rpath, lpath, recursive=False, delimiter="/", **kwargs):
+        """ Copy single file remote to local """
+        files = await self._ls(rpath)
+        files = [f["name"] for f in files]
         container_name, path = self.split_path(rpath, delimiter=delimiter)
         try:
-            async with self.service_client.get_blob_client(
-                container_name, path.rstrip(delimiter)
-            ) as bc:
-                with open(lpath, "wb") as my_blob:
-                    stream = await bc.download_blob(
-                        raw_response_hook=make_callback(
-                            "download_stream_current", callback
-                        )
-                    )
-                    await stream.readinto(my_blob)
-        except ResourceNotFoundError as exception:
-            raise FileNotFoundError from exception
+            if await self._isdir(rpath):
+                os.makedirs(lpath, exist_ok=True)
+            else:
+                async with self.service_client.get_blob_client(
+                    container_name, path.rstrip(delimiter)
+                ) as bc:
+                    with open(lpath, "wb") as my_blob:
+                        stream = await bc.download_blob()
+                        data = await stream.readall()
+                        my_blob.write(data)
+        except Exception as e:
+            raise FileNotFoundError(f"File not found for {e}")
 
     get_file = sync_wrapper(_get_file)
 
@@ -1705,9 +1619,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
 
 class AzureBlobFile(AbstractBufferedFile):
-    """File-like operations on Azure Blobs"""
+    """ File-like operations on Azure Blobs """
 
-    DEFAULT_BLOCK_SIZE = 5 * 2**20
+    DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
 
     def __init__(
         self,
@@ -1775,10 +1689,7 @@ class AzureBlobFile(AbstractBufferedFile):
             loop = get_loop()
             asyncio.set_event_loop(loop)
 
-        if not self.fs.asynchronous:
-            self.loop = self.fs.loop or get_loop()
-        else:
-            self.loop = None
+        self.loop = self.fs.loop or get_loop()
         self.container_client = (
             fs.service_client.get_container_client(self.container_name)
             or self.connect_client()
@@ -1910,8 +1821,6 @@ class AzureBlobFile(AbstractBufferedFile):
                 await self.container_client.delete_blob(self.blob)
             except ResourceNotFoundError:
                 pass
-            except HttpResponseError:
-                pass
             else:
                 await self._reinitiate_async_upload()
 
@@ -1945,9 +1854,7 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
-                        block_id=block_id,
-                        data=data,
-                        length=length,
+                        block_id=block_id, data=data, length=length,
                     )
                 self._block_list.append(block_id)
 
