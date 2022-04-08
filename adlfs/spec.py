@@ -1063,7 +1063,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return {name: files[name] for name in names}
 
     async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        """List all files below path in a recusrsive manner.
+        """List all files below path in a recursive manner.
         Like posix ``find`` command without conditions
         Parameters
         ----------
@@ -1076,6 +1076,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         # TODO: allow equivalent of -name parameter
+
+        path = path.rstrip('*')
+        path = path.rstrip('/')
         path = self._strip_protocol(path)
         out = dict()
         detail = kwargs.pop("detail", False)
@@ -1532,7 +1535,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         )  # Sets whether to return the parent dir
 
         if isinstance(path, list):
-            path = [f"{p.strip('/')}" for p in path if not p.endswith("*")]
+            path = [f"{p.strip('/')}" if not p.endswith("*") else p for p in path]
         else:
             if not path.endswith("*"):
                 path = f"{path.strip('/')}"
@@ -1548,7 +1551,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     bit = set(await self._glob(p))
                     out |= bit
                     if recursive:
-                        bit2 = set(await self._expand_path(p))
+                        bit2 = set(await self._glob_find(p, withdirs=True))
                         out |= bit2
                     continue
                 elif recursive:
@@ -1588,7 +1591,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
-            self.makedirs(rpath, exist_ok=True)
+            return
         else:
             try:
                 with open(lpath, "rb") as f1:

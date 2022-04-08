@@ -1,7 +1,5 @@
-import asyncio
 import os
 import tempfile
-from unittest import mock
 import datetime
 import dask.dataframe as dd
 from fsspec.implementations.local import LocalFileSystem
@@ -1352,15 +1350,39 @@ def test_find_with_prefix(storage):
     ]
 
 
-def test_max_concurrency(storage):
+def test_expand_path(storage):
+    test_bucket = "data"
+    test_dir = f"{test_bucket}/testexpandpath"
+    sub_dir_1 = f"{test_dir}/subdir1"
+    sub_dir_2 = f"{sub_dir_1}/subdir2"
+    test_blobs = [
+        f"{test_dir}/blob1",
+        f"{test_dir}/blob2",
+        f"{test_dir}/subdir1/blob3",
+        f"{test_dir}/subdir1/blob4",
+        f"{test_dir}/subdir1/subdir2/blob5",
+    ]
+
+    expected_dirs_w_trailing_slash = test_blobs.copy()
+    expected_dirs_w_trailing_slash.append(test_dir)
+    expected_dirs_w_trailing_slash.append(sub_dir_1 + "/")
+    expected_dirs_w_trailing_slash.append(sub_dir_2 + "/")
+
+    expected_dirs_wo_trailing_slash = test_blobs.copy()
+    expected_dirs_wo_trailing_slash.append(sub_dir_1)
+    expected_dirs_wo_trailing_slash.append(sub_dir_2)
+
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR, max_concurrency=2
+        account_name=storage.account_name, connection_string=CONN_STR
     )
+    for blob in test_blobs:
+        fs.touch(blob)
 
-    assert isinstance(fs._blob_client_semaphore, asyncio.Semaphore)
+    result_without_slash = fs.expand_path(test_dir, recursive=True)
+    assert sorted(result_without_slash) == sorted(expected_dirs_w_trailing_slash)
 
-    fs._blob_client_semaphore = mock.MagicMock(fs._blob_client_semaphore)
-    path = {f"/data/{i}": b"value" for i in range(10)}
-    fs.pipe(path)
+    result_with_slash = fs.expand_path(test_dir + "/", recursive=True)
+    assert sorted(result_with_slash) == sorted(expected_dirs_w_trailing_slash)
 
-    assert fs._blob_client_semaphore.__aenter__.call_count == 10
+    result_glob = fs.expand_path(test_dir + "/*", recursive=True)
+    assert sorted(result_glob) == sorted(expected_dirs_wo_trailing_slash)
