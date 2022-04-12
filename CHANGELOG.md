@@ -1,6 +1,7 @@
 **Change Log**
 2022.04.0
 ---------
+- Added support for Python 3.10 and pinned Python 3.8
 - Updated requirements/latest.txt azure-storage-blob due to header failures in azurite
 - Added isort and update pre-commit
 
