@@ -1,11 +1,9 @@
-import datetime
-from sys import api_version
-import pytest
-
 import asyncio
-from azure.storage.blob import BlobServiceClient
-import docker
+import datetime
 
+import docker
+import pytest
+from azure.storage.blob import BlobServiceClient
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"

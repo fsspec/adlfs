@@ -1,4 +1,10 @@
 **Change Log**
+2022.04.0
+---------
+- Added support for Python 3.10 and pinned Python 3.8
+- Updated requirements/latest.txt azure-storage-blob due to header failures in azurite
+- Added isort and update pre-commit
+
 v2022.02.0
 ----------
 - Updated requirements to fsspec >= 2021.10.1 to fix #280

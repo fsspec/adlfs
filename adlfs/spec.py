@@ -4,44 +4,38 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-from glob import has_magic
 import io
 import logging
 import os
 import warnings
 import weakref
+from datetime import datetime, timedelta
+from glob import has_magic
 
 from azure.core.exceptions import (
     ClientAuthenticationError,
     HttpResponseError,
-    ResourceNotFoundError,
     ResourceExistsError,
+    ResourceNotFoundError,
 )
-from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
+from azure.storage.blob._shared.base_client import create_configuration
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from fsspec import AbstractFileSystem
-from fsspec.asyn import (
-    sync,
-    AsyncFileSystem,
-    get_loop,
-    sync_wrapper,
-    get_running_loop,
-)
+from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
+
 from .utils import (
+    close_container_client,
+    close_service_client,
     filter_blobs,
     get_blob_metadata,
-    close_service_client,
-    close_container_client,
 )
-
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +235,7 @@ class AzureDatalakeFile(AzureDLFile):
         path,
         mode="rb",
         autocommit=True,
-        block_size=2 ** 25,
+        block_size=2**25,
         cache_type="bytes",
         cache_options=None,
         *,
@@ -1714,7 +1708,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
+    DEFAULT_BLOCK_SIZE = 5 * 2**20
 
     def __init__(
         self,
@@ -1949,7 +1943,9 @@ class AzureBlobFile(AbstractBufferedFile):
             try:
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.stage_block(
-                        block_id=block_id, data=data, length=length,
+                        block_id=block_id,
+                        data=data,
+                        length=length,
                     )
                 self._block_list.append(block_id)
 
