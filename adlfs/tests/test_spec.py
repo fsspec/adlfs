@@ -1262,6 +1262,7 @@ def test_cat_file_missing(storage):
         fs.cat_file("does/not/exist")
 
 
+@pytest.mark.skip(reason="Bug in Azurite Storage Emulator v3.15.0 gives 403 status_code")
 def test_url(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR, account_key=KEY
