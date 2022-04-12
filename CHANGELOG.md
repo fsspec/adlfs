@@ -4,6 +4,7 @@
 - Added support for Python 3.10 and pinned Python 3.8
 - Updated requirements/latest.txt azure-storage-blob due to header failures in azurite
 - Added isort and update pre-commit
+- Adds start of docs
 
 v2022.02.0
 ----------
