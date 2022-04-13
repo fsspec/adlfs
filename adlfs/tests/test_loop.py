@@ -1,9 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from adlfs import AzureBlobFileSystem
-from azure.identity.aio import DefaultAzureCredential
 import pytest
+from azure.identity.aio import DefaultAzureCredential
 
+from adlfs import AzureBlobFileSystem
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"

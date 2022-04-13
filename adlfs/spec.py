@@ -4,44 +4,38 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
-from glob import has_magic
 import io
 import logging
 import os
 import warnings
 import weakref
+from datetime import datetime, timedelta
+from glob import has_magic
 
 from azure.core.exceptions import (
     ClientAuthenticationError,
     HttpResponseError,
-    ResourceNotFoundError,
     ResourceExistsError,
+    ResourceNotFoundError,
 )
-from azure.storage.blob._shared.base_client import create_configuration
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
-from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
+from azure.storage.blob._shared.base_client import create_configuration
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from fsspec import AbstractFileSystem
-from fsspec.asyn import (
-    sync,
-    AsyncFileSystem,
-    get_loop,
-    sync_wrapper,
-    get_running_loop,
-)
+from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options, tokenize
+
 from .utils import (
+    close_container_client,
+    close_service_client,
     filter_blobs,
     get_blob_metadata,
-    close_service_client,
-    close_container_client,
 )
-
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +77,9 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     Examples
     --------
+
     >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx",
     ...                               client_secret="xxxx")
-
     >>> adl.ls('')
 
     Sharded Parquet & CSV files can be read as
@@ -241,7 +235,7 @@ class AzureDatalakeFile(AzureDLFile):
         path,
         mode="rb",
         autocommit=True,
-        block_size=2 ** 25,
+        block_size=2**25,
         cache_type="bytes",
         cache_options=None,
         *,
@@ -362,33 +356,36 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     Examples
     --------
+
     Authentication with an account_key
+
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
     >>> abfs.ls('')
 
-    **  Sharded Parquet & csv files can be read as: **
-        ------------------------------------------
-        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
-        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY})
-
-        ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
-        ...    'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
-
     Authentication with an Azure ServicePrincipal
+
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", tenant_id=TENANT_ID,
-        ...    client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
+    ...                            client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
     >>> abfs.ls('')
 
     Authentication with DefaultAzureCredential
+
     >>> abfs = AzureBlobFileSystem(account_name="XXXX", anon=False)
     >>> abfs.ls('')
 
-    **  Read files as: **
-        -------------
-        ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
-            'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET})
-        })
+    Read files as
+
+    >>> ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+    ...     'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID,
+    ...     'client_secret': CLIENT_SECRET})
+    ... })
+
+    Sharded Parquet & csv files can be read as:
+
+    >>> ddf = dd.read_csv('abfs://container_name/folder/*.csv', storage_options={
+    ...                   'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY})
+    >>> ddf = dd.read_parquet('abfs://container_name/folder.parquet', storage_options={
+    ...                       'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
     protocol = "abfs"
@@ -1714,7 +1711,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2 ** 20
+    DEFAULT_BLOCK_SIZE = 5 * 2**20
 
     def __init__(
         self,
