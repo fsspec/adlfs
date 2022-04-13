@@ -1,4 +1,10 @@
 **Change Log**
+2022.04.0
+---------
+- Added support for Python 3.10 and pinned Python 3.8
+- Skip test_url due to bug in Azurite
+- Added isort and update pre-commit
+
 v2022.02.0
 ----------
 - Updated requirements to fsspec >= 2021.10.1 to fix #280
