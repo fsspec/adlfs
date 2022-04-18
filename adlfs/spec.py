@@ -1930,9 +1930,9 @@ class AzureBlobFile(AbstractBufferedFile):
     def get_chunks(self, data, chunk_size=1024**3):
         start = 0
         while start < len(data):
-            end = min(start + chunk_size - 1, len(data) - 1)
+            end = min(start + chunk_size , len(data))
             yield data[start:end]
-            start = end + 1
+            start = end
 
     async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
