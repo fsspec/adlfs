@@ -1945,28 +1945,20 @@ class AzureBlobFile(AbstractBufferedFile):
             self.autocommit is True.
 
         """
-        MAX_UPLOAD_SIZE = 2 * 1024**3  # Maximum permissible size in one block is 2GB
         data = self.buffer.getvalue()
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
         if self.mode == "wb":
             try:
-                if length >= MAX_UPLOAD_SIZE:
-                    for chunk in self.get_chunks(data):
-                        async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                            await bc.stage_block(
-                                block_id=block_id, data=chunk, length=len(chunk),
-                            )
-                            self._block_list.append(block_id)
-                            block_id = len(self._block_list)
-                            block_id = f"{block_id:07d}"
-
-                    else:
+                for chunk in self.get_chunks(data):
+                    async with self.container_client.get_blob_client(blob=self.blob) as bc:
                         await bc.stage_block(
-                            block_id=block_id, data=data, length=length,
+                            block_id=block_id, data=chunk, length=len(chunk),
                         )
                         self._block_list.append(block_id)
+                        block_id = len(self._block_list)
+                        block_id = f"{block_id:07d}"
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
