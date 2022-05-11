@@ -1947,7 +1947,6 @@ class AzureBlobFile(AbstractBufferedFile):
 
         """
         data = self.buffer.getvalue()
-        print("Just a test")
         length = len(data)
         block_id = len(self._block_list)
         block_id = f"{block_id:07d}"
