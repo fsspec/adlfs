@@ -645,12 +645,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             invalidate_cache = False
         path = self._strip_protocol(path)
-        out = await self._ls(
-            self._parent(path), invalidate_cache=invalidate_cache, **kwargs
-        )
-        out = [o for o in out if o["name"].rstrip("/") == path]
-        if out:
-            return out[0]
         out = await self._ls(path, invalidate_cache=invalidate_cache, **kwargs)
         path = path.rstrip("/")
         out1 = [o for o in out if o["name"].rstrip("/") == path]
@@ -661,7 +655,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         elif len(out1) > 1 or out:
             return {"name": path, "size": None, "type": "directory"}
         else:
-            raise FileNotFoundError
+            # Check the directory listing as the path may have been deleted
+            out = await self._ls(
+                self._parent(path), invalidate_cache=invalidate_cache, **kwargs
+            )
+            out = [o for o in out if o["name"].rstrip("/") == path]
+            if out:
+                return out[0]
+            else:
+                raise FileNotFoundError
 
     def glob(self, path, **kwargs):
         return sync(self.loop, self._glob, path)
