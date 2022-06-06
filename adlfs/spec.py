@@ -664,7 +664,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             raise FileNotFoundError
 
     def glob(self, path, **kwargs):
-        return sync(self.loop, self._glob, path)
+        return sync(self.loop, self._glob, path, **kwargs)
 
     async def _glob(self, path, **kwargs):
         """
