@@ -359,7 +359,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     Authentication with an account_key
 
-    >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
+    >>> abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX")
     >>> abfs.ls('')
 
     Authentication with an Azure ServicePrincipal
