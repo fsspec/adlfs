@@ -939,6 +939,7 @@ def test_dask_parquet(storage):
             "{}://test/test_group.parquet".format(protocol),
             storage_options=STORAGE_OPTIONS,
             engine="pyarrow",
+            write_metadata_file=True,
         )
 
         fs = AzureBlobFileSystem(**STORAGE_OPTIONS)
@@ -964,6 +965,7 @@ def test_dask_parquet(storage):
         "abfs://test/test_group2.parquet",
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.ls("test/test_group2.parquet") == [
         "test/test_group2.parquet/_common_metadata",
@@ -993,6 +995,7 @@ def test_dask_parquet(storage):
         partition_on=["A", "B"],
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.glob("test/test_group3.parquet/*") == [
         "test/test_group3.parquet/A=1",
@@ -1019,6 +1022,7 @@ def test_dask_parquet(storage):
         engine="pyarrow",
         flavor="spark",
         write_statistics=False,
+        write_metadata_file=True,
     )
     fs.rmdir("test/test_group4.parquet/_common_metadata", recursive=True)
     fs.rmdir("test/test_group4.parquet/_metadata", recursive=True)
@@ -1045,6 +1049,7 @@ def test_dask_parquet(storage):
         "abfs://test/test group5.parquet",
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.ls("test/test group5.parquet") == [
         "test/test group5.parquet/_common_metadata",
