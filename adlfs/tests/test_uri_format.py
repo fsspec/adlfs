@@ -34,6 +34,7 @@ def test_dask_parquet(storage):
             "{}://test@dfs.core.windows.net/test_group.parquet".format(protocol),
             storage_options=STORAGE_OPTIONS,
             engine="pyarrow",
+            write_metadata_file=True,
         )
 
         fs = AzureBlobFileSystem(**STORAGE_OPTIONS)
