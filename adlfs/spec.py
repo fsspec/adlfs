@@ -7,6 +7,7 @@ import asyncio
 import io
 import logging
 import os
+import re
 import warnings
 import weakref
 from datetime import datetime, timedelta
@@ -487,6 +488,21 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         return ops["path"]
+
+    @staticmethod
+    def _get_kwargs_from_urls(urlpath):
+        """Get the account_name from the urlpath and pass to storage_options"""
+        ops = infer_storage_options(urlpath)
+        out = {}
+        host = ops.get("host", None)
+        if host:
+            match = re.match(
+                r"(?P<account_name>.+)\.(dfs|blob)\.core\.windows\.net", host
+            )
+            if match:
+                account_name = match.groupdict()["account_name"]
+                out["account_name"] = account_name
+        return out
 
     def _get_credential_from_service_principal(self):
         """
