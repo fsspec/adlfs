@@ -34,6 +34,7 @@ from fsspec.utils import infer_storage_options, tokenize
 from .utils import (
     close_container_client,
     close_service_client,
+    close_credential,
     filter_blobs,
     get_blob_metadata,
 )
@@ -463,7 +464,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if (platform.system() == 'Windows') & (self.anon is False):
             close_service_client(self)
-            self.credential.close()
+            close_credential(self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
