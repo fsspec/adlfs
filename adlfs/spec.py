@@ -454,7 +454,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         #Solving issue in https://github.com/fsspec/adlfs/issues/270 
         if (platform.system() == 'Windows') & (self.credential is None) & (self.anon is False):
             from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
+            from azure.identity import DefaultAzureCredential
             self.credential = AIODefaultAzureCredential()
+            self.sync_credential = DefaultAzureCredential()
 
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
