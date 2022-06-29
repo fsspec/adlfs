@@ -3,6 +3,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import platform
 import asyncio
 import io
 import logging
@@ -449,6 +450,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ) = self._get_credential_from_service_principal()
         else:
             self.sync_credential = None
+
+        #Solving issue in https://github.com/fsspec/adlfs/issues/270 
+        if (platform.system() == 'Windows') & (self.credential is None) & (self.anon is False):
+            from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
+            self.credential = AIODefaultAzureCredential()
+
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
 
