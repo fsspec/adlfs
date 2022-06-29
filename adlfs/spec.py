@@ -457,9 +457,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             from azure.identity import DefaultAzureCredential
             self.credential = AIODefaultAzureCredential()
             self.sync_credential = DefaultAzureCredential()
-
+        
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
+
+        if (platform.system() == 'Windows') & (self.anon is False):
+            self.credential.close()
+            self.sync_credential.close()
 
     @classmethod
     def _strip_protocol(cls, path: str):
