@@ -462,8 +462,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         weakref.finalize(self, sync, self.loop, close_service_client, self)
 
         if (platform.system() == 'Windows') & (self.anon is False):
-            self.credential.close()
-            self.sync_credential.close()
+            close_service_client(self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
