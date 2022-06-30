@@ -532,8 +532,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         """
         Create a Credential for authentication using DefaultAzureCredential
-        Args:
-            **kwargs: Arguments of DefaultAzureCredential
 
         Returns
         -------
