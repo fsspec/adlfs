@@ -530,6 +530,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return (async_credential, sync_credential)
 
     def _get_default_azure_credential(self, **kwargs):
+
+        """
+        Create a Credential for authentication using DefaultAzureCredential
+        Args:
+            **kwargs: Arguments of DefaultAzureCredential
+
+        Returns
+        -------
+        Tuple of (Async Credential, Sync Credential).
+        """
         
         from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
         from azure.identity import DefaultAzureCredential
