@@ -452,19 +452,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
 
-        #Solving issue in https://github.com/fsspec/adlfs/issues/270 
-        if (platform.system() == 'Windows') & (self.credential is None) & (self.anon is False):
-            from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
-            from azure.identity import DefaultAzureCredential
-            self.credential = AIODefaultAzureCredential()
-            self.sync_credential = DefaultAzureCredential()
+        #Solving issue in https://github.com/fsspec/adlfs/issues/270
+        if (self.credential is None 
+            and self.anon is False 
+            and self.sas_token is None 
+            and self.account_key is None):
+
+            (self.credential, 
+            self.sync_credential) = self._get_default_azure_credential(**kwargs)
         
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
-
-        if (platform.system() == 'Windows') & (self.anon is False):
-            close_service_client(self)
-            close_credential(self)
+        weakref.finalize(self, sync, self.loop, close_credential, self)
 
     @classmethod
     def _strip_protocol(cls, path: str):
@@ -531,18 +530,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return (async_credential, sync_credential)
 
     def _get_default_azure_credential(self, **kwargs):
-        try:
-            from azure.identity.aio import (
-                DefaultAzureCredential as AIODefaultAzureCredential,
-            )
+        
+        from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
+        from azure.identity import DefaultAzureCredential
+        async_credential = AIODefaultAzureCredential(**kwargs)
+        sync_credential = DefaultAzureCredential(**kwargs)
 
-            asyncio.get_child_watcher().attach_loop(self.loop)
-            self.credential = AIODefaultAzureCredential()
-            self.do_connect()
-        except:  # noqa: E722
-            raise ClientAuthenticationError(
-                "No explict credentials provided. Failed with DefaultAzureCredential!"
-            )
+        return (async_credential, sync_credential)
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
@@ -581,8 +575,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         credential=None,
                         _location_mode=self.location_mode,
                     )
-                elif self.anon is False:
-                    self._get_default_azure_credential()
                 else:
                     # Fall back to anonymous login, and assume public container
                     self.service_client = AIOBlobServiceClient(
