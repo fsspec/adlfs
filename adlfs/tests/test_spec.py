@@ -915,6 +915,70 @@ def test_large_blob(storage):
         assert local_blob.stat().st_size == blob_size
 
 
+def test_large_upload_overflow(storage):
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    # create a 3 GB char array to check if SSL overflow error occurs
+    blob_size = 3 * 1024**3
+    # blob_size = 3 GB
+
+    data = "1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
+
+    # create container
+    fs.mkdir("chunk-container")
+
+    # upload the data using fs.open
+    path = "chunk-container/large-upload.bin"
+    with fs.open(path, "ab") as dst:
+        dst.write(data)
+
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
+
+    del data
+
+    # download with fs.open
+    bio = io.BytesIO()
+    with fs.open(path, "rb") as src:
+        shutil.copyfileobj(src, bio)
+
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
+
+    assert expected == result
+
+    # do the same but using upload/download and a tempdir
+    path = path = "chunk-container/large_upload2.bin"
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_upload2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
+
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+
 def test_dask_parquet(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
