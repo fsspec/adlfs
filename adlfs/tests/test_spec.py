@@ -925,11 +925,11 @@ def test_large_upload_overflow(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    # create a 3 GB char array to check if SSL overflow error occurs
+    # create a 3 GB byte array to check if SSL overflow error occurs
     blob_size = 3 * 1024**3
     # blob_size = 3 GB
 
-    data = "1" * blob_size
+    data = b"1" * blob_size
     _hash = hashlib.md5(data)
     expected = _hash.hexdigest()
 
