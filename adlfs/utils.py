@@ -44,6 +44,7 @@ async def close_container_client(file_obj):
     """
     await file_obj.container_client.close()
 
+
 async def close_credential(file_obj):
     """
     Implements asynchronous closure of credentials for

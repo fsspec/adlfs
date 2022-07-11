@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from glob import has_magic
 
 from azure.core.exceptions import (
-    ClientAuthenticationError,
     HttpResponseError,
     ResourceExistsError,
     ResourceNotFoundError,
@@ -32,8 +31,8 @@ from fsspec.utils import infer_storage_options, tokenize
 
 from .utils import (
     close_container_client,
-    close_service_client,
     close_credential,
+    close_service_client,
     filter_blobs,
     get_blob_metadata,
 )
@@ -451,15 +450,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
 
-        #Solving issue in https://github.com/fsspec/adlfs/issues/270
-        if (self.credential is None 
-            and self.anon is False 
-            and self.sas_token is None 
-            and self.account_key is None):
+        # Solving issue in https://github.com/fsspec/adlfs/issues/270
+        if (
+            self.credential is None
+            and self.anon is False
+            and self.sas_token is None
+            and self.account_key is None
+        ):
 
-            (self.credential, 
-            self.sync_credential) = self._get_default_azure_credential(**kwargs)
-        
+            (
+                self.credential,
+                self.sync_credential,
+            ) = self._get_default_azure_credential(**kwargs)
+
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
         weakref.finalize(self, sync, self.loop, close_credential, self)
@@ -537,9 +540,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
         -------
         Tuple of (Async Credential, Sync Credential).
         """
-        
-        from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
+
         from azure.identity import DefaultAzureCredential
+        from azure.identity.aio import (
+            DefaultAzureCredential as AIODefaultAzureCredential,
+        )
+
         async_credential = AIODefaultAzureCredential(**kwargs)
         sync_credential = DefaultAzureCredential(**kwargs)
 
