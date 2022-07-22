@@ -43,3 +43,11 @@ async def close_container_client(file_obj):
     AzureBlobFile objects
     """
     await file_obj.container_client.close()
+
+
+async def close_credential(file_obj):
+    """
+    Implements asynchronous closure of credentials for
+    AzureBlobFile objects
+    """
+    await file_obj.credential.close()
