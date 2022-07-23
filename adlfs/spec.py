@@ -466,7 +466,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
-        weakref.finalize(self, sync, self.loop, close_credential, self)
 
         if self.credential is not None:
             weakref.finalize(self, sync, self.loop, close_credential, self)
