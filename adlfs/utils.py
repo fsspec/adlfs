@@ -58,6 +58,7 @@ if sys.version_info < (3, 10):
 else:
     _nullcontext = contextlib.nullcontext
 
+
 async def close_credential(file_obj):
     """
     Implements asynchronous closure of credentials for
