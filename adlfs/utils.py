@@ -1,3 +1,7 @@
+import contextlib
+import sys
+
+
 async def filter_blobs(blobs, target_path, delimiter="/"):
     """
     Filters out blobs that do not come from target_path
@@ -43,3 +47,13 @@ async def close_container_client(file_obj):
     AzureBlobFile objects
     """
     await file_obj.container_client.close()
+
+
+if sys.version_info < (3, 10):
+    # PYthon 3.10 added support for async to nullcontext
+    @contextlib.asynccontextmanager
+    async def _nullcontext(*args):
+        yield
+
+else:
+    _nullcontext = contextlib.nullcontext
