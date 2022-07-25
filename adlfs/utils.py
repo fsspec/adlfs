@@ -50,7 +50,7 @@ async def close_container_client(file_obj):
 
 
 if sys.version_info < (3, 10):
-    # PYthon 3.10 added support for async to nullcontext
+    # Python 3.10 added support for async to nullcontext
     @contextlib.asynccontextmanager
     async def _nullcontext(*args):
         yield
@@ -64,4 +64,6 @@ async def close_credential(file_obj):
     Implements asynchronous closure of credentials for
     AzureBlobFile objects
     """
-    await file_obj.credential.close()
+    if file_obj.credential is not None:
+        await file_obj.credential.close()
+    else: pass
