@@ -1,3 +1,7 @@
+import contextlib
+import sys
+
+
 async def filter_blobs(blobs, target_path, delimiter="/"):
     """
     Filters out blobs that do not come from target_path
@@ -45,9 +49,25 @@ async def close_container_client(file_obj):
     await file_obj.container_client.close()
 
 
+if sys.version_info < (3, 10):
+    # Python 3.10 added support for async to nullcontext
+    @contextlib.asynccontextmanager
+    async def _nullcontext(*args):
+        yield
+
+else:
+    _nullcontext = contextlib.nullcontext
+
+
 async def close_credential(file_obj):
     """
     Implements asynchronous closure of credentials for
     AzureBlobFile objects
     """
-    await file_obj.credential.close()
+    try:
+        if file_obj.credential is not None:
+            await file_obj.credential.close()
+        else:
+            pass
+    except AttributeError:
+        pass
