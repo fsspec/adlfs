@@ -66,4 +66,5 @@ async def close_credential(file_obj):
     """
     if file_obj.credential is not None:
         await file_obj.credential.close()
-    else: pass
+    else:
+        pass
