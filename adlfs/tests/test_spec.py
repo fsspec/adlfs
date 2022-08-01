@@ -1424,3 +1424,41 @@ def test_find_with_prefix(storage):
     assert test_1s == [test_bucket_name + "/prefixes/test_1"] + [
         test_bucket_name + f"/prefixes/test_{cursor}" for cursor in range(10, 20)
     ]
+
+
+def test_expand_path(storage):
+    test_bucket = "data"
+    test_dir = f"{test_bucket}/testexpandpath"
+    sub_dir_1 = f"{test_dir}/subdir1"
+    sub_dir_2 = f"{sub_dir_1}/subdir2"
+    test_blobs = [
+        f"{test_dir}/blob1",
+        f"{test_dir}/blob2",
+        f"{test_dir}/subdir1/blob3",
+        f"{test_dir}/subdir1/blob4",
+        f"{test_dir}/subdir1/subdir2/blob5",
+    ]
+
+    expected_dirs_w_trailing_slash = test_blobs.copy()
+    expected_dirs_w_trailing_slash.append(test_dir)
+    expected_dirs_w_trailing_slash.append(sub_dir_1 + "/")
+    expected_dirs_w_trailing_slash.append(sub_dir_2 + "/")
+
+    expected_dirs_wo_trailing_slash = test_blobs.copy()
+    expected_dirs_wo_trailing_slash.append(sub_dir_1)
+    expected_dirs_wo_trailing_slash.append(sub_dir_2)
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    for blob in test_blobs:
+        fs.touch(blob)
+
+    result_without_slash = fs.expand_path(test_dir, recursive=True)
+    assert sorted(result_without_slash) == sorted(expected_dirs_w_trailing_slash)
+
+    result_with_slash = fs.expand_path(test_dir + "/", recursive=True)
+    assert sorted(result_with_slash) == sorted(expected_dirs_w_trailing_slash)
+
+    result_glob = fs.expand_path(test_dir + "/*", recursive=True)
+    assert sorted(result_glob) == sorted(expected_dirs_wo_trailing_slash)
