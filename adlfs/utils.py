@@ -1,4 +1,15 @@
-async def filter_blobs(blobs, target_path, delimiter="/"):
+from typing import Optional
+
+
+def match_blob_version(blob, version_id: Optional[str]):
+    return (
+        version_id is None and ("version_id" not in blob or blob["is_current_version"])
+    ) or (version_id is not None and blob["version_id"] == version_id)
+
+
+async def filter_blobs(
+    blobs, target_path, delimiter="/", version_id: Optional[str] = None
+):
     """
     Filters out blobs that do not come from target_path
 
@@ -10,18 +21,25 @@ async def filter_blobs(blobs, target_path, delimiter="/"):
 
     delimiter: str
             Delimiter used to separate containers and files
+
+    version_id: Spefic blob version ID to be returned
     """
     # remove delimiter and spaces, then add delimiter at the end
     target_path = target_path.strip(" " + delimiter) + delimiter
     finalblobs = [
-        b for b in blobs if b["name"].strip(" " + delimiter).startswith(target_path)
+        b
+        for b in blobs
+        if (
+            b["name"].strip(" " + delimiter).startswith(target_path)
+            and match_blob_version(b, version_id)
+        )
     ]
     return finalblobs
 
 
-async def get_blob_metadata(container_client, path):
+async def get_blob_metadata(container_client, path, version_id: Optional[str] = None):
     async with container_client.get_blob_client(path) as bc:
-        properties = await bc.get_blob_properties()
+        properties = await bc.get_blob_properties(version_id=version_id)
         if "metadata" in properties.keys():
             metadata = properties["metadata"]
         else:
