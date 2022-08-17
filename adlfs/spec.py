@@ -504,7 +504,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ops["path"] = ops["host"] + ops["path"]
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
-        return ops["path"]
+        stripped_path = ops["path"].lstrip("/")
+        return stripped_path
 
     @staticmethod
     def _get_kwargs_from_urls(urlpath):
