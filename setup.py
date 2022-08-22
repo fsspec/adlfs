@@ -33,7 +33,7 @@ setup(
         "azure-core>=1.7.0",
         "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
-        "azure-storage-blob>=12.5.0",
+        "azure-storage-blob>=12.12.0",
         "fsspec>=2021.10.1",
     ],
     extras_require={
