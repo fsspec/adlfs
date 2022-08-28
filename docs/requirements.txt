@@ -1,0 +1,4 @@
+myst-parser
+# https://github.com/pradyunsg/furo/discussions/308
+furo==2022.4.7
+numpydoc

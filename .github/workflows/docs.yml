@@ -1,6 +1,7 @@
 name: Docs
 
 on:
+  pull_request:
   push:
     branches:    
       - main
@@ -28,6 +29,7 @@ jobs:
         # The above command will fail if no changes were present, so we ignore
         # that.
     - name: Push changes
+      if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
       uses: ad-m/github-push-action@v0.6.0
       with:
         branch: gh-pages
