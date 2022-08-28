@@ -25,7 +25,7 @@ setup(
     license="BSD",
     keywords=["file-system", "dask", "azure"],
     packages=["adlfs"],
-    python_requires=">3.8",
+    python_requires=">=3.8",
     long_description_content_type="text/markdown",
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
