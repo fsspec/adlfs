@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
     - run: python -m pip install -e .[docs]
-    - uses: ammaraskar/sphinx-action@v1
+    - uses: ammaraskar/sphinx-action@master
       with:
         docs-folder: "docs/"
     - name: Commit documentation changes
