@@ -2,9 +2,11 @@ from typing import Optional
 
 
 def match_blob_version(blob, version_id: Optional[str]):
+    blob_version_id = blob.get("version_id")
     return (
-        version_id is None and ("version_id" not in blob or blob["is_current_version"])
-    ) or (version_id is not None and blob["version_id"] == version_id)
+        version_id is None
+        and (blob_version_id is None or blob.get("is_current_version"))
+    ) or blob_version_id == version_id
 
 
 async def filter_blobs(
