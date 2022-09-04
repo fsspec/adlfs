@@ -600,6 +600,35 @@ def test_glob(storage):
     assert fs.glob("data/missing/*") == []
 
 
+def test_glob_full_uri(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    assert fs.glob("abfs://account.dfs.core.windows.net/data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    assert fs.glob("account.dfs.core.windows.net/data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+
 def test_open_file(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
