@@ -59,9 +59,13 @@ def storage(host):
 
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
+        policy.set_event_loop(loop)
 
 
 @pytest.fixture(scope="session", autouse=True)

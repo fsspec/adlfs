@@ -12,6 +12,7 @@ import warnings
 import weakref
 from datetime import datetime, timedelta
 from glob import has_magic
+from typing import Optional, Tuple
 
 from azure.core.exceptions import (
     HttpResponseError,
@@ -36,6 +37,7 @@ from .utils import (
     close_service_client,
     filter_blobs,
     get_blob_metadata,
+    match_blob_version,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,10 @@ FORWARDED_BLOB_PROPERTIES = [
     "etag",
     "tags",
     "tag_count",
+]
+VERSIONED_BLOB_PROPERTIES = [
+    "version_id",
+    "is_current_version",
 ]
 _ROOT_PATH = "/"
 
@@ -301,6 +307,22 @@ def make_callback(key, callback):
     return wrapper
 
 
+def _coalesce_version_id(*args) -> Optional[str]:
+    """Helper to coalesce a list of version_ids down to one"""
+    version_ids = set(args)
+    if None in version_ids:
+        version_ids.remove(None)
+    if len(version_ids) > 1:
+        raise ValueError(
+            "Cannot coalesce version_ids where more than one are defined,"
+            " {}".format(version_ids)
+        )
+    elif len(version_ids) == 0:
+        return None
+    else:
+        return version_ids.pop()
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -349,6 +371,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     default_cache_type: string ('bytes')
         If given, the default cache_type value used for "open()".  Set to none if no caching
         is desired.  Docs in fsspec
+    version_aware : bool (False)
+        Whether to support blob versioning.  If enable this will require the
+        user to have the necessary permissions for dealing with versioned blobs.
 
     Pass on to fsspec:
 
@@ -410,6 +435,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         asynchronous: bool = False,
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
+        version_aware: bool = False,
         **kwargs,
     ):
         super_kwargs = {
@@ -438,6 +464,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.blocksize = blocksize
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
+        self.version_aware = version_aware
         if (
             self.credential is None
             and self.account_key is None
@@ -505,6 +532,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ops["host"].count(STORE_SUFFIX) == 0
             ):  # no store-suffix, so this is container-name
                 ops["path"] = ops["host"] + ops["path"]
+        url_query = ops.get("url_query")
+        if url_query is not None:
+            ops["path"] = f"{ops['path']}?{url_query}"
 
         logger.debug(f"_strip_protocol({path}) = {ops}")
         stripped_path = ops["path"].lstrip("/")
@@ -523,6 +553,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if match:
                 account_name = match.groupdict()["account_name"]
                 out["account_name"] = account_name
+        url_query = ops.get("url_query")
+        if url_query is not None:
+            from urllib.parse import parse_qs
+
+            parsed = parse_qs(url_query)
+            if "versionid" in parsed:
+                out["version_aware"] = True
         return out
 
     def _get_credential_from_service_principal(self):
@@ -628,7 +665,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception as e:
             raise ValueError(f"unable to connect to account for {e}")
 
-    def split_path(self, path, delimiter="/", return_container: bool = False, **kwargs):
+    def split_path(
+        self, path, delimiter="/", return_container: bool = False, **kwargs
+    ) -> Tuple[str, str, Optional[str]]:
         """
         Normalize ABFS path string into bucket and key.
 
@@ -646,18 +685,26 @@ class AzureBlobFileSystem(AsyncFileSystem):
         --------
         >>> split_path("abfs://my_container/path/to/file")
         ['my_container', 'path/to/file']
+
+        >>> split_path("abfs://my_container/path/to/versioned_file?versionid=some_version_id")
+        ['my_container', 'path/to/versioned_file', 'some_version_id']
         """
 
         if path in ["", delimiter]:
-            return "", ""
+            return "", "", None
 
         path = self._strip_protocol(path)
         path = path.lstrip(delimiter)
         if "/" not in path:
             # this means path is the container_name
-            return path, ""
-        else:
-            return path.split(delimiter, 1)
+            return path, "", None
+        container, keypart = path.split(delimiter, 1)
+        key, _, version_id = keypart.partition("?versionid=")
+        return (
+            container,
+            key,
+            version_id if self.version_aware and version_id else None,
+        )
 
     def info(self, path, refresh=False, **kwargs):
         try:
@@ -665,7 +712,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception:
             fetch_from_azure = True
         if fetch_from_azure:
-            return sync(self.loop, self._info, path, refresh)
+            return sync(
+                self.loop,
+                self._info,
+                path,
+                refresh,
+                version_id=kwargs.get("version_id"),
+            )
         return super().info(path)
 
     async def _info(self, path, refresh=False, **kwargs):
@@ -685,22 +738,36 @@ class AzureBlobFileSystem(AsyncFileSystem):
             invalidate_cache = True
         else:
             invalidate_cache = False
-        path = self._strip_protocol(path)
+        container, path, path_version_id = self.split_path(path)
+        fullpath = "/".join([container, path]) if path else container
+        version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
+        kwargs["version_id"] = version_id
+
         out = await self._ls(
-            self._parent(path), invalidate_cache=invalidate_cache, **kwargs
+            self._parent(fullpath), invalidate_cache=invalidate_cache, **kwargs
         )
-        out = [o for o in out if o["name"].rstrip("/") == path]
+        out = [
+            o
+            for o in out
+            if o["name"].rstrip("/") == fullpath
+            and (version_id is None or o["version_id"] == version_id)
+        ]
         if out:
             return out[0]
-        out = await self._ls(path, invalidate_cache=invalidate_cache, **kwargs)
-        path = path.rstrip("/")
-        out1 = [o for o in out if o["name"].rstrip("/") == path]
+        out = await self._ls(fullpath, invalidate_cache=invalidate_cache, **kwargs)
+        fullpath = fullpath.rstrip("/")
+        out1 = [
+            o
+            for o in out
+            if o["name"].rstrip("/") == fullpath
+            and (version_id is None or o["version_id"] == version_id)
+        ]
         if len(out1) == 1:
             if "size" not in out1[0]:
                 out1[0]["size"] = None
             return out1[0]
         elif len(out1) > 1 or out:
-            return {"name": path, "size": None, "type": "directory"}
+            return {"name": fullpath, "size": None, "type": "directory"}
         else:
             raise FileNotFoundError
 
@@ -811,6 +878,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
+        version_id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -830,12 +898,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str
             Delimiter used to split paths
 
+        version_id: str
+            Specific blob version to list
+
         return_glob: bool
 
         """
         logger.debug("abfs.ls() is searching for %s", path)
         target_path = path.strip("/")
-        container, path = self.split_path(path)
+        container, path, path_version_id = self.split_path(path)
+        version_id = _coalesce_version_id(version_id, path_version_id)
 
         if invalidate_cache:
             self.dircache.clear()
@@ -857,16 +929,30 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.dircache.update(cache)
             return cache[_ROOT_PATH]
         else:
-            if target_path not in cache or invalidate_cache or return_glob:
+            if (
+                target_path not in cache
+                or invalidate_cache
+                or return_glob
+                or self.version_aware
+                and not any(
+                    match_blob_version(b, version_id) for b in cache[target_path]
+                )
+            ):
                 if container not in ["", delimiter]:
                     # This is the case where the container name is passed
                     async with self.service_client.get_container_client(
                         container=container
                     ) as cc:
                         path = path.strip("/")
-                        blobs = cc.walk_blobs(
-                            include=["metadata"], name_starts_with=path
-                        )
+                        include = ["metadata"]
+                        if version_id is not None:
+                            if not self.version_aware:
+                                raise ValueError(
+                                    "version_id cannot be specified if the "
+                                    "filesystem is not version aware"
+                                )
+                            include.append("versions")
+                        blobs = cc.walk_blobs(include=include, name_starts_with=path)
 
                     # Check the depth that needs to be screened
                     depth = target_path.count("/")
@@ -907,15 +993,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     except ResourceNotFoundError:
                         raise FileNotFoundError
                     finalblobs = await self._details(
-                        outblobs, target_path=target_path, return_glob=return_glob
+                        outblobs,
+                        target_path=target_path,
+                        return_glob=return_glob,
+                        version_id=version_id,
                     )
                     if return_glob:
                         return finalblobs
-                    finalblobs = await self._details(outblobs, target_path=target_path)
+                    finalblobs = await self._details(
+                        outblobs, target_path=target_path, version_id=version_id
+                    )
                     if not finalblobs:
                         if not await self._exists(target_path):
                             raise FileNotFoundError
                         return []
+                    if self.version_aware and not finalblobs[0].get(
+                        "is_current_version"
+                    ):
+                        return finalblobs
                     cache[target_path] = finalblobs
                     self.dircache[target_path] = finalblobs
 
@@ -927,6 +1022,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter="/",
         return_glob: bool = False,
         target_path="",
+        version_id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -941,6 +1037,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return_glob: bool
 
+        version_id: str
+            Specific target version to be returned
+
         Returns
         -------
         List of dicts
@@ -953,6 +1052,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 for key in FORWARDED_BLOB_PROPERTIES
                 if content.has_key(key)  # NOQA
             }
+            if self.version_aware:
+                data.update(
+                    (key, content[key])
+                    for key in VERSIONED_BLOB_PROPERTIES
+                    if content.has_key(key)  # NOQA
+                )
             if content.has_key("container"):  # NOQA
                 fname = f"{content.container}{delimiter}{content.name}"
                 fname = fname.rstrip(delimiter)
@@ -994,10 +1099,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data.update({"name": data["name"].rstrip("/")})
             output.append(data)
         if target_path:
-            if len(output) == 1 and output[0]["type"] == "file":
+            if (
+                len(output) == 1
+                and output[0]["type"] == "file"
+                and not self.version_aware
+            ):
                 # This handles the case where path is a file passed to ls
                 return output
-            output = await filter_blobs(output, target_path, delimiter)
+            output = await filter_blobs(
+                output, target_path, delimiter, version_id=version_id
+            )
 
         return output
 
@@ -1023,7 +1134,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         full_path = self._strip_protocol(path)
         parent_path = full_path.strip("/") + "/"
         target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
-        container, path = self.split_path(target_path)
+        container, path, _ = self.split_path(target_path)
 
         async with self.service_client.get_container_client(
             container=container
@@ -1209,7 +1320,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         """
         fullpath = path
-        container_name, path = self.split_path(path, delimiter=delimiter)
+        container_name, path, _ = self.split_path(path, delimiter=delimiter)
         container_exists = await self._container_exists(container_name)
         if not create_parents and not container_exists:
             raise PermissionError(
@@ -1295,7 +1406,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         try:
             kind = await self._info(path)
-            container_name, path = self.split_path(path, delimiter=delimiter)
+            container_name, path, _ = self.split_path(path, delimiter=delimiter)
             kind = kind["type"]
             if path != "":
                 async with self.service_client.get_container_client(
@@ -1334,7 +1445,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         """
 
-        container_name, path = self.split_path(path, delimiter=delimiter)
+        container_name, path, _ = self.split_path(path, delimiter=delimiter)
         container_exists = await self._container_exists(container_name)
         if container_exists and not path:
             await self.service_client.delete_container(container_name)
@@ -1366,7 +1477,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
         try:
-            container_name, path = self.split_path(path)
+            container_name, path, version_id = self.split_path(path)
             if not path:
                 # A container can not be a file
                 return False
@@ -1375,12 +1486,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     async with self.service_client.get_blob_client(
                         container_name, path
                     ) as bc:
-                        props = await bc.get_blob_properties()
+                        props = await bc.get_blob_properties(version_id=version_id)
                     if props["metadata"]["is_directory"] == "false":
                         return True
 
                 except ResourceNotFoundError:
                     return False
+
+                except HttpResponseError:
+                    if version_id is not None:
+                        return False
+                    raise
 
                 except KeyError:
                     details = await self._details([props])
@@ -1400,7 +1516,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if fp["name"] != path:
                     return True
         try:
-            container_name, path_ = self.split_path(path)
+            container_name, path_, _ = self.split_path(path)
             if not path_:
                 return await self._container_exists(container_name)
             else:
@@ -1424,7 +1540,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except KeyError:
             pass
 
-        container_name, path = self.split_path(path)
+        container_name, path, version_id = self.split_path(path)
 
         if not path:
             if container_name:
@@ -1434,8 +1550,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return True
 
         async with self.service_client.get_blob_client(container_name, path) as bc:
-            if await bc.exists():
-                return True
+            try:
+                if await bc.exists(version_id=version_id):
+                    return True
+            except HttpResponseError:
+                if version_id is not None:
+                    return False
+                raise
 
         dir_path = path.rstrip("/") + "/"
         async with self.service_client.get_container_client(
@@ -1450,7 +1571,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""
-        container_name, path = self.split_path(path)
+        container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
@@ -1469,14 +1590,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
             length = end - start
         else:
             length = None
-        container_name, path = self.split_path(path)
+        container_name, path, version_id = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
             try:
-                stream = await bc.download_blob(offset=start, length=length)
+                stream = await bc.download_blob(
+                    offset=start, length=length, version_id=version_id
+                )
             except ResourceNotFoundError as e:
                 raise FileNotFoundError from e
+            except HttpResponseError as e:
+                if version_id is not None:
+                    raise FileNotFoundError from e
+                raise
             result = await stream.readall()
             return result
 
@@ -1523,7 +1650,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         expires : int
             the number of seconds this signature will be good for.
         """
-        container_name, blob = self.split_path(path)
+        container_name, blob, version_id = self.split_path(path)
 
         sas_token = generate_blob_sas(
             account_name=self.account_name,
@@ -1532,6 +1659,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             account_key=self.account_key,
             permission=BlobSasPermissions(read=True),
             expiry=datetime.utcnow() + timedelta(seconds=expires),
+            version_id=version_id,
         )
 
         async with self.service_client.get_blob_client(container_name, blob) as bc:
@@ -1559,32 +1687,43 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
         else:
             out = set()
-            path = [self._strip_protocol(p) for p in path]
-            for p in path:
-                if has_magic(p):
-                    bit = set(await self._glob(p))
+            split_paths = [self.split_path(p) for p in path]
+            for container, p, version_id in split_paths:
+                glob_p = "/".join([container, p]) if p else container
+                fullpath = (
+                    f"{glob_p}?versionid={version_id}"
+                    if version_id is not None
+                    else glob_p
+                )
+                if has_magic(glob_p):
+                    bit = set(await self._glob(glob_p))
                     out |= bit
                     if recursive:
-                        bit2 = set(await self._expand_path(p))
+                        bit2 = set(await self._expand_path(glob_p))
                         out |= bit2
                     continue
                 elif recursive:
                     rec = set(
-                        await self._find(p, withdirs=True, with_parent=with_parent)
+                        await self._find(
+                            glob_p,
+                            withdirs=True,
+                            with_parent=with_parent,
+                            version_id=version_id,
+                        )
                     )
                     out |= rec
 
-                if p not in out and (
+                if fullpath not in out and (
                     recursive is False
-                    or await self._exists(p)
-                    or await self._exists(p.rstrip("/"))
+                    or await self._exists(fullpath)
+                    or await self._exists(fullpath.rstrip("/"))
                 ):
-                    if not await self._exists(p):
+                    if not await self._exists(fullpath):
                         # This is to verify that we don't miss files
-                        p = p.rstrip("/")
-                        if not await self._exists(p):
+                        fullpath = fullpath.rstrip("/")
+                        if not await self._exists(fullpath):
                             continue
-                    out.add(p)
+                    out.add(fullpath)
 
         if not out:
             raise FileNotFoundError
@@ -1602,7 +1741,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         :param overwrite: Boolean (False).  If True, overwrite the existing file present
         """
 
-        container_name, path = self.split_path(rpath, delimiter=delimiter)
+        container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
             self.makedirs(rpath, exist_ok=True)
@@ -1633,8 +1772,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _cp_file(self, path1, path2, **kwargs):
         """Copy the file at path1 to path2"""
-        container1, path1 = self.split_path(path1, delimiter="/")
-        container2, path2 = self.split_path(path2, delimiter="/")
+        container1, path1, version_id = self.split_path(path1, delimiter="/")
+        container2, path2, _ = self.split_path(path2, delimiter="/")
 
         cc1 = self.service_client.get_container_client(container1)
         blobclient1 = cc1.get_blob_client(blob=path1)
@@ -1643,7 +1782,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             cc2 = self.service_client.get_container_client(container2)
             blobclient2 = cc2.get_blob_client(blob=path2)
-        await blobclient2.start_copy_from_url(blobclient1.url)
+        url = (
+            blobclient1.url
+            if version_id is None
+            else f"{blobclient1.url}?versionid={version_id}"
+        )
+        try:
+            await blobclient2.start_copy_from_url(url)
+        except ResourceNotFoundError as e:
+            raise FileNotFoundError from e
         self.invalidate_cache(container1)
         self.invalidate_cache(container2)
 
@@ -1663,7 +1810,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Copy single file remote to local"""
         if os.path.isdir(lpath):
             return
-        container_name, path = self.split_path(rpath, delimiter=delimiter)
+        container_name, path, version_id = self.split_path(rpath, delimiter=delimiter)
         try:
             async with self.service_client.get_blob_client(
                 container_name, path.rstrip(delimiter)
@@ -1672,7 +1819,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     stream = await bc.download_blob(
                         raw_response_hook=make_callback(
                             "download_stream_current", callback
-                        )
+                        ),
+                        version_id=version_id,
                     )
                     await stream.readinto(my_blob)
         except ResourceNotFoundError as exception:
@@ -1685,7 +1833,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return meta[attr]
 
     async def _setxattrs(self, rpath, **kwargs):
-        container_name, path = self.split_path(rpath)
+        container_name, path, _ = self.split_path(rpath)
         try:
             async with self.service_client.get_blob_client(container_name, path) as bc:
                 await bc.set_blob_metadata(metadata=kwargs)
@@ -1711,6 +1859,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cache_options: dict = {},
         cache_type="readahead",
         metadata=None,
+        version_id: Optional[str] = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1734,8 +1883,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Caching policy in read mode.
             See the definitions here:
             https://filesystem-spec.readthedocs.io/en/latest/api.html#readbuffering
+
+        version_id: str
+            Explicit version of the blob to open.  This requires that the abfs filesystem
+            is versioning aware and blob versioning is enabled on the releveant container.
         """
         logger.debug(f"_open:  {path}")
+        if not self.version_aware and version_id:
+            raise ValueError(
+                "version_id cannot be specified if the filesystem "
+                "is not version aware"
+            )
         return AzureBlobFile(
             fs=self,
             path=path,
@@ -1745,6 +1903,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_options=cache_options,
             cache_type=cache_type,
             metadata=metadata,
+            version_id=version_id,
             **kwargs,
         )
 
@@ -1764,6 +1923,7 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_type: str = "bytes",
         cache_options: dict = {},
         metadata=None,
+        version_id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -1795,19 +1955,29 @@ class AzureBlobFile(AbstractBufferedFile):
             Additional options passed to the constructor for the cache specified
             by `cache_type`.
 
+        version_id : str
+            Optional version to read the file at.  If not specified this will
+            default to the current version of the object.  This is only used for
+            reading.
+
         kwargs: dict
             Passed to AbstractBufferedFile
         """
 
         from fsspec.core import caches
 
-        container_name, blob = fs.split_path(path)
+        container_name, blob, path_version_id = fs.split_path(path)
         self.fs = fs
         self.path = path
         self.mode = mode
         self.container_name = container_name
         self.blob = blob
         self.block_size = block_size
+        self.version_id = (
+            _coalesce_version_id(version_id, path_version_id)
+            if self.fs.version_aware
+            else None
+        )
 
         try:
             # Need to confirm there is an event loop running in
@@ -1851,7 +2021,17 @@ class AzureBlobFile(AbstractBufferedFile):
             raise NotImplementedError("File mode not supported")
         if self.mode == "rb":
             if not hasattr(self, "details"):
-                self.details = self.fs.info(self.path)
+                self.details = self.fs.info(self.path, version_id=self.version_id)
+            elif self.fs.version_aware and (
+                (self.version_id is None and not self.details.get("is_current_version"))
+                or (
+                    self.version_id is not None
+                    and self.version_id != self.details.get("version_id")
+                )
+            ):
+                self.details = self.fs.info(
+                    self.path, version_id=self.version_id, refresh=True
+                )
             self.size = self.details["size"]
             self.cache = caches[cache_type](
                 blocksize=self.blocksize,
@@ -1860,7 +2040,11 @@ class AzureBlobFile(AbstractBufferedFile):
                 **cache_options,
             )
             self.metadata = sync(
-                self.loop, get_blob_metadata, self.container_client, self.blob
+                self.loop,
+                get_blob_metadata,
+                self.container_client,
+                self.blob,
+                version_id=self.version_id,
             )
 
         else:
@@ -1934,7 +2118,7 @@ class AzureBlobFile(AbstractBufferedFile):
             length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
-                blob=self.blob, offset=start, length=length
+                blob=self.blob, offset=start, length=length, version_id=self.version_id
             )
             blob = await stream.readall()
         return blob
