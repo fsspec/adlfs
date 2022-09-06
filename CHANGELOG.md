@@ -1,4 +1,15 @@
 **Change Log**
+2022.9.0
+--------
+- Add support to AzureBlobFileSystem for versioning
+- Assure full uri's are left stripped to remove "\"
+- Set Python requires >=3.8 in setup.cfg
+- _strip_protocol handle lists
+
+2022.7.0
+--------
+- Fix overflow error when uploading files > 2GB
+
 2022.04.0
 ---------
 - Added support for Python 3.10 and pinned Python 3.8
