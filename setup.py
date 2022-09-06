@@ -34,6 +34,7 @@ setup(
         "azure-identity",
         "azure-storage-blob>=12.12.0",
         "fsspec>=2021.10.1",
+        "aiohttp>=3.7.0",
     ],
     extras_require={
         "docs": ["sphinx", "myst-parser", "furo", "numpydoc"],
