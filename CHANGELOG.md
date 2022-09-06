@@ -1,4 +1,9 @@
 **Change Log**
+
+2022.9.1
+--------
+- Fixed missing dependency on `aiohttp` in package metadata.
+
 2022.9.0
 --------
 - Add support to AzureBlobFileSystem for versioning
