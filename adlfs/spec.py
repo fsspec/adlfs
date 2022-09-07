@@ -460,7 +460,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.request_session = request_session
         if socket_timeout is not _SOCKET_TIMEOUT_DEFAULT:
             warnings.warn(
-                "socket_timeout is deprecated and has no effect.", DeprecationWarning
+                "socket_timeout is deprecated and has no effect.", FutureWarning
             )
         self.blocksize = blocksize
         self.default_fill_cache = default_fill_cache
