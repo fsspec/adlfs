@@ -1618,7 +1618,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             included in the output, but the value will be bytes or an exception
             instance.
         """
-        paths = self.expand_path(path, recursive=recursive)
+        paths = self.expand_path(path, recursive=recursive, skip_noexist=False)
         if (
             len(paths) > 1
             or isinstance(path, list)
@@ -1666,12 +1666,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
             url = f"{bc.url}?{sas_token}"
         return url
 
-    def expand_path(self, path, recursive=False, maxdepth=None):
-        return sync(self.loop, self._expand_path, path, recursive, maxdepth)
+    def expand_path(
+        self, path, recursive=False, maxdepth=None, skip_noexist=True
+    ):
+        return sync(
+            self.loop,
+            self._expand_path,
+            path,
+            recursive,
+            maxdepth,
+            skip_noexist
+        )
 
-    async def _expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
+    async def _expand_path(
+        self, path, recursive=False, maxdepth=None, skip_noexist=True, **kwargs
+    ):
         """Turn one or more globs or directories into a list of all matching files"""
-
         with_parent = kwargs.get(
             "with_parent", False
         )  # Sets whether to return the parent dir
@@ -1718,7 +1728,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     or await self._exists(fullpath)
                     or await self._exists(fullpath.rstrip("/"))
                 ):
-                    if not await self._exists(fullpath):
+                    if skip_noexist and not await self._exists(fullpath):
                         # This is to verify that we don't miss files
                         fullpath = fullpath.rstrip("/")
                         if not await self._exists(fullpath):
