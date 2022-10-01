@@ -63,6 +63,8 @@ VERSIONED_BLOB_PROPERTIES = [
 ]
 _ROOT_PATH = "/"
 
+_SOCKET_TIMEOUT_DEFAULT = object()
+
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
     """
@@ -350,10 +352,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         request session. See
         http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
         for the connection string format.
-    socket_timeout: int
-        If specified, this will override the default socket timeout. The timeout specified is in
-        seconds.
-        See DEFAULT_SOCKET_TIMEOUT in _constants.py for the default value.
     credential: TokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity
@@ -424,7 +422,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         credential: str = None,
         sas_token: str = None,
         request_session=None,
-        socket_timeout: int = None,
+        socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
         blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
         client_id: str = None,
         client_secret: str = None,
@@ -460,7 +458,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
-        self.socket_timeout = socket_timeout
+        if socket_timeout is not _SOCKET_TIMEOUT_DEFAULT:
+            warnings.warn(
+                "socket_timeout is deprecated and has no effect.", FutureWarning
+            )
         self.blocksize = blocksize
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
