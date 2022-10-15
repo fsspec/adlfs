@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import exists
-
 from setuptools import setup
-
 import versioneer
 
 setup(
@@ -43,7 +41,6 @@ setup(
     zip_safe=False,
     entry_points={
         "fsspec.specs": [
-            "abfss=adlfs.AzureBlobFileSystem",
-        ],
+            "abfss=adlfs.AzureBlobFileSystem",],
     },
 )
