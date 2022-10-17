@@ -1,5 +1,5 @@
 -r base.txt
 fsspec
-azure-core
+azure-core<2.0.0
 azure-datalake-store
 azure-storage-blob<12.14
