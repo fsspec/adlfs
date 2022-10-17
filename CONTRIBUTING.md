@@ -27,3 +27,15 @@ git push upstream main --follow-tags
 python setup.py sdist bdist_wheel
 twine upload dist/*
 ```
+
+## Pytest
+Testing `adlfs` requires Microsoft `azurite`, which 
+requires `docker`.  Locally, this can be done with `Docker`, or
+`colima`, which itself supports the `Docker runtime`.
+
+If using `colima` do:
+```
+colima start
+export DOCKER_HOST="unix://$HOME/.colima/docker.sock"
+pytest
+```
