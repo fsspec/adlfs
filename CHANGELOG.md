@@ -1,4 +1,7 @@
 **Change Log**
+2022.10.1
+----------
+- Reorder fs.info() to search the parent directory only after searching for the specified item directly
 
 2022.9.1
 --------
