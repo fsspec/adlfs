@@ -15,6 +15,8 @@ URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
 KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
 CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
+DEFAULT_VERSION_ID = "1970-01-01T00:00:00.0000000Z"
+LATEST_VERSION_ID = "2022-01-01T00:00:00.0000000Z"
 
 
 def assert_almost_equal(x, y, threshold, prop_name=None):
@@ -263,6 +265,31 @@ def test_ls_no_listings_cache(storage):
     )
     result = fs.ls("data/root")
     assert len(result) > 0  # some state leaking between tests
+
+
+async def test_ls_versioned(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    walk_blobs = mocker.patch.object(ContainerClient, "walk_blobs")
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=False,
+        skip_instance_cache=True,
+    )
+    with pytest.raises(ValueError):
+        await fs._ls("data/root/a/file.txt", version_id=DEFAULT_VERSION_ID)
+    await fs._ls("data/root/a/file.txt")
+    walk_blobs.assert_called_once_with(
+        include=["metadata"], name_starts_with="root/a/file.txt"
+    )
+
+    fs.version_aware = True
+    walk_blobs.reset_mock()
+    await fs._ls("data/root/a/file.txt", version_id=DEFAULT_VERSION_ID)
+    walk_blobs.assert_called_once_with(
+        include=["metadata", "versions"], name_starts_with="root/a/file.txt"
+    )
 
 
 def test_info(storage):
@@ -600,6 +627,35 @@ def test_glob(storage):
     assert fs.glob("data/missing/*") == []
 
 
+def test_glob_full_uri(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    assert fs.glob("abfs://account.dfs.core.windows.net/data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+    assert fs.glob("account.dfs.core.windows.net/data/**/*.txt") == [
+        "data/root/a/file.txt",
+        "data/root/a1/file1.txt",
+        "data/root/b/file.txt",
+        "data/root/c/file1.txt",
+        "data/root/c/file2.txt",
+        "data/root/d/file_with_metadata.txt",
+        "data/root/e+f/file1.txt",
+        "data/root/e+f/file2.txt",
+        "data/root/rfile.txt",
+    ]
+
+
 def test_open_file(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -915,6 +971,70 @@ def test_large_blob(storage):
         assert local_blob.stat().st_size == blob_size
 
 
+def test_large_upload_overflow(storage):
+    import hashlib
+    import io
+    import shutil
+    from pathlib import Path
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    # create a 3 GB byte array to check if SSL overflow error occurs
+    blob_size = 3 * 1024**3
+    # blob_size = 3 GB
+
+    data = b"1" * blob_size
+    _hash = hashlib.md5(data)
+    expected = _hash.hexdigest()
+
+    # create container
+    fs.mkdir("chunk-container")
+
+    # upload the data using fs.open
+    path = "chunk-container/large-upload.bin"
+    with fs.open(path, "ab") as dst:
+        dst.write(data)
+
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
+
+    del data
+
+    # download with fs.open
+    bio = io.BytesIO()
+    with fs.open(path, "rb") as src:
+        shutil.copyfileobj(src, bio)
+
+    # read back the data and calculate md5
+    bio.seek(0)
+    data = bio.read()
+    _hash = hashlib.md5(data)
+    result = _hash.hexdigest()
+
+    assert expected == result
+
+    # do the same but using upload/download and a tempdir
+    path = path = "chunk-container/large_upload2.bin"
+    with tempfile.TemporaryDirectory() as td:
+        local_blob: Path = Path(td) / "large_upload2.bin"
+        with local_blob.open("wb") as fo:
+            fo.write(data)
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+        fs.upload(str(local_blob), path)
+        assert fs.exists(path)
+        assert fs.size(path) == blob_size
+
+        # download now
+        local_blob.unlink()
+        fs.download(path, str(local_blob))
+        assert local_blob.exists()
+        assert local_blob.stat().st_size == blob_size
+
+
 def test_dask_parquet(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -939,6 +1059,7 @@ def test_dask_parquet(storage):
             "{}://test/test_group.parquet".format(protocol),
             storage_options=STORAGE_OPTIONS,
             engine="pyarrow",
+            write_metadata_file=True,
         )
 
         fs = AzureBlobFileSystem(**STORAGE_OPTIONS)
@@ -964,6 +1085,7 @@ def test_dask_parquet(storage):
         "abfs://test/test_group2.parquet",
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.ls("test/test_group2.parquet") == [
         "test/test_group2.parquet/_common_metadata",
@@ -993,6 +1115,7 @@ def test_dask_parquet(storage):
         partition_on=["A", "B"],
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.glob("test/test_group3.parquet/*") == [
         "test/test_group3.parquet/A=1",
@@ -1019,6 +1142,7 @@ def test_dask_parquet(storage):
         engine="pyarrow",
         flavor="spark",
         write_statistics=False,
+        write_metadata_file=True,
     )
     fs.rmdir("test/test_group4.parquet/_common_metadata", recursive=True)
     fs.rmdir("test/test_group4.parquet/_metadata", recursive=True)
@@ -1045,6 +1169,7 @@ def test_dask_parquet(storage):
         "abfs://test/test group5.parquet",
         storage_options=STORAGE_OPTIONS,
         engine="pyarrow",
+        write_metadata_file=True,
     )
     assert fs.ls("test/test group5.parquet") == [
         "test/test group5.parquet/_common_metadata",
@@ -1189,6 +1314,26 @@ def test_isfile(storage):
     assert fs.isfile("data/root/null_file.txt") is True
 
 
+async def test_isfile_versioned(storage, mocker):
+    from azure.core.exceptions import HttpResponseError
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    get_blob_properties = mocker.patch.object(BlobClient, "get_blob_properties")
+
+    await fs._isfile(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
+    get_blob_properties.assert_called_once_with(version_id=DEFAULT_VERSION_ID)
+
+    get_blob_properties.reset_mock()
+    get_blob_properties.side_effect = HttpResponseError
+    assert not await fs._isfile("data/root/a/file.txt?versionid=invalid_version")
+
+
 def test_isdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1262,6 +1407,29 @@ def test_cat_file_missing(storage):
         fs.cat_file("does/not/exist")
 
 
+async def test_cat_file_versioned(storage, mocker):
+    from azure.core.exceptions import HttpResponseError
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._cat_file(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
+    download_blob.assert_called_once_with(
+        offset=None, length=None, version_id=DEFAULT_VERSION_ID
+    )
+
+    download_blob.reset_mock()
+    download_blob.side_effect = HttpResponseError
+    with pytest.raises(FileNotFoundError):
+        await fs._cat_file("data/root/a/file.txt?versionid=invalid_version")
+
+
 @pytest.mark.skip(
     reason="Bug in Azurite Storage Emulator v3.15.0 gives 403 status_code"
 )
@@ -1283,6 +1451,28 @@ def test_url(storage):
     fs.rm("catdir/catfile.txt")
 
 
+async def test_url_versioned(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        account_key=KEY,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    generate_blob_sas = mocker.patch("adlfs.spec.generate_blob_sas")
+
+    await fs._url(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
+    generate_blob_sas.assert_called_once_with(
+        account_name=storage.account_name,
+        container_name="data",
+        blob_name="root/a/file.txt",
+        account_key=KEY,
+        permission=mocker.ANY,
+        expiry=mocker.ANY,
+        version_id=DEFAULT_VERSION_ID,
+    )
+
+
 def test_cp_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1295,6 +1485,32 @@ def test_cp_file(storage):
     assert "homedir/enddir/test_file.txt" in files
 
     fs.rm("homedir", recursive=True)
+
+
+async def test_cp_file_versioned(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    fs.mkdir("homedir")
+    fs.mkdir("homedir/enddir")
+    fs.touch("homedir/startdir/test_file.txt")
+    start_copy_from_url = mocker.patch.object(BlobClient, "start_copy_from_url")
+
+    try:
+        await fs._cp_file(
+            f"homedir/startdir/test_file.txt?versionid={DEFAULT_VERSION_ID}",
+            "homedir/enddir/test_file.txt",
+        )
+        start_copy_from_url.assert_called_once()
+        url = start_copy_from_url.call_args.args[0]
+        assert url.endswith(f"?versionid={DEFAULT_VERSION_ID}")
+    finally:
+        fs.rm("homedir", recursive=True)
 
 
 def test_exists(storage):
@@ -1329,6 +1545,26 @@ def test_exists_directory(storage):
     assert fs.exists("temp-exists")
 
 
+async def test_exists_versioned(storage, mocker):
+    from azure.core.exceptions import HttpResponseError
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    exists = mocker.patch.object(BlobClient, "exists")
+
+    await fs._exists(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
+    exists.assert_called_once_with(version_id=DEFAULT_VERSION_ID)
+
+    exists.reset_mock()
+    exists.side_effect = HttpResponseError
+    assert not await fs._exists("data/root/a/file.txt?versionid=invalid_version")
+
+
 def test_find_with_prefix(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1355,3 +1591,98 @@ def test_find_with_prefix(storage):
     assert test_1s == [test_bucket_name + "/prefixes/test_1"] + [
         test_bucket_name + f"/prefixes/test_{cursor}" for cursor in range(10, 20)
     ]
+
+
+@pytest.mark.parametrize("proto", [None, "abfs://", "az://"])
+@pytest.mark.parametrize("path", ["container/file", "container/file?versionid=1234"])
+def test_strip_protocol(proto, path):
+    assert (
+        AzureBlobFileSystem._strip_protocol(f"{proto}{path}" if proto else path) == path
+    )
+
+
+@pytest.mark.parametrize("proto", ["", "abfs://", "az://"])
+@pytest.mark.parametrize("key", ["file", "dir/file"])
+@pytest.mark.parametrize("version_aware", [True, False])
+@pytest.mark.parametrize("version_id", [None, "1970-01-01T00:00:00.0000000Z"])
+def test_split_path(storage, proto, key, version_aware, version_id):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=version_aware,
+        skip_instance_cache=True,
+    )
+    path = "".join(
+        [proto, "container/", key, f"?versionid={version_id}" if version_id else ""]
+    )
+    assert fs.split_path(path) == (
+        "container",
+        key,
+        version_id if version_aware else None,
+    )
+
+
+async def test_details_versioned(storage):
+    from azure.storage.blob import BlobProperties
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+
+    path = "root/a/file.txt"
+
+    blob_unversioned = BlobProperties(name=path)
+
+    blob_latest = BlobProperties(name=path)
+    blob_latest["version_id"] = LATEST_VERSION_ID
+    blob_latest["is_current_version"] = True
+
+    blob_previous = BlobProperties(name=path)
+    blob_previous["version_id"] = DEFAULT_VERSION_ID
+    blob_previous["is_current_version"] = None
+
+    await fs._details(
+        [blob_unversioned, blob_latest, blob_previous],
+        target_path=path,
+        version_id=None,
+    ) == [blob_unversioned, blob_latest]
+    await fs._details(
+        [blob_unversioned, blob_latest, blob_previous],
+        target_path=path,
+        version_id=DEFAULT_VERSION_ID,
+    ) == [blob_previous]
+    await fs._details(
+        [blob_unversioned, blob_latest, blob_previous],
+        target_path=path,
+        version_id=LATEST_VERSION_ID,
+    ) == [blob_latest]
+
+
+async def test_get_file_versioned(storage, mocker):
+    from azure.core.exceptions import ResourceNotFoundError
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    with tempfile.TemporaryDirectory() as td:
+        local_file = os.path.join(td, "file.txt")
+        await fs._get_file(
+            f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", local_file
+        )
+        download_blob.assert_called_once_with(
+            raw_response_hook=mocker.ANY, version_id=DEFAULT_VERSION_ID
+        )
+
+    download_blob.reset_mock()
+    download_blob.side_effect = ResourceNotFoundError
+    with pytest.raises(FileNotFoundError):
+        await fs._get_file("data/root/a/file.txt?versionid=invalid_version", "file.txt")
