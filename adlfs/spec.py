@@ -1671,16 +1671,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             url = f"{bc.url}?{sas_token}"
         return url
 
-    def expand_path(
-        self, path, recursive=False, maxdepth=None, skip_noexist=True
-    ):
+    def expand_path(self, path, recursive=False, maxdepth=None, skip_noexist=True):
         return sync(
-            self.loop,
-            self._expand_path,
-            path,
-            recursive,
-            maxdepth,
-            skip_noexist
+            self.loop, self._expand_path, path, recursive, maxdepth, skip_noexist
         )
 
     async def _expand_path(
