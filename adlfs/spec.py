@@ -650,12 +650,20 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str = "/",
         return_glob: bool = False,
         version_id: Optional[str] = None,
+        versions: bool = False,
+        **kwargs,
     ):
+        if (version_id or versions) and not self.version_aware:
+            raise ValueError(
+                "version_id/versions cannot be specified if the filesystem "
+                "is not version aware"
+            )
+
         if (
             target_path not in self.dircache
             or return_glob
-            or self.version_aware
-            and not any(
+            or versions
+            or not any(
                 match_blob_version(b, version_id) for b in self.dircache[target_path]
             )
         ):
@@ -666,12 +674,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 ) as cc:
                     path = path.strip("/")
                     include = ["metadata"]
-                    if version_id is not None:
-                        if not self.version_aware:
-                            raise ValueError(
-                                "version_id cannot be specified if the "
-                                "filesystem is not version aware"
-                            )
+                    if version_id is not None or versions:
+                        assert self.version_aware
                         include.append("versions")
                     blobs = cc.walk_blobs(include=include, name_starts_with=path)
 
@@ -718,11 +722,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     target_path=target_path,
                     return_glob=return_glob,
                     version_id=version_id,
+                    versions=versions,
                 )
                 if return_glob:
                     return finalblobs
                 finalblobs = await self._details(
-                    outblobs, target_path=target_path, version_id=version_id
+                    outblobs,
+                    target_path=target_path,
+                    version_id=version_id,
+                    versions=versions,
                 )
                 if not finalblobs:
                     if not await self._exists(target_path):
@@ -742,6 +750,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter: str = "/",
         return_glob: bool = False,
         version_id: Optional[str] = None,
+        versions: bool = False,
         **kwargs,
     ):
         """
@@ -764,6 +773,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id: str
             Specific blob version to list
 
+        versions: bool
+            If True, list all versions
+
         return_glob: bool
 
         """
@@ -785,7 +797,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 delimiter=delimiter,
                 return_glob=return_glob,
                 version_id=version_id,
+                versions=versions,
             )
+
+        if versions:
+            for entry in output:
+                entry_version_id = entry.get("version_id")
+                if entry_version_id:
+                    entry["name"] += f"?versionid={entry_version_id}"
 
         if detail:
             return output
@@ -799,6 +818,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return_glob: bool = False,
         target_path="",
         version_id: Optional[str] = None,
+        versions: bool = False,
         **kwargs,
     ):
         """
@@ -815,6 +835,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         version_id: str
             Specific target version to be returned
+
+        versions: bool
+            If True, return all versions
 
         Returns
         -------
@@ -883,7 +906,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # This handles the case where path is a file passed to ls
                 return output
             output = await filter_blobs(
-                output, target_path, delimiter, version_id=version_id
+                output,
+                target_path,
+                delimiter,
+                version_id=version_id,
+                versions=versions,
             )
 
         return output
