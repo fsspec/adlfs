@@ -748,17 +748,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
         kwargs["version_id"] = version_id
 
-        out = await self._ls(
-            self._parent(fullpath), invalidate_cache=invalidate_cache, **kwargs
-        )
-        out = [
-            o
-            for o in out
-            if o["name"].rstrip("/") == fullpath
-            and (version_id is None or o["version_id"] == version_id)
-        ]
-        if out:
-            return out[0]
         out = await self._ls(fullpath, invalidate_cache=invalidate_cache, **kwargs)
         fullpath = fullpath.rstrip("/")
         out1 = [
@@ -1145,8 +1134,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         full_path = self._strip_protocol(path)
-        parent_path = full_path.strip("/") + "/"
-        target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
+        full_path = full_path.strip("/")
+        if prefix != "":
+            prefix = prefix.strip("/")
+            target_path = f"{full_path}/{prefix}"
+        else:
+            target_path = full_path
+
         container, path, _ = self.split_path(target_path)
 
         async with self.service_client.get_container_client(
@@ -1168,7 +1162,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for info in infos:
             name = info["name"]
             parent_dir = self._parent(name).rstrip("/") + "/"
-            if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
+            if parent_dir not in dir_set and parent_dir != full_path.strip("/"):
                 dir_set.add(parent_dir)
                 dirs[parent_dir] = {
                     "name": parent_dir,
@@ -1192,7 +1186,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if not with_parent:
                 dirs.pop(target_path, None)
             files.update(dirs)
-        names = sorted(files)
+        files = {k: v for k, v in files.items() if k.startswith(target_path)}
+        names = sorted([n for n in files.keys()])
         if not detail:
             return names
         return {name: files[name] for name in names}
@@ -1418,9 +1413,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
         """
         try:
-            kind = await self._info(path)
+            if await self._isfile(path.rstrip("/")):
+                kind = "file"
+            else:
+                kind = "directory"
+
             container_name, path, _ = self.split_path(path, delimiter=delimiter)
-            kind = kind["type"]
             if path != "":
                 async with self.service_client.get_container_client(
                     container=container_name
@@ -1435,7 +1433,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
         except Exception as e:
-            raise RuntimeError(f"Failed to remove {path} for {e}")
+            raise RuntimeError("Failed to remove %s for %s", path, e)
 
         self.invalidate_cache(self._parent(path))
 
