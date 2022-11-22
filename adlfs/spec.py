@@ -19,17 +19,14 @@ from azure.core.exceptions import (
     ResourceExistsError,
     ResourceNotFoundError,
 )
-from azure.datalake.store import AzureDLFileSystem, lib
-from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
-from fsspec import AbstractFileSystem
 from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import infer_storage_options, tokenize
+from fsspec.utils import infer_storage_options
 
 from .utils import (
     close_container_client,
@@ -64,230 +61,6 @@ VERSIONED_BLOB_PROPERTIES = [
 _ROOT_PATH = "/"
 
 _SOCKET_TIMEOUT_DEFAULT = object()
-
-
-class AzureDatalakeFileSystem(AbstractFileSystem):
-    """
-    Access Azure Datalake Gen1 as if it were a file system.
-
-    This exposes a filesystem-like API on top of Azure Datalake Storage
-
-    Parameters
-    -----------
-    tenant_id:  string
-        Azure tenant, also known as the subscription id
-    client_id: string
-        The username or serivceprincipal id
-    client_secret: string
-        The access key
-    store_name: string (optional)
-        The name of the datalake account being accessed.  Should be inferred from the urlpath
-        if using with Dask read_xxx and to_xxx methods.
-
-    Examples
-    --------
-
-    >>> adl = AzureDatalakeFileSystem(tenant_id="xxxx", client_id="xxxx",
-    ...                               client_secret="xxxx")
-    >>> adl.ls('')
-
-    Sharded Parquet & CSV files can be read as
-
-    >>> storage_options = dict(tennant_id=TENNANT_ID, client_id=CLIENT_ID,
-    ...                        client_secret=CLIENT_SECRET)  # doctest: +SKIP
-    >>> ddf = dd.read_parquet('adl://store_name/folder/filename.parquet',
-    ...                       storage_options=storage_options)  # doctest: +SKIP
-
-    >>> ddf = dd.read_csv('adl://store_name/folder/*.csv'
-    ...                   storage_options=storage_options)  # doctest: +SKIP
-
-
-    Sharded Parquet and CSV files can be written as
-
-    >>> ddf.to_parquet("adl://store_name/folder/filename.parquet",
-    ...                storage_options=storage_options)  # doctest: +SKIP
-
-    >>> ddf.to_csv('adl://store_name/folder/*.csv'
-    ...            storage_options=storage_options)  # doctest: +SKIP
-    """
-
-    protocol = "adl"
-
-    def __init__(self, tenant_id, client_id, client_secret, store_name):
-        super().__init__()
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.store_name = store_name
-        self.do_connect()
-
-    @staticmethod
-    def _get_kwargs_from_urls(paths):
-        """Get the store_name from the urlpath and pass to storage_options"""
-        ops = infer_storage_options(paths)
-        out = {}
-        if ops.get("host", None):
-            out["store_name"] = ops["host"]
-        return out
-
-    @classmethod
-    def _strip_protocol(cls, path):
-        ops = infer_storage_options(path)
-        return ops["path"]
-
-    def do_connect(self):
-        """Establish connection object."""
-        token = lib.auth(
-            tenant_id=self.tenant_id,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-        )
-        self.azure_fs = AzureDLFileSystem(token=token, store_name=self.store_name)
-
-    def ls(self, path, detail=False, invalidate_cache=True, **kwargs):
-        files = self.azure_fs.ls(
-            path=path, detail=detail, invalidate_cache=invalidate_cache
-        )
-
-        for file in (file for file in files if type(file) is dict):
-            if "type" in file:
-                file["type"] = file["type"].lower()
-            if "length" in file:
-                file["size"] = file["length"]
-        return files
-
-    def info(self, path, invalidate_cache=True, expected_error_code=404, **kwargs):
-        info = self.azure_fs.info(
-            path=path,
-            invalidate_cache=invalidate_cache,
-            expected_error_code=expected_error_code,
-        )
-        info["size"] = info["length"]
-        """Azure FS uses upper case type values but fsspec is expecting lower case"""
-        info["type"] = info["type"].lower()
-        return info
-
-    def _trim_filename(self, fn, **kwargs):
-        """Determine what kind of filestore this is and return the path"""
-        so = infer_storage_options(fn)
-        fileparts = so["path"]
-        return fileparts
-
-    def glob(self, path, details=False, invalidate_cache=True, **kwargs):
-        """For a template path, return matching files"""
-        adlpaths = self._trim_filename(path)
-        filepaths = self.azure_fs.glob(
-            adlpaths, details=details, invalidate_cache=invalidate_cache
-        )
-        return filepaths
-
-    def isdir(self, path, **kwargs):
-        """Is this entry directory-like?"""
-        try:
-            return self.info(path)["type"].lower() == "directory"
-        except FileNotFoundError:
-            return False
-
-    def isfile(self, path, **kwargs):
-        """Is this entry file-like?"""
-        try:
-            return self.azure_fs.info(path)["type"].lower() == "file"
-        except Exception:
-            return False
-
-    def _open(
-        self,
-        path,
-        mode="rb",
-        block_size=None,
-        autocommit=True,
-        cache_options: dict = {},
-        **kwargs,
-    ):
-        return AzureDatalakeFile(self, path, mode=mode)
-
-    def read_block(self, fn, offset, length, delimiter=None, **kwargs):
-        return self.azure_fs.read_block(fn, offset, length, delimiter)
-
-    def ukey(self, path):
-        return tokenize(self.info(path)["modificationTime"])
-
-    def size(self, path):
-        return self.info(path)["length"]
-
-    def rmdir(self, path):
-        """Remove a directory, if empty"""
-        self.azure_fs.rmdir(path)
-
-    def rm_file(self, path):
-        """Delete a file"""
-        self.azure_fs.rm(path)
-
-    def __getstate__(self):
-        dic = self.__dict__.copy()
-        logger.debug("Serialize with state: %s", dic)
-        return dic
-
-    def __setstate__(self, state):
-        logger.debug("De-serialize with state: %s", state)
-        self.__dict__.update(state)
-        self.do_connect()
-
-
-class AzureDatalakeFile(AzureDLFile):
-    # TODO: refoctor this. I suspect we actually want to compose an
-    # AbstractBufferedFile with an AzureDLFile.
-
-    def __init__(
-        self,
-        fs,
-        path,
-        mode="rb",
-        autocommit=True,
-        block_size=2**25,
-        cache_type="bytes",
-        cache_options=None,
-        *,
-        delimiter=None,
-        **kwargs,
-    ):
-        super().__init__(
-            azure=fs.azure_fs,
-            path=AzureDLPath(path),
-            mode=mode,
-            blocksize=block_size,
-            delimiter=delimiter,
-        )
-        self.fs = fs
-        self.path = AzureDLPath(path)
-        self.mode = mode
-
-    def seek(self, loc: int, whence: int = 0, **kwargs):
-        """Set current file location
-
-        Parameters
-        ----------
-        loc: int
-            byte location
-
-        whence: {0, 1, 2}
-            from start of file, current location or end of file, resp.
-        """
-        loc = int(loc)
-        if not self.mode == "rb":
-            raise ValueError("Seek only available in read mode")
-        if whence == 0:
-            nloc = loc
-        elif whence == 1:
-            nloc = self.loc + loc
-        elif whence == 2:
-            nloc = self.size + loc
-        else:
-            raise ValueError("invalid whence (%s, should be 0, 1 or 2)" % whence)
-        if nloc < 0:
-            raise ValueError("Seek before start of file")
-        self.loc = nloc
-        return self.loc
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -748,17 +521,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
         kwargs["version_id"] = version_id
 
-        out = await self._ls(
-            self._parent(fullpath), invalidate_cache=invalidate_cache, **kwargs
-        )
-        out = [
-            o
-            for o in out
-            if o["name"].rstrip("/") == fullpath
-            and (version_id is None or o["version_id"] == version_id)
-        ]
-        if out:
-            return out[0]
         out = await self._ls(fullpath, invalidate_cache=invalidate_cache, **kwargs)
         fullpath = fullpath.rstrip("/")
         out1 = [
@@ -1132,7 +894,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
         """List all files below path.
-        Like posix ``find`` command without conditions
+        Like posix ``find`` command without conditions.
+
         Parameters
         ----------
         path : str
@@ -1145,8 +908,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         kwargs are passed to ``ls``.
         """
         full_path = self._strip_protocol(path)
-        parent_path = full_path.strip("/") + "/"
-        target_path = f"{parent_path}{(prefix or '').lstrip('/')}"
+        full_path = full_path.strip("/")
+        if await self._isfile(full_path):
+            return [full_path]
+        if prefix != "":
+            prefix = prefix.strip("/")
+            target_path = f"{full_path}/{prefix}"
+        else:
+            target_path = f"{full_path}/"
+
         container, path, _ = self.split_path(target_path)
 
         async with self.service_client.get_container_client(
@@ -1168,7 +938,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for info in infos:
             name = info["name"]
             parent_dir = self._parent(name).rstrip("/") + "/"
-            if parent_dir not in dir_set and parent_dir != parent_path.strip("/"):
+            if parent_dir not in dir_set and parent_dir != full_path.strip("/"):
                 dir_set.add(parent_dir)
                 dirs[parent_dir] = {
                     "name": parent_dir,
@@ -1192,7 +962,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if not with_parent:
                 dirs.pop(target_path, None)
             files.update(dirs)
-        names = sorted(files)
+        files = {k: v for k, v in files.items() if k.startswith(target_path)}
+        names = sorted([n for n in files.keys()])
         if not detail:
             return names
         return {name: files[name] for name in names}
@@ -1418,9 +1189,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Delimiter to use when splitting the path
         """
         try:
-            kind = await self._info(path)
+            if await self._isfile(path.rstrip("/")):
+                kind = "file"
+            else:
+                kind = "directory"
+
             container_name, path, _ = self.split_path(path, delimiter=delimiter)
-            kind = kind["type"]
             if path != "":
                 async with self.service_client.get_container_client(
                     container=container_name
@@ -1435,7 +1209,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
         except Exception as e:
-            raise RuntimeError(f"Failed to remove {path} for {e}")
+            raise RuntimeError("Failed to remove %s for %s", path, e)
 
         self.invalidate_cache(self._parent(path))
 

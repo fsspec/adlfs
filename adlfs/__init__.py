@@ -1,7 +1,7 @@
 from ._version import get_versions
-from .spec import AzureBlobFile, AzureBlobFileSystem, AzureDatalakeFileSystem
+from .spec import AzureBlobFile, AzureBlobFileSystem
 
-__all__ = ["AzureBlobFileSystem", "AzureBlobFile", "AzureDatalakeFileSystem"]
+__all__ = ["AzureBlobFileSystem", "AzureBlobFile"]
 
 __version__ = get_versions()["version"]
 del get_versions
