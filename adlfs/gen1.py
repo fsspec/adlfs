@@ -3,13 +3,14 @@
 
 from __future__ import absolute_import, division, print_function
 
+import logging
+
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from fsspec import AbstractFileSystem
-from fsspec.utils import tokenize, infer_storage_options
+from fsspec.utils import infer_storage_options, tokenize
 
 logger = logging.getLogger(__name__)
-
 
 
 class AzureDatalakeFileSystem(AbstractFileSystem):
@@ -234,6 +235,3 @@ class AzureDatalakeFile(AzureDLFile):
             raise ValueError("Seek before start of file")
         self.loc = nloc
         return self.loc
-
-
-
