@@ -1,7 +1,12 @@
 **Change Log**
+2022.11.0
+---------
+- Reorder fs.info() to search the parent directory only after searching for the specified item directly
+- Removed pin on upper bound for azure-storage-blob
+
+
 2022.10.1
 ----------
-- Reorder fs.info() to search the parent directory only after searching for the specified item directly
 - Pin azure-storage-blob >=12.12.0,<12.14.  Requires pinning azure-core>=1.23.1,<2.0.0
 
 2022.9.1
