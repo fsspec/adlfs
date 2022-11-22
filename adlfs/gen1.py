@@ -6,7 +6,9 @@ from __future__ import absolute_import, division, print_function
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
 from fsspec import AbstractFileSystem
-from fsspec.utils import tokenize
+from fsspec.utils import tokenize, infer_storage_options
+
+logger = logging.getLogger(__name__)
 
 
 

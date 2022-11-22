@@ -30,7 +30,6 @@ setup(
     long_description=open("README.md").read() if exists("README.md") else "",
     install_requires=[
         "azure-core>=1.23.1,<2.0.0",
-        "azure-datalake-store>=0.0.46,<0.1",
         "azure-identity",
         "azure-storage-blob>=12.12.0",
         "fsspec>=2021.10.1",
@@ -38,8 +37,9 @@ setup(
     ],
     extras_require={
         "docs": ["sphinx", "myst-parser", "furo", "numpydoc"],
+        "AzureDatalakeFileSystem": ["azure-datalake-store>=0.0.46,<0.1"],
     },
-    tests_require=["pytest", "docker"],
+    tests_require=["pytest", "docker", "pytest-mock", "arrow", "dask[dataframe]"],
     zip_safe=False,
     entry_points={
         "fsspec.specs": [
