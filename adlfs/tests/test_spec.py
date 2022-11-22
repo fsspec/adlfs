@@ -468,6 +468,7 @@ def test_find(storage):
     ]
 
     assert fs.find("data/root", prefix="a", withdirs=True) == [
+        "data/root/a/",
         "data/root/a/file.txt",
         "data/root/a1/",
         "data/root/a1/file1.txt",
@@ -477,6 +478,7 @@ def test_find(storage):
     assert_blobs_equals(
         list(find_results.values()),
         [
+            {"name": "data/root/a1/", "size": 0, "type": "directory"},
             {
                 "name": "data/root/a1/file1.txt",
                 "size": 10,
@@ -1573,15 +1575,18 @@ def test_find_with_prefix(storage):
         fs.touch(test_bucket_name + f"/prefixes/test_{cursor}")
 
     fs.touch(test_bucket_name + "/prefixes2")
-    assert len(fs.find(test_bucket_name + "/prefixes")) == 26
+    # Paths are expected to be directories, while `prefix` specifies a partiali name
+    assert len(fs.find(test_bucket_name + "/prefixes")) == 25
+    # Returns `data/prefixes2` since its a blob, which is why these two are different
     assert len(fs.find(test_bucket_name, prefix="prefixes")) == 26
 
-    assert len(fs.find(test_bucket_name + "/prefixes/test_")) == 25
+    # This expects `path` to be either a discrete file or a directory
+    assert len(fs.find(test_bucket_name + "/prefixes/test_")) == 0
     assert len(fs.find(test_bucket_name + "/prefixes", prefix="test_")) == 25
     assert len(fs.find(test_bucket_name + "/prefixes/", prefix="test_")) == 25
 
     test_1s = fs.find(test_bucket_name + "/prefixes/test_1")
-    assert len(test_1s) == 11
+    assert len(test_1s) == 1
     assert test_1s[0] == test_bucket_name + "/prefixes/test_1"
 
     test_1s = fs.find(test_bucket_name + "/prefixes/", prefix="test_1")

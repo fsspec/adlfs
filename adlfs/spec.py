@@ -1121,7 +1121,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
         """List all files below path.
-        Like posix ``find`` command without conditions
+        Like posix ``find`` command without conditions.
+
         Parameters
         ----------
         path : str
@@ -1135,11 +1136,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         full_path = self._strip_protocol(path)
         full_path = full_path.strip("/")
+        if await self._isfile(full_path):
+            return [full_path]
         if prefix != "":
             prefix = prefix.strip("/")
             target_path = f"{full_path}/{prefix}"
         else:
-            target_path = full_path
+            target_path = f"{full_path}/"
 
         container, path, _ = self.split_path(target_path)
 
