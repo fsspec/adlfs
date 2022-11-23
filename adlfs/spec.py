@@ -521,7 +521,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
         kwargs["version_id"] = version_id
 
-        out = await self._ls(fullpath, invalidate_cache=invalidate_cache, **kwargs)
+        out = await self._ls(
+            fullpath, detail=True, invalidate_cache=invalidate_cache, **kwargs
+        )
         fullpath = fullpath.rstrip("/")
         out1 = [
             o
@@ -538,7 +540,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             # Check the directory listing as the path may have been deleted
             out = await self._ls(
-                self._parent(path), invalidate_cache=invalidate_cache, **kwargs
+                self._parent(path),
+                detail=True,
+                invalidate_cache=invalidate_cache,
+                **kwargs,
             )
             out = [o for o in out if o["name"].rstrip("/") == path]
             if out:
@@ -624,32 +629,115 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             return list(out)
 
-    def ls(
+    async def _ls_containers(self, return_glob: bool = False):
+        if _ROOT_PATH not in self.dircache or return_glob:
+            # This is the case where only the containers are being returned
+            logger.info(
+                "Returning a list of containers in the azure blob storage account"
+            )
+            contents = self.service_client.list_containers(include_metadata=True)
+            containers = [c async for c in contents]
+            files = await self._details(containers)
+            self.dircache[_ROOT_PATH] = files
+
+        return self.dircache[_ROOT_PATH]
+
+    async def _ls_blobs(
         self,
+        target_path: str,
+        container: str,
         path: str,
-        detail: bool = False,
-        invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
-        **kwargs,
+        version_id: Optional[str] = None,
     ):
+        if (
+            target_path not in self.dircache
+            or return_glob
+            or self.version_aware
+            and not any(
+                match_blob_version(b, version_id) for b in self.dircache[target_path]
+            )
+        ):
+            if container not in ["", delimiter]:
+                # This is the case where the container name is passed
+                async with self.service_client.get_container_client(
+                    container=container
+                ) as cc:
+                    path = path.strip("/")
+                    include = ["metadata"]
+                    if version_id is not None:
+                        if not self.version_aware:
+                            raise ValueError(
+                                "version_id cannot be specified if the "
+                                "filesystem is not version aware"
+                            )
+                        include.append("versions")
+                    blobs = cc.walk_blobs(include=include, name_starts_with=path)
 
-        files = sync(
-            self.loop,
-            self._ls,
-            path=path,
-            invalidate_cache=invalidate_cache,
-            delimiter=delimiter,
-            return_glob=return_glob,
-        )
-        if detail:
-            return files
-        else:
-            return list(sorted(set([f["name"] for f in files])))
+                # Check the depth that needs to be screened
+                depth = target_path.count("/")
+                outblobs = []
+                try:
+                    async for next_blob in blobs:
+                        if depth in [0, 1] and path == "":
+                            outblobs.append(next_blob)
+                        elif isinstance(next_blob, BlobProperties):
+                            if next_blob["name"].count("/") == depth:
+                                outblobs.append(next_blob)
+                            elif not next_blob["name"].endswith("/") and (
+                                next_blob["name"].count("/") == (depth - 1)
+                            ):
+                                outblobs.append(next_blob)
+                        else:
+                            async for blob_ in next_blob:
+                                if isinstance(blob_, BlobProperties) or isinstance(
+                                    blob_, BlobPrefix
+                                ):
+                                    if blob_["name"].endswith("/"):
+                                        if (
+                                            blob_["name"].rstrip("/").count("/")
+                                            == depth
+                                        ):
+                                            outblobs.append(blob_)
+                                        elif blob_["name"].count("/") == depth and (
+                                            hasattr(blob_, "size")
+                                            and blob_["size"] == 0
+                                        ):
+                                            outblobs.append(blob_)
+                                        else:
+                                            pass
+                                    elif blob_["name"].count("/") == (depth):
+                                        outblobs.append(blob_)
+                                    else:
+                                        pass
+                except ResourceNotFoundError:
+                    raise FileNotFoundError
+                finalblobs = await self._details(
+                    outblobs,
+                    target_path=target_path,
+                    return_glob=return_glob,
+                    version_id=version_id,
+                )
+                if return_glob:
+                    return finalblobs
+                finalblobs = await self._details(
+                    outblobs, target_path=target_path, version_id=version_id
+                )
+                if not finalblobs:
+                    if not await self._exists(target_path):
+                        raise FileNotFoundError
+                    return []
+                if not self.version_aware or finalblobs[0].get("is_current_version"):
+                    self.dircache[target_path] = finalblobs
+                return finalblobs
+
+        return self.dircache[target_path]
 
     async def _ls(
         self,
         path: str,
+        detail: bool = False,
         invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
@@ -687,109 +775,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if invalidate_cache:
             self.dircache.clear()
 
-        cache = {}
-        cache.update(self.dircache)
-
         if (container in ["", ".", "*", delimiter]) and (path in ["", delimiter]):
-            if _ROOT_PATH not in cache or invalidate_cache or return_glob:
-                # This is the case where only the containers are being returned
-                logger.info(
-                    "Returning a list of containers in the azure blob storage account"
-                )
-                contents = self.service_client.list_containers(include_metadata=True)
-                containers = [c async for c in contents]
-                files = await self._details(containers)
-                cache[_ROOT_PATH] = files
-
-            self.dircache.update(cache)
-            return cache[_ROOT_PATH]
+            output = await self._ls_containers(return_glob=return_glob)
         else:
-            if (
-                target_path not in cache
-                or invalidate_cache
-                or return_glob
-                or self.version_aware
-                and not any(
-                    match_blob_version(b, version_id) for b in cache[target_path]
-                )
-            ):
-                if container not in ["", delimiter]:
-                    # This is the case where the container name is passed
-                    async with self.service_client.get_container_client(
-                        container=container
-                    ) as cc:
-                        path = path.strip("/")
-                        include = ["metadata"]
-                        if version_id is not None:
-                            if not self.version_aware:
-                                raise ValueError(
-                                    "version_id cannot be specified if the "
-                                    "filesystem is not version aware"
-                                )
-                            include.append("versions")
-                        blobs = cc.walk_blobs(include=include, name_starts_with=path)
+            output = await self._ls_blobs(
+                target_path,
+                container,
+                path,
+                delimiter=delimiter,
+                return_glob=return_glob,
+                version_id=version_id,
+            )
 
-                    # Check the depth that needs to be screened
-                    depth = target_path.count("/")
-                    outblobs = []
-                    try:
-                        async for next_blob in blobs:
-                            if depth in [0, 1] and path == "":
-                                outblobs.append(next_blob)
-                            elif isinstance(next_blob, BlobProperties):
-                                if next_blob["name"].count("/") == depth:
-                                    outblobs.append(next_blob)
-                                elif not next_blob["name"].endswith("/") and (
-                                    next_blob["name"].count("/") == (depth - 1)
-                                ):
-                                    outblobs.append(next_blob)
-                            else:
-                                async for blob_ in next_blob:
-                                    if isinstance(blob_, BlobProperties) or isinstance(
-                                        blob_, BlobPrefix
-                                    ):
-                                        if blob_["name"].endswith("/"):
-                                            if (
-                                                blob_["name"].rstrip("/").count("/")
-                                                == depth
-                                            ):
-                                                outblobs.append(blob_)
-                                            elif blob_["name"].count("/") == depth and (
-                                                hasattr(blob_, "size")
-                                                and blob_["size"] == 0
-                                            ):
-                                                outblobs.append(blob_)
-                                            else:
-                                                pass
-                                        elif blob_["name"].count("/") == (depth):
-                                            outblobs.append(blob_)
-                                        else:
-                                            pass
-                    except ResourceNotFoundError:
-                        raise FileNotFoundError
-                    finalblobs = await self._details(
-                        outblobs,
-                        target_path=target_path,
-                        return_glob=return_glob,
-                        version_id=version_id,
-                    )
-                    if return_glob:
-                        return finalblobs
-                    finalblobs = await self._details(
-                        outblobs, target_path=target_path, version_id=version_id
-                    )
-                    if not finalblobs:
-                        if not await self._exists(target_path):
-                            raise FileNotFoundError
-                        return []
-                    if self.version_aware and not finalblobs[0].get(
-                        "is_current_version"
-                    ):
-                        return finalblobs
-                    cache[target_path] = finalblobs
-                    self.dircache[target_path] = finalblobs
+        if detail:
+            return output
 
-            return cache[target_path]
+        return list(sorted(set([o["name"] for o in output])))
 
     async def _details(
         self,
@@ -1035,7 +1036,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         detail = kwargs.pop("detail", False)
         try:
-            listing = await self._ls(path, return_glob=True, **kwargs)
+            listing = await self._ls(path, detail=True, return_glob=True, **kwargs)
         except (FileNotFoundError, IOError):
             listing = []
 
