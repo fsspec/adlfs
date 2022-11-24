@@ -1,9 +1,10 @@
 **Change Log**
-2022.11.0
+2022.11.2
 ---------
 - Reorder fs.info() to search the parent directory only after searching for the specified item directly
 - Removed pin on upper bound for azure-storage-blob
 - Moved AzureDatalakeFileSystem to a separate module, in acknowledgement of [Microsoft End of Life notice](https://learn.microsoft.com/en-us/answers/questions/281107/azure-data-lake-storage-gen1-retirement-announceme.html})
+- Added DeprecationWarning to AzureDatalakeFilesystem
 
 
 2022.10.1
