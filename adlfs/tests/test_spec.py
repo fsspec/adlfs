@@ -76,13 +76,13 @@ def test_ls(storage):
         connection_string=CONN_STR,
     )
 
-    ## these are containers
+    # these are containers
     assert fs.ls("") == ["data"]
     assert fs.ls("/") == ["data"]
     assert fs.ls(".") == ["data"]
     assert fs.ls("*") == ["data"]
 
-    ## these are top-level directories and files
+    # these are top-level directories and files
     assert fs.ls("data") == ["data/root", "data/top_file.txt"]
     assert fs.ls("/data") == ["data/root", "data/top_file.txt"]
 
@@ -106,7 +106,7 @@ def test_ls(storage):
         "data/root/rfile.txt",
     ]
 
-    ## slashes are not not needed, but accepted
+    # slashes are not not needed, but accepted
     assert fs.ls("data/root/a") == ["data/root/a/file.txt"]
     assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
     assert fs.ls("/data/root/a") == ["data/root/a/file.txt"]
@@ -124,7 +124,7 @@ def test_ls(storage):
         "data/root/e+f/file2.txt",
     ]
 
-    ## file details
+    # file details
     files = fs.ls("data/root/a/file.txt", detail=True)
     assert_blobs_equals(
         files,
@@ -246,7 +246,7 @@ def test_ls(storage):
         ],
     )
 
-    ## if not direct match is found throws error
+    # if not direct match is found throws error
     with pytest.raises(FileNotFoundError):
         fs.ls("not-a-container")
 
@@ -422,7 +422,7 @@ def test_find(storage):
         "data/root/rfile.txt",
     ]
 
-    ## all files and directories
+    # all files and directories
     assert fs.find("data/root", withdirs=True) == [
         "data/root/a/",
         "data/root/a/file.txt",
@@ -458,10 +458,10 @@ def test_find(storage):
         "data/root/rfile.txt",
     ]
 
-    ## missing
+    # missing
     assert fs.find("data/missing") == []
 
-    ## prefix search
+    # prefix search
     assert fs.find("data/root", prefix="a") == [
         "data/root/a/file.txt",
         "data/root/a1/file1.txt",
@@ -520,7 +520,7 @@ def test_glob(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    ## just the directory name
+    # just the directory name
     assert fs.glob("data/root") == ["data/root"]
 
     # top-level contents of a directory
@@ -546,13 +546,13 @@ def test_glob(storage):
     assert fs.glob("data/root/b/*") == ["data/root/b/file.txt"]  # NOQA
     assert fs.glob("data/root/b/**") == ["data/root/b/file.txt"]  # NOQA
 
-    ## across directories
+    # across directories
     assert fs.glob("data/root/*/file.txt") == [
         "data/root/a/file.txt",
         "data/root/b/file.txt",
     ]
 
-    ## regex match
+    # regex match
     assert fs.glob("data/root/*/file[0-9].txt") == [
         "data/root/a1/file1.txt",
         "data/root/c/file1.txt",
@@ -561,7 +561,7 @@ def test_glob(storage):
         "data/root/e+f/file2.txt",
     ]
 
-    ## text files
+    # text files
     assert fs.glob("data/root/*/file*.txt") == [
         "data/root/a/file.txt",
         "data/root/a1/file1.txt",
@@ -573,7 +573,7 @@ def test_glob(storage):
         "data/root/e+f/file2.txt",
     ]
 
-    ## all text files
+    # all text files
     assert fs.glob("data/**/*.txt") == [
         "data/root/a/file.txt",
         "data/root/a1/file1.txt",
@@ -586,7 +586,7 @@ def test_glob(storage):
         "data/root/rfile.txt",
     ]
 
-    ## all files
+    # all files
     assert fs.glob("data/root/**") == [
         "data/root/a",
         "data/root/a/file.txt",
@@ -623,7 +623,7 @@ def test_glob(storage):
         "data/root/rfile.txt",
     ]
 
-    ## missing
+    # missing
     assert fs.glob("data/missing/*") == []
 
 
@@ -1575,9 +1575,7 @@ def test_find_with_prefix(storage):
         fs.touch(test_bucket_name + f"/prefixes/test_{cursor}")
 
     fs.touch(test_bucket_name + "/prefixes2")
-    # Paths are expected to be directories, while `prefix` specifies a partiali name
     assert len(fs.find(test_bucket_name + "/prefixes")) == 25
-    # Returns `data/prefixes2` since its a blob, which is why these two are different
     assert len(fs.find(test_bucket_name, prefix="prefixes")) == 26
 
     # This expects `path` to be either a discrete file or a directory
