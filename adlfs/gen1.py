@@ -4,6 +4,7 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
+from warnings import warn
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -61,6 +62,12 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     protocol = "adl"
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
+        warn(
+            f"Microsoft has announced end of life for Azure Datalake Gen1.  {self.__class__.__name__}"
+            " will be moved to an optional install in a future release of adlfs",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__()
         self.tenant_id = tenant_id
         self.client_id = client_id
