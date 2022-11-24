@@ -1575,9 +1575,7 @@ def test_find_with_prefix(storage):
         fs.touch(test_bucket_name + f"/prefixes/test_{cursor}")
 
     fs.touch(test_bucket_name + "/prefixes2")
-    # Paths are expected to be directories, while `prefix` specifies a partiali name
     assert len(fs.find(test_bucket_name + "/prefixes")) == 25
-    # Returns `data/prefixes2` since its a blob, which is why these two are different
     assert len(fs.find(test_bucket_name, prefix="prefixes")) == 26
 
     # This expects `path` to be either a discrete file or a directory
