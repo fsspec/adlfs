@@ -4,6 +4,6 @@ azure-core
 azure-datalake-store
 azure-storage-blob
 black
-flake8==5.0.4
+flake8
 isort
 pre-commit
