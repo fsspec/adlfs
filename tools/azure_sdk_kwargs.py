@@ -8,6 +8,7 @@ import azure.identity.aio
 import azure.storage.blob
 import azure.storage.blob.aio
 import docstring_parser
+import textwrap
 
 if __name__ == "__main__":
 
@@ -119,10 +120,13 @@ if __name__ == "__main__":
 
     def doc_reference(key):
         if key == "DefaultAzureCredential":
-            return "https://learn.microsoft.com/en-us/python/api/azure-identity/?view=azure-python (version 1.12.0)"
+            return (
+                f"Description from version 1.12.0\n{2*indent}https://learn.microsoft.com/en-us/python/api/azure"
+                f"-identity/?view=azure-python"
+            )
         return (
-            "Description from https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob"
-            "?view=azure-python (version 12.13.1) "
+            f"Description from version 12.13.1\n{2*indent}https://learn.microsoft.com/en-us/python/api/azure"
+            f"-storage-blob/azure.storage.blob?view=azure-python "
         )
 
     docstring = io.StringIO()
@@ -137,8 +141,10 @@ if __name__ == "__main__":
             2 * indent + f"Directly passed to azure-sdk calls: {value['methods']}.\n"
         )
         docstring.write(2 * indent + f"{doc_reference(key)}:\n")
-        description = value["description"].replace("\n", f"\n{2 * indent}")
-        docstring.write(f"{2 * indent}{description}" + "\n")
+        description = value["description"].replace("\n", "")
+        max_len = 144 - 8 * 4
+        for line in textwrap.wrap(description, max_len):
+            docstring.write(f"{2 * indent}{line}" + "\n")
 
     print("Use this in to filter azure_sdk_kwargs in AzureBlobFileSystem\n")
 
