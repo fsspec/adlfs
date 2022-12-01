@@ -7,3 +7,4 @@ black
 flake8
 isort
 pre-commit
+docstring-parser

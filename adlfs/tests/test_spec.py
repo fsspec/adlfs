@@ -1687,3 +1687,20 @@ async def test_get_file_versioned(storage, mocker):
     download_blob.side_effect = ResourceNotFoundError
     with pytest.raises(FileNotFoundError):
         await fs._get_file("data/root/a/file.txt?versionid=invalid_version", "file.txt")
+
+
+def test_azure_sdk_pass_on(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=ACCOUNT_NAME,
+        connection_string=CONN_STR,
+        timeout=1,
+        version_id="foo",  # excluded from pass on parameters
+    )
+    assert "timeout" in fs._azure_sdk_kwargs
+    assert "version_id" not in fs._azure_sdk_kwargs
+
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+    fs.cat("data/top_file.txt")
+    assert download_blob.call_args.kwargs["timeout"] == 1
