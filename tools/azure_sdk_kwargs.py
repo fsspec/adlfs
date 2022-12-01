@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     print("Use this in to filter azure_sdk_kwargs in AzureBlobFileSystem\n")
 
-    print(list(data.keys()))
+    print(excludes)
 
     print("\nAppend this to AzureBlobFileSystem docstring\n")
 

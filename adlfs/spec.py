@@ -795,68 +795,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             k: v
             for k, v in kwargs.items()
             if k
-            in {
-                "timeout",
-                "tags",
-                "api_version",
-                "max_block_size",
-                "max_chunk_get_size",
-                "max_page_size",
-                "max_single_get_size",
-                "max_single_put_size",
-                "min_large_block_upload_threshold",
-                "secondary_hostname",
-                "use_byte_buffer",
-                "authority",
-                "exclude_cli_credential",
-                "exclude_environment_credential",
-                "exclude_managed_identity_credential",
-                "exclude_powershell_credential",
-                "exclude_shared_token_cache_credential",
-                "exclude_visual_studio_code_credential",
-                "managed_identity_client_id",
-                "shared_cache_tenant_id",
-                "shared_cache_username",
-                "visual_studio_code_tenant_id",
-                "blob_type",
-                "container_encryption_scope",
-                "content_settings",
-                "cpk",
-                "delete_snapshots",
-                "delimiter",
-                "destination_lease",
-                "encoding",
-                "encryption_scope",
-                "etag",
-                "if_modified_since",
-                "if_tags_match_condition",
-                "if_unmodified_since",
-                "immutability_policy",
-                "include_deleted",
-                "include_system",
-                "incremental_copy",
-                "lease",
-                "legal_hold",
-                "length",
-                "max_concurrency",
-                "maxsize_condition",
-                "metadata",
-                "name_starts_with",
-                "premium_page_blob_tier",
-                "progress_hook",
-                "public_access",
-                "rehydrate_priority",
-                "requires_sync",
-                "seal_destination_blob",
-                "source_authorization",
-                "source_etag",
-                "source_if_modified_since",
-                "source_if_unmodified_since",
-                "source_lease",
-                "source_match_condition",
-                "standard_blob_tier",
-                "validate_content",
-            }
+            not in {"version_id", "match_condition", "credential", "results_per_page"}
         }
 
         # Solving issue in https://github.com/fsspec/adlfs/issues/270
@@ -1242,7 +1181,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             logger.info(
                 "Returning a list of containers in the azure blob storage account"
             )
-            contents = self.service_client.list_containers(include_metadata=True)
+            contents = self.service_client.list_containers(
+                include_metadata=True, **self._azure_sdk_kwargs
+            )
             containers = [c async for c in contents]
             files = await self._details(containers)
             self.dircache[_ROOT_PATH] = files
@@ -1280,7 +1221,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                 "filesystem is not version aware"
                             )
                         include.append("versions")
-                    blobs = cc.walk_blobs(include=include, name_starts_with=path)
+                    blobs = cc.walk_blobs(
+                        include=include, name_starts_with=path, **self._azure_sdk_kwargs
+                    )
 
                 # Check the depth that needs to be screened
                 depth = target_path.count("/")
