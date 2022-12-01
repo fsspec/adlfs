@@ -2,13 +2,12 @@
 Generate keyword argument docstring for pass on parameters to azure sdk
 """
 
-import azure.storage.blob
-import azure.storage.blob.aio
-import azure.identity.aio
 import io
 
+import azure.identity.aio
+import azure.storage.blob
+import azure.storage.blob.aio
 import docstring_parser
-
 
 if __name__ == "__main__":
 
