@@ -151,6 +151,538 @@ class AzureBlobFileSystem(AsyncFileSystem):
     skip_instance_cache:  to control reuse of instances
     use_listings_cache, listings_expiry_time, max_paths: to control reuse of directory listings
 
+    Pass on to azure-sdk:
+
+    timeout: int
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob
+        - BlobServiceClient.create_container
+        - BlobServiceClient.delete_container
+        - BlobServiceClient.list_containers
+        - ContainerClient.delete_blob
+        - ContainerClient.get_container_properties
+        - ContainerClient.walk_blobs.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The timeout parameter is expressed in seconds.
+    tags
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Name-value pairs associated with the blob as tag. Tags are case-sensitive.The tag set may contain at most 10
+        tags.  Tag keys must be between 1 and 128 characters,and tag values must be between 0 and 256 characters.Valid
+        tag key and value characters include: lowercase and uppercase letters, digits (0-9),space (` `), plus (+), minus
+        (-), period (.), solidus (/), colon (:), equals (=), underscore (_).. versionadded:: 12.4.0
+    api_version: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The Storage API version to use for requests. Default value is the most recent service version that iscompatible
+        with the current SDK. Setting to an older version may result in reduced feature compatibility... versionadded::
+        12.2.0
+    max_block_size: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The maximum chunk size for uploading a block blob in chunks.Defaults to 4*1024*1024, or 4MB.
+    max_chunk_get_size: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The maximum chunk size used for downloading a blob. Defaults to 4*1024*1024,or 4MB... admonition:: Example:
+        .. literalinclude:: ../samples/blob_samples_authentication_async.py        :start-after: [START
+        create_blob_service_client]        :end-before: [END create_blob_service_client]        :language: python
+        :dedent: 8        :caption: Creating the BlobServiceClient with account url and credential.    ..
+        literalinclude:: ../samples/blob_samples_authentication_async.py        :start-after: [START
+        create_blob_service_client_oauth]        :end-before: [END create_blob_service_client_oauth]        :language:
+        python        :dedent: 8        :caption: Creating the BlobServiceClient with Azure Identity credentials.
+    max_page_size: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The maximum chunk size for uploading a page blob. Defaults to 4*1024*1024, or 4MB.
+    max_single_get_size: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The maximum size for a blob to be downloaded in a single call,the exceeded part will be downloaded in chunks
+        (could be parallel). Defaults to 32*1024*1024, or 32MB.
+    max_single_put_size: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        If the blob size is less than or equal max_single_put_size, then the blob will beuploaded with only one http PUT
+        request. If the blob size is larger than max_single_put_size,the blob will be uploaded in chunks. Defaults to
+        64*1024*1024, or 64MB.
+    min_large_block_upload_threshold: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The minimum chunk size required to use the memory efficientalgorithm when uploading a block blob. Defaults to
+        4*1024*1024+1.
+    secondary_hostname: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The hostname of the secondary endpoint.
+    use_byte_buffer: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Use a byte buffer for block blob uploads. Defaults to False.
+    authority: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Authority of an Azure Active Directory endpoint, for example 'login.microsoftonline.com',the authority for Azure
+        Public Cloud (which is the default). :class:`~azure.identity.AzureAuthorityHosts`defines authorities for other
+        clouds. Managed identities ignore this because they reside in a single cloud.
+    exclude_cli_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude the Azure CLI from the credential. Defaults to **False**.
+    exclude_environment_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude a service principal configured by environmentvariables from the credential. Defaults to
+        **False**.
+    exclude_managed_identity_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude managed identity from the credential.Defaults to **False**.
+    exclude_powershell_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude Azure PowerShell. Defaults to **False**.
+    exclude_shared_token_cache_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude the shared token cache. Defaults to**False**.
+    exclude_visual_studio_code_credential: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Whether to exclude stored credential from VS Code.Defaults to **True**.
+    managed_identity_client_id: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The client ID of a user-assigned managed identity. Defaults to the valueof the environment variable
+        AZURE_CLIENT_ID, if any. If not specified, a system-assigned identity will be used.
+    shared_cache_tenant_id: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Preferred tenant for :class:`~azure.identity.aio.SharedTokenCacheCredential`.Defaults to the value of
+        environment variable AZURE_TENANT_ID, if any.
+    shared_cache_username: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Preferred username for :class:`~azure.identity.aio.SharedTokenCacheCredential`.Defaults to the value of
+        environment variable AZURE_USERNAME, if any.
+    visual_studio_code_tenant_id: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - DefaultAzureCredential.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Tenant ID to use when authenticating with:class:`~azure.identity.aio.VisualStudioCodeCredential`. Defaults to
+        the "Azure: Tenant" setting in VS Code'suser settings or, when that setting has no value, the "organizations"
+        tenant, which supports only Azure ActiveDirectory work or school accounts.
+    blob_type: azure.storage.blob.BlobType
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The type of the blob. This can beeither BlockBlob, PageBlob or AppendBlob. The default value is BlockBlob.
+    container_encryption_scope
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.create_container.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specifies the default encryption scope to set on the container and use forall future writes... versionadded::
+        12.2.0
+    content_settings: azure.storage.blob.ContentSettings
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        ContentSettings object used to set blob properties. Used to set content type, encoding,language, disposition,
+        md5, and cache control.
+    cpk: azure.storage.blob.CustomerProvidedEncryptionKey
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Encrypts the data on the service-side with the given key.Use of customer-provided keys must be done over
+        HTTPS.As the encryption key itself is provided in the request,a secure connection must be established to
+        transfer the key.
+    delete_snapshots: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - ContainerClient.delete_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Required if the blob has associated snapshots. Values include:- "only": Deletes only the blobs snapshots.-
+        "include": Deletes the blob along with all snapshots.
+    delimiter: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - ContainerClient.walk_blobs.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        When the request includes this parameter, the operation returns a BlobPrefixelement in the response body that
+        acts as a placeholder for all blobs whosenames begin with the same substring up to the appearance of the
+        delimitercharacter. The delimiter may be a single character or a string.
+    destination_lease
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The lease ID specified for this header must match the lease ID of thedestination blob. If the request does not
+        include the lease ID or it is notvalid, the operation fails with status code 412 (Precondition Failed).
+    encoding: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Encoding to decode the downloaded bytes. Default is None, i.e. no decoding.
+    encryption_scope: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A predefined encryption scope used to encrypt the data on the service. An encryptionscope can be created using
+        the Management API and referenced here by name. If a defaultencryption scope has been defined at the container,
+        this value will override it if thecontainer-level scope is configured to allow overrides. Otherwise an error
+        will be raised... versionadded:: 12.2.0
+    etag: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob
+        - BlobServiceClient.delete_container
+        - ContainerClient.delete_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        An ETag value, or the wildcard character (*). Used to check if the resource has changed,and act according to the
+        condition specified by the `match_condition` parameter.
+    if_modified_since: datetime.datetime
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob
+        - BlobServiceClient.delete_container
+        - ContainerClient.delete_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A DateTime value. Azure expects the date value passed in to be UTC.If timezone is included, any non-UTC
+        datetimes will be converted to UTC.If a date is passed in without timezone info, it is assumed to be UTC.Specify
+        this header to perform the operation onlyif the resource has been modified since the specified time.
+    if_tags_match_condition: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.upload_blob
+        - ContainerClient.delete_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specify a SQL where clause on blob tags to operate only on blob with a matching value.eg. ``"\"tagname\"='my
+        tag'"``.. versionadded:: 12.4.0
+    if_unmodified_since: datetime.datetime
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob
+        - BlobServiceClient.delete_container
+        - ContainerClient.delete_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A DateTime value. Azure expects the date value passed in to be UTC.If timezone is included, any non-UTC
+        datetimes will be converted to UTC.If a date is passed in without timezone info, it is assumed to be UTC.Specify
+        this header to perform the operation only ifthe resource has not been modified since the specified date/time.
+    immutability_policy: azure.storage.blob.ImmutabilityPolicy
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specifies the immutability policy of a blob, blob snapshot or blob version.Currently this parameter of
+        upload_blob() API is for BlockBlob only... versionadded:: 12.10.0    This was introduced in API version
+        '2020-10-02'.
+    include_deleted: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.list_containers.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specifies that deleted containers to be returned in the response. This is for container restore enabledaccount.
+        The default value is `False`... versionadded:: 12.4.0
+    include_system: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.list_containers.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Flag specifying that system containers should be included... versionadded:: 12.10.0
+    incremental_copy: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Copies the snapshot of the source page blob to a destination page blob.The snapshot is copied such that only the
+        differential changes betweenthe previously copied snapshot are transferred to the destination.The copied
+        snapshots are complete copies of the original snapshot andcan be read or copied from as usual. Defaults to
+        False.
+    lease
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.get_blob_properties
+        - BlobClient.upload_blob
+        - BlobServiceClient.delete_container
+        - ContainerClient.delete_blob
+        - ContainerClient.get_container_properties.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        If specified, get_container_properties only succeeds if thecontainer's lease is active and matches this ID.
+    legal_hold: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specified if a legal hold should be set on the blob.Currently this parameter of upload_blob() API is for
+        BlockBlob only... versionadded:: 12.10.0    This was introduced in API version '2020-10-02'.
+    length: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Number of bytes to read from the stream. This is optional, butshould be supplied for optimal performance.
+    max_concurrency: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The number of parallel connections with which to download.
+    maxsize_condition: int
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Optional conditional header. The max length in bytes permitted forthe append blob. If the Append Block operation
+        would cause the blobto exceed that limit or if the blob size is already greater than thevalue specified in this
+        header, the request will fail withMaxBlobSizeConditionNotMet error (HTTP status code 412 - Precondition Failed).
+    metadata: dict(str, str)
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobServiceClient.create_container.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A dict with name-value pairs to associate with thecontainer as metadata. Example: `{'Category':'test'}`
+    name_starts_with: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.list_containers.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Filters the results to return only containers whose namesbegin with the specified prefix.
+    premium_page_blob_tier: azure.storage.blob.PremiumPageBlobTier
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A page blob tier value to set the blob to. The tier correlates to the size of theblob and number of allowed
+        IOPS. This is only applicable to page blobs onpremium storage accounts.
+    progress_hook
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A callback to track the progress of a long running download. The signature isfunction(current: int, total: int)
+        where current is the number of bytes transferedso far, and total is the total size of the download.
+    public_access: str or azure.storage.blob.PublicAccess
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobServiceClient.create_container.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Possible values include: 'container', 'blob'.
+    rehydrate_priority: azure.storage.blob.RehydratePriority
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Indicates the priority with which to rehydrate an archived blob
+    requires_sync: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Enforces that the service will not return a response until the copy is complete.
+    seal_destination_blob: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Seal the destination append blob. This operation is only for append blob... versionadded:: 12.4.0
+    source_authorization: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Authenticate as a service principal using a client secret to access a source blob. Ensure "bearer " isthe prefix
+        of the source_authorization string. This option is only available when `incremental_copy` isset to False and
+        `requires_sync` is set to True... versionadded:: 12.9.0
+    source_etag: str
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The source ETag value, or the wildcard character (*). Used to check if the resource has changed,and act
+        according to the condition specified by the `match_condition` parameter.
+    source_if_modified_since: datetime.datetime
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A DateTime value. Azure expects the date value passed in to be UTC.If timezone is included, any non-UTC
+        datetimes will be converted to UTC.If a date is passed in without timezone info, it is assumed to be UTC.Specify
+        this conditional header to copy the blob only if the sourceblob has been modified since the specified date/time.
+    source_if_unmodified_since: datetime.datetime
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A DateTime value. Azure expects the date value passed in to be UTC.If timezone is included, any non-UTC
+        datetimes will be converted to UTC.If a date is passed in without timezone info, it is assumed to be UTC.Specify
+        this conditional header to copy the blob only if the source blobhas not been modified since the specified
+        date/time.
+    source_lease
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        Specify this to perform the Copy Blob operation only ifthe lease ID given matches the active lease ID of the
+        source blob.
+    source_match_condition: azure.core.MatchConditions
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        The source match condition to use upon the etag.
+    standard_blob_tier: azure.storage.blob.StandardBlobTier
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.start_copy_from_url
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        A standard blob tier value to set the blob to. For this version of the library,this is only applicable to block
+        blobs on standard storage accounts.
+    validate_content: bool
+        Advanced settings parameter.
+        Directly passed to azure-sdk calls:
+        - BlobClient.download_blob
+        - BlobClient.upload_blob.
+        Description from version 12.13.1
+        https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob?view=azure-python :
+        If true, calculates an MD5 hash for each chunk of the blob. The storageservice checks the hash of the content
+        that has arrived with the hashthat was sent. This is primarily valuable for detecting bitflips onthe wire if
+        using http instead of https, as https (the default), willalready validate. Note that this MD5 hash is not stored
+        with theblob. Also note that if enabled, the memory-efficient upload algorithmwill not be used because computing
+        the MD5 hash requires bufferingentire blocks, and doing so defeats the purpose of the memory-efficient
+        algorithm.
+
     Examples
     --------
 
@@ -252,6 +784,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         else:
             self.sync_credential = None
 
+        # generated from adlfs.tools.azure_sdk_kwargs
+        self._azure_sdk_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            not in {"version_id", "match_condition", "credential", "results_per_page"}
+        }
+
         # Solving issue in https://github.com/fsspec/adlfs/issues/270
         if (
             self.credential is None
@@ -263,7 +803,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             (
                 self.credential,
                 self.sync_credential,
-            ) = self._get_default_azure_credential(**kwargs)
+            ) = self._get_default_azure_credential(**self._azure_sdk_kwargs)
 
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
@@ -635,7 +1175,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             logger.info(
                 "Returning a list of containers in the azure blob storage account"
             )
-            contents = self.service_client.list_containers(include_metadata=True)
+            contents = self.service_client.list_containers(
+                include_metadata=True, **self._azure_sdk_kwargs
+            )
             containers = [c async for c in contents]
             files = await self._details(containers)
             self.dircache[_ROOT_PATH] = files
@@ -673,7 +1215,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                 "filesystem is not version aware"
                             )
                         include.append("versions")
-                    blobs = cc.walk_blobs(include=include, name_starts_with=path)
+                    blobs = cc.walk_blobs(
+                        include=include, name_starts_with=path, **self._azure_sdk_kwargs
+                    )
 
                 # Check the depth that needs to be screened
                 depth = target_path.count("/")
@@ -919,12 +1463,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
             target_path = f"{full_path}/"
 
         container, path, _ = self.split_path(target_path)
-
         async with self.service_client.get_container_client(
             container=container
         ) as container_client:
             blobs = container_client.list_blobs(
-                include=["metadata"], name_starts_with=path
+                include=["metadata"], name_starts_with=path, **self._azure_sdk_kwargs
             )
         files = {}
         dir_set = set()
@@ -1077,7 +1620,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             async with self.service_client.get_container_client(
                 container_name
             ) as client:
-                await client.get_container_properties()
+                await client.get_container_properties(**self._azure_sdk_kwargs)
         except ResourceNotFoundError:
             return False
         except Exception as e:
@@ -1119,7 +1662,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if not container_exists:
             try:
-                await self.service_client.create_container(container_name)
+                await self.service_client.create_container(
+                    container_name, **self._azure_sdk_kwargs
+                )
                 self.invalidate_cache(_ROOT_PATH)
 
             except Exception as e:
@@ -1200,7 +1745,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 async with self.service_client.get_container_client(
                     container=container_name
                 ) as cc:
-                    await cc.delete_blob(path.rstrip(delimiter))
+                    await cc.delete_blob(
+                        path.rstrip(delimiter), **self._azure_sdk_kwargs
+                    )
             elif kind == "directory":
                 await self._rmdir(container_name)
             else:
@@ -1236,7 +1783,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container_name, path, _ = self.split_path(path, delimiter=delimiter)
         container_exists = await self._container_exists(container_name)
         if container_exists and not path:
-            await self.service_client.delete_container(container_name)
+            await self.service_client.delete_container(
+                container_name, **self._azure_sdk_kwargs
+            )
             self.invalidate_cache(_ROOT_PATH)
 
     def size(self, path):
@@ -1274,7 +1823,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     async with self.service_client.get_blob_client(
                         container_name, path
                     ) as bc:
-                        props = await bc.get_blob_properties(version_id=version_id)
+                        props = await bc.get_blob_properties(
+                            version_id=version_id, **self._azure_sdk_kwargs
+                        )
                     if props["metadata"]["is_directory"] == "false":
                         return True
 
@@ -1336,10 +1887,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 # Empty paths exist by definition
                 return True
-
         async with self.service_client.get_blob_client(container_name, path) as bc:
             try:
-                if await bc.exists(version_id=version_id):
+                if await bc.exists(version_id=version_id, **self._azure_sdk_kwargs):
                     return True
             except HttpResponseError:
                 if version_id is not None:
@@ -1351,7 +1901,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             container=container_name
         ) as container_client:
             async for blob in container_client.list_blobs(
-                results_per_page=1, name_starts_with=dir_path
+                results_per_page=1, name_starts_with=dir_path, **self._azure_sdk_kwargs
             ):
                 return True
             else:
@@ -1384,7 +1934,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ) as bc:
             try:
                 stream = await bc.download_blob(
-                    offset=start, length=length, version_id=version_id
+                    offset=start,
+                    length=length,
+                    version_id=version_id,
+                    **self._azure_sdk_kwargs,
                 )
             except ResourceNotFoundError as e:
                 raise FileNotFoundError from e
@@ -1449,7 +2002,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             expiry=datetime.utcnow() + timedelta(seconds=expires),
             version_id=version_id,
         )
-
         async with self.service_client.get_blob_client(container_name, blob) as bc:
             url = f"{bc.url}?{sas_token}"
         return url
@@ -1549,6 +2101,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback
                             ),
+                            **self._azure_sdk_kwargs,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1579,7 +2132,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else f"{blobclient1.url}?versionid={version_id}"
         )
         try:
-            await blobclient2.start_copy_from_url(url)
+            await blobclient2.start_copy_from_url(url, **self._azure_sdk_kwargs)
         except ResourceNotFoundError as e:
             raise FileNotFoundError from e
         self.invalidate_cache(container1)
