@@ -247,14 +247,17 @@ def test_ls(storage):
     )
 
     # if not direct match is found throws error
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         fs.ls("not-a-container")
+    assert "not-a-container" in str(e.value)
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         fs.ls("data/not-a-directory/")
+    assert "data/not-a-directory" in str(e.value)
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         fs.ls("data/root/not-a-file.txt")
+    assert "data/root/not-a-file.txt" in str(e.value)
 
 
 def test_ls_no_listings_cache(storage):
@@ -1400,11 +1403,13 @@ def test_cat_file_missing(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("catdir")
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         fs.cat_file("catdir/not/exist")
+    assert "catdir/not/exist" in str(e.value)
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         fs.cat_file("does/not/exist")
+    assert "does/not/exist" in str(e.value)
 
 
 async def test_cat_file_versioned(storage, mocker):
@@ -1426,8 +1431,9 @@ async def test_cat_file_versioned(storage, mocker):
 
     download_blob.reset_mock()
     download_blob.side_effect = HttpResponseError
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         await fs._cat_file("data/root/a/file.txt?versionid=invalid_version")
+    assert "data/root/a/file.txt?versionid=invalid_version" in str(e.value)
 
 
 @pytest.mark.skip(
@@ -1685,5 +1691,6 @@ async def test_get_file_versioned(storage, mocker):
 
     download_blob.reset_mock()
     download_blob.side_effect = ResourceNotFoundError
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as e:
         await fs._get_file("data/root/a/file.txt?versionid=invalid_version", "file.txt")
+    assert "data/root/a/file.txt?versionid=invalid_version" in str(e.value)
