@@ -385,10 +385,10 @@ def test_time_info(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
-    creation_time = fs.created('data/root/d/file_with_metadata.txt')
+    creation_time = fs.created("data/root/d/file_with_metadata.txt")
     assert creation_time == storage.insert_time
 
-    modified_time = fs.modified('data/root/d/file_with_metadata.txt')
+    modified_time = fs.modified("data/root/d/file_with_metadata.txt")
     assert modified_time == storage.insert_time
 
 
