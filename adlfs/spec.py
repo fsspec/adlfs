@@ -499,6 +499,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
         return super().info(path)
 
+    def modified(self, path: str) -> datetime:
+        return self.info(path)['last_modified']
+
+    def created(self, path: str) -> datetime:
+        return self.info(path)['creation_time']
+
     async def _info(self, path, refresh=False, **kwargs):
         """Give details of entry at path
         Returns a single dictionary, with exactly the same information as ``ls``
