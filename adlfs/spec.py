@@ -10,6 +10,7 @@ import os
 import re
 import warnings
 import weakref
+from collections import defaultdict
 from datetime import datetime, timedelta
 from glob import has_magic
 from typing import Optional, Tuple
@@ -1154,57 +1155,56 @@ class AzureBlobFileSystem(AsyncFileSystem):
             else:
                 raise
 
-    async def _rm(self, path, recursive=False, maxdepth=None, **kwargs):
+    async def _rm(
+        self,
+        path,
+        recursive=False,
+        maxdepth=None,
+        delimiter="/",
+        expand_path=True,
+        **kwargs,
+    ):
         """Delete files.
+
         Parameters
         ----------
         path: str or list of str
             File(s) to delete.
         recursive: bool
+            Defaults to False.
             If file(s) are directories, recursively delete contents and then
-            also remove the directory
+            also remove the directory.
+            Only used if `expand_path`.
+
         maxdepth: int or None
+            Defaults to None.
             Depth to pass to walk for finding files to delete, if recursive.
             If None, there will be no limit and infinite recursion may be
             possible.
+            Only used if `expand_path`.
+        expand_path: bool
+            Defaults to True.
+            If False, `self._expand_path` call will be skipped. This is more
+            efficient when you don't need the operation.
         """
-        path = await self._expand_path(
-            path, recursive=recursive, maxdepth=maxdepth, with_parent=True
-        )
-        for p in reversed(path):
-            await self._rm_file(p)
-        self.invalidate_cache()
+        if expand_path:
+            path = await self._expand_path(
+                path, recursive=recursive, maxdepth=maxdepth, with_parent=True
+            )
+        elif isinstance(path, str):
+            path = [path]
 
-    rm = sync_wrapper(_rm)
-
-    async def _rm_file(self, path, delimiter="/", **kwargs):
-        """
-        Delete a given file
-
-        Parameters
-        ----------
-        path: str
-            Path to file to delete
-
-        delimiter: str
-            Delimiter to use when splitting the path
-        """
+        grouped_files = defaultdict(list)
         try:
-            if await self._isfile(path.rstrip("/")):
-                kind = "file"
-            else:
-                kind = "directory"
+            for p in reversed(path):
+                container_name, p, _ = self.split_path(p, delimiter=delimiter)
+                if p != "":
+                    grouped_files[container_name].append(p.rstrip(delimiter))
+                else:
+                    await self._rmdir(container_name)
 
-            container_name, path, _ = self.split_path(path, delimiter=delimiter)
-            if path != "":
-                async with self.service_client.get_container_client(
-                    container=container_name
-                ) as cc:
-                    await cc.delete_blob(path.rstrip(delimiter))
-            elif kind == "directory":
-                await self._rmdir(container_name)
-            else:
-                raise RuntimeError(f"Unable to remove {path}")
+            for container_name, files in grouped_files.items():
+                await self._rm_files(container_name, files)
         except ResourceNotFoundError:
             pass
         except FileNotFoundError:
@@ -1212,9 +1212,32 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except Exception as e:
             raise RuntimeError("Failed to remove %s for %s", path, e)
 
-        self.invalidate_cache(self._parent(path))
+        self.invalidate_cache()
 
-    sync_wrapper(_rm_file)
+    rm = sync_wrapper(_rm)
+
+    async def _rm_files(self, container_name, files, **kwargs):
+        """
+        Delete the given file(s)
+
+        Parameters
+        ----------
+        path: str or list of str
+            File(s) to delete.
+        """
+        async with self.service_client.get_container_client(
+            container=container_name
+        ) as cc:
+            exs = await asyncio.gather(
+                *([cc.delete_blob(file) for file in files]), return_exceptions=True
+            )
+            for ex in exs:
+                if ex is not None:
+                    raise ex
+        for file in files:
+            self.invalidate_cache(self._parent(file))
+
+    sync_wrapper(_rm_files)
 
     def rmdir(self, path: str, delimiter="/", **kwargs):
         sync(self.loop, self._rmdir, path, delimiter=delimiter, **kwargs)
