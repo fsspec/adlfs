@@ -10,7 +10,11 @@ def match_blob_version(blob, version_id: Optional[str]):
 
 
 async def filter_blobs(
-    blobs, target_path, delimiter="/", version_id: Optional[str] = None
+    blobs,
+    target_path,
+    delimiter="/",
+    version_id: Optional[str] = None,
+    versions: bool = False,
 ):
     """
     Filters out blobs that do not come from target_path
@@ -33,7 +37,7 @@ async def filter_blobs(
         for b in blobs
         if (
             b["name"].strip(" " + delimiter).startswith(target_path)
-            and match_blob_version(b, version_id)
+            and (versions or match_blob_version(b, version_id))
         )
     ]
     return finalblobs
