@@ -679,76 +679,74 @@ class AzureBlobFileSystem(AsyncFileSystem):
             )
 
         if (
-            target_path not in self.dircache
-            or return_glob
-            or versions
-            or not any(
+            target_path in self.dircache
+            and not return_glob
+            and not versions
+            and all(
                 match_blob_version(b, version_id) for b in self.dircache[target_path]
             )
         ):
-            assert container not in ["", delimiter]
-            async with self.service_client.get_container_client(
-                container=container
-            ) as cc:
-                path = path.strip("/")
-                include = ["metadata"]
-                if version_id is not None or versions:
-                    assert self.version_aware
-                    include.append("versions")
-                blobs = cc.walk_blobs(include=include, name_starts_with=path)
+            return self.dircache[target_path]
 
-            # Check the depth that needs to be screened
-            depth = target_path.count("/")
-            outblobs = []
-            try:
-                async for next_blob in blobs:
-                    if depth in [0, 1] and path == "":
+        assert container not in ["", delimiter]
+        async with self.service_client.get_container_client(container=container) as cc:
+            path = path.strip("/")
+            include = ["metadata"]
+            if version_id is not None or versions:
+                assert self.version_aware
+                include.append("versions")
+            blobs = cc.walk_blobs(include=include, name_starts_with=path)
+
+        # Check the depth that needs to be screened
+        depth = target_path.count("/")
+        outblobs = []
+        try:
+            async for next_blob in blobs:
+                if depth in [0, 1] and path == "":
+                    outblobs.append(next_blob)
+                elif isinstance(next_blob, BlobProperties):
+                    if next_blob["name"].count("/") == depth:
                         outblobs.append(next_blob)
-                    elif isinstance(next_blob, BlobProperties):
-                        if next_blob["name"].count("/") == depth:
-                            outblobs.append(next_blob)
-                        elif not next_blob["name"].endswith("/") and (
-                            next_blob["name"].count("/") == (depth - 1)
+                    elif not next_blob["name"].endswith("/") and (
+                        next_blob["name"].count("/") == (depth - 1)
+                    ):
+                        outblobs.append(next_blob)
+                else:
+                    async for blob_ in next_blob:
+                        if isinstance(blob_, BlobProperties) or isinstance(
+                            blob_, BlobPrefix
                         ):
-                            outblobs.append(next_blob)
-                    else:
-                        async for blob_ in next_blob:
-                            if isinstance(blob_, BlobProperties) or isinstance(
-                                blob_, BlobPrefix
-                            ):
-                                if blob_["name"].endswith("/"):
-                                    if blob_["name"].rstrip("/").count("/") == depth:
-                                        outblobs.append(blob_)
-                                    elif blob_["name"].count("/") == depth and (
-                                        hasattr(blob_, "size") and blob_["size"] == 0
-                                    ):
-                                        outblobs.append(blob_)
-                                    else:
-                                        pass
-                                elif blob_["name"].count("/") == (depth):
+                            if blob_["name"].endswith("/"):
+                                if blob_["name"].rstrip("/").count("/") == depth:
+                                    outblobs.append(blob_)
+                                elif blob_["name"].count("/") == depth and (
+                                    hasattr(blob_, "size") and blob_["size"] == 0
+                                ):
                                     outblobs.append(blob_)
                                 else:
                                     pass
-            except ResourceNotFoundError:
-                raise FileNotFoundError
-            finalblobs = await self._details(
-                outblobs,
-                target_path=target_path,
-                return_glob=return_glob,
-                version_id=version_id,
-                versions=versions,
-            )
-            if return_glob:
-                return finalblobs
-            if not finalblobs:
-                if not await self._exists(target_path):
-                    raise FileNotFoundError
-                return []
-            if not self.version_aware or finalblobs[0].get("is_current_version"):
-                self.dircache[target_path] = finalblobs
+                            elif blob_["name"].count("/") == (depth):
+                                outblobs.append(blob_)
+                            else:
+                                pass
+        except ResourceNotFoundError:
+            raise FileNotFoundError
+        finalblobs = await self._details(
+            outblobs,
+            target_path=target_path,
+            return_glob=return_glob,
+            version_id=version_id,
+            versions=versions,
+        )
+        if return_glob:
             return finalblobs
-
-        return self.dircache[target_path]
+        if not finalblobs:
+            if not await self._exists(target_path):
+                raise FileNotFoundError
+            return []
+        if not self.version_aware or finalblobs[0].get("is_current_version"):
+            self.dircache[target_path] = finalblobs
+        return finalblobs
 
     async def _ls(
         self,
