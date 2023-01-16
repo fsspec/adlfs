@@ -4,6 +4,7 @@
 from __future__ import absolute_import, division, print_function
 
 import asyncio
+import errno
 import io
 import logging
 import os
@@ -549,7 +550,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if out:
                 return out[0]
             else:
-                raise FileNotFoundError
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
 
     def glob(self, path, **kwargs):
         return sync(self.loop, self._glob, path)
@@ -715,8 +716,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                         outblobs.append(blob_)
                                     else:
                                         pass
-                except ResourceNotFoundError:
-                    raise FileNotFoundError
+                except ResourceNotFoundError as e:
+                    raise FileNotFoundError(
+                        errno.ENOENT, os.strerror(errno.ENOENT), target_path
+                    ) from e
                 finalblobs = await self._details(
                     outblobs,
                     target_path=target_path,
@@ -734,7 +737,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
                 if not finalblobs:
                     if not await self._exists(target_path):
-                        raise FileNotFoundError
+                        raise FileNotFoundError(
+                            errno.ENOENT, os.strerror(errno.ENOENT), target_path
+                        )
                     return []
                 if not self.version_aware or finalblobs[0].get("is_current_version"):
                     self.dircache[target_path] = finalblobs
@@ -1399,25 +1404,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
     pipe_file = sync_wrapper(_pipe_file)
 
     async def _cat_file(self, path, start=None, end=None, **kwargs):
-        path = self._strip_protocol(path)
+        no_protocol_path = self._strip_protocol(path)
         if end is not None:
             start = start or 0  # download_blob requires start if length is provided.
             length = end - start
         else:
             length = None
-        container_name, path, version_id = self.split_path(path)
+        container_name, no_protocol_path, version_id = self.split_path(no_protocol_path)
         async with self.service_client.get_blob_client(
-            container=container_name, blob=path
+            container=container_name, blob=no_protocol_path
         ) as bc:
             try:
                 stream = await bc.download_blob(
                     offset=start, length=length, version_id=version_id
                 )
             except ResourceNotFoundError as e:
-                raise FileNotFoundError from e
+                raise FileNotFoundError(
+                    errno.ENOENT, os.strerror(errno.ENOENT), path
+                ) from e
             except HttpResponseError as e:
                 if version_id is not None:
-                    raise FileNotFoundError from e
+                    raise FileNotFoundError(
+                        errno.ENOENT, os.strerror(errno.ENOENT), path
+                    ) from e
                 raise
             result = await stream.readall()
             return result
@@ -1544,7 +1553,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     out.add(fullpath)
 
         if not out:
-            raise FileNotFoundError
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
         return list(sorted(out))
 
     async def _put_file(
@@ -1580,9 +1589,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 self.invalidate_cache()
             except ResourceExistsError:
                 raise FileExistsError("File already exists!")
-            except ResourceNotFoundError:
+            except ResourceNotFoundError as e:
                 if not await self._exists(container_name):
-                    raise FileNotFoundError("Container does not exist.")
+                    raise FileNotFoundError(
+                        errno.ENOENT, "Container does not exist.", container_name
+                    ) from e
                 await self._put_file(lpath, rpath, delimiter, overwrite)
                 self.invalidate_cache()
 
@@ -1608,7 +1619,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         try:
             await blobclient2.start_copy_from_url(url)
         except ResourceNotFoundError as e:
-            raise FileNotFoundError from e
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), path1
+            ) from e
         self.invalidate_cache(container1)
         self.invalidate_cache(container2)
 
@@ -1642,7 +1655,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
                     await stream.readinto(my_blob)
         except ResourceNotFoundError as exception:
-            raise FileNotFoundError from exception
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), rpath
+            ) from exception
 
     get_file = sync_wrapper(_get_file)
 
@@ -1657,7 +1672,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 await bc.set_blob_metadata(metadata=kwargs)
             self.invalidate_cache(self._parent(rpath))
         except Exception as e:
-            raise FileNotFoundError(f"File not found for {e}")
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), rpath
+            ) from e
 
     setxattrs = sync_wrapper(_setxattrs)
 
