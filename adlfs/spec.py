@@ -880,41 +880,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 fname = f"{content.container}{delimiter}{content.name}"
                 fname = fname.rstrip(delimiter)
                 if content.has_key("size"):  # NOQA
-                    data.update({"name": fname})
-                    data.update({"size": content.size})
-                    data.update({"type": "file"})
+                    data["name"] = fname
+                    data["size"] = content.size
+                    data["type"] = "file"
                 else:
-                    data.update({"name": fname})
-                    data.update({"size": None})
-                    data.update({"type": "directory"})
+                    data["name"] = fname
+                    data["size"] = None
+                    data["type"] = "directory"
             else:
                 fname = f"{content.name}"
-                data.update({"name": fname})
-                data.update({"size": None})
-                data.update({"type": "directory"})
-            if "metadata" in data.keys():
-                if data["metadata"] is not None:
-                    if (
-                        "is_directory" in data["metadata"].keys()
-                        and data["metadata"]["is_directory"] == "true"
-                    ):
-                        data.update({"type": "directory"})
-                        data.update({"size": None})
-                    elif (
-                        "is_directory" in data["metadata"].keys()
-                        and data["metadata"]["is_directory"] == "false"
-                    ):
-                        data.update({"type": "file"})
-                    elif (
-                        "hdi_isfolder" in data["metadata"].keys()
-                        and data["metadata"]["hdi_isfolder"] == "true"
-                    ):
-                        data.update({"type": "directory"})
-                        data.update({"size": None})
-                    else:
-                        pass
+                data["name"] = fname
+                data["size"] = None
+                data["type"] = "directory"
+            if data.get("metadata"):
+                if data["metadata"].get("is_directory") == "true":
+                    data["type"] = "directory"
+                    data["size"] = None
+                elif data["metadata"].get("is_directory") == "false":
+                    data["type"] = "file"
+                elif data["metadata"].get("hdi_isfolder") == "true":
+                    data["type"] = "directory"
+                    data["size"] = None
             if return_glob:
-                data.update({"name": data["name"].rstrip("/")})
+                data["name"] = data["name"].rstrip("/")
             output.append(data)
         if target_path:
             if (
