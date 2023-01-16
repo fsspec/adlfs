@@ -1,12 +1,10 @@
 import datetime
-import os
 import tempfile
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pytest
-from fsspec.implementations.local import LocalFileSystem
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
@@ -1244,46 +1242,37 @@ def test_metadata_write(storage):
     fs.rmdir("test-metadata-write")
 
 
-def test_put_file(storage):
+def test_put_file(storage, tmp_path):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    lfs = LocalFileSystem()
-
     fs.mkdir("putdir")
 
     # Check that put on an empty file works
-    with open("sample.txt", "wb") as f:
-        f.write(b"")
-    fs.put("sample.txt", "putdir/sample.txt")
-    fs.get("putdir/sample.txt", "sample2.txt")
+    src = tmp_path / "sample.txt"
+    dest = tmp_path / "sample2.txt"
+    src.write_bytes(b"")
+    fs.put(str(src), "putdir/sample.txt")
+    fs.get("putdir/sample.txt", str(dest))
 
-    with open("sample.txt", "rb") as f:
+    with open(src, "rb") as f:
         f1 = f.read()
-    with open("sample2.txt", "rb") as f:
+    with open(dest, "rb") as f:
         f2 = f.read()
     assert f1 == f2
 
-    lfs.rm("sample.txt")
-    lfs.rm("sample2.txt")
-
     # Check that put on a file with data works
-    with tempfile.NamedTemporaryFile("wb") as f:
-        f.write(b"01234567890")
+    src2 = tmp_path / "sample3.txt"
+    dest2 = tmp_path / "sample4.txt"
+    src2.write_bytes(b"01234567890")
+    fs.put(str(src2), "putdir/sample3.txt")
+    fs.get("putdir/sample3.txt", str(dest2))
 
-        fs.put(f.name, "putdir/sample3.txt")
-        with open(f.name, "rb") as g:
-            f3 = g.read()
-
-    with tempfile.TemporaryDirectory() as td:
-        dst = os.path.join(td, "sample4.txt")
-        fs.get("putdir/sample3.txt", dst)
-
-        with open(dst, "rb") as f:
-            f4 = f.read()
-
+    with open(src2, "rb") as f:
+        f3 = f.read()
+    with open(dest2, "rb") as f:
+        f4 = f.read()
     assert f3 == f4
-    fs.rm("putdir", recursive=True)
 
 
 def test_isdir(storage):
@@ -1662,7 +1651,7 @@ async def test_details_versioned(storage):
     ) == [blob_latest]
 
 
-async def test_get_file_versioned(storage, mocker):
+async def test_get_file_versioned(storage, mocker, tmp_path):
     from azure.core.exceptions import ResourceNotFoundError
     from azure.storage.blob.aio import BlobClient
 
@@ -1674,16 +1663,16 @@ async def test_get_file_versioned(storage, mocker):
     )
     download_blob = mocker.patch.object(BlobClient, "download_blob")
 
-    with tempfile.TemporaryDirectory() as td:
-        local_file = os.path.join(td, "file.txt")
-        await fs._get_file(
-            f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", local_file
-        )
-        download_blob.assert_called_once_with(
-            raw_response_hook=mocker.ANY, version_id=DEFAULT_VERSION_ID
-        )
-
+    await fs._get_file(
+        f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", tmp_path / "file.txt"
+    )
+    download_blob.assert_called_once_with(
+        raw_response_hook=mocker.ANY, version_id=DEFAULT_VERSION_ID
+    )
     download_blob.reset_mock()
     download_blob.side_effect = ResourceNotFoundError
+
+    dest = tmp_path / "badfile.txt"
     with pytest.raises(FileNotFoundError):
-        await fs._get_file("data/root/a/file.txt?versionid=invalid_version", "file.txt")
+        await fs._get_file("data/root/a/file.txt?versionid=invalid_version", dest)
+    assert not dest.exists()
