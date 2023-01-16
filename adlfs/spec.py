@@ -1633,13 +1633,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
             async with self.service_client.get_blob_client(
                 container_name, path.rstrip(delimiter)
             ) as bc:
+                stream = await bc.download_blob(
+                    raw_response_hook=make_callback(
+                        "download_stream_current", callback
+                    ),
+                    version_id=version_id,
+                )
                 with open(lpath, "wb") as my_blob:
-                    stream = await bc.download_blob(
-                        raw_response_hook=make_callback(
-                            "download_stream_current", callback
-                        ),
-                        version_id=version_id,
-                    )
                     await stream.readinto(my_blob)
         except ResourceNotFoundError as exception:
             raise FileNotFoundError from exception
