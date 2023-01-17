@@ -540,6 +540,26 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
         kwargs["version_id"] = version_id
 
+        if fullpath == "":
+            return {"name": "", "size": None, "type": "directory"}
+        elif path == "":
+            if not refresh and _ROOT_PATH in self.dircache:
+                out = [o for o in self.dircache[_ROOT_PATH] if o["name"] == container]
+                if out:
+                    return out[0]
+            try:
+                async with self.service_client.get_container_client(
+                    container=container
+                ) as cc:
+                    properties = await cc.get_container_properties()
+            except ResourceNotFoundError as exc:
+                raise FileNotFoundError from exc
+            info = (await self._details([properties]))[0]
+            # Make result consistent with _ls_containers()
+            if not info.get("metadata"):
+                info["metadata"] = None
+            return info
+
         out = await self._ls(
             fullpath, detail=True, invalidate_cache=invalidate_cache, **kwargs
         )

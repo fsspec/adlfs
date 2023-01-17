@@ -378,6 +378,23 @@ def test_info(storage):
     )
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "does-not-exist",
+        "does-not-exist/foo",
+        "data/does_not_exist",
+        "data/root/does_not_exist",
+    ],
+)
+def test_info_missing(storage, path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    with pytest.raises(FileNotFoundError):
+        fs.info(path)
+
+
 def test_time_info(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
