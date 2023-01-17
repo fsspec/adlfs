@@ -25,7 +25,7 @@ from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
-from fsspec.asyn import AsyncFileSystem, get_loop, get_running_loop, sync, sync_wrapper
+from fsspec.asyn import AsyncFileSystem, get_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
@@ -81,6 +81,18 @@ def make_callback(key, callback):
         callback.absolute_update(current)
 
     return wrapper
+
+
+def get_running_loop():
+    # this was removed from fsspec in https://github.com/fsspec/filesystem_spec/pull/1134
+    if hasattr(asyncio, "get_running_loop"):
+        return asyncio.get_running_loop()
+    else:
+        loop = asyncio._get_running_loop()
+        if loop is None:
+            raise RuntimeError("no running event loop")
+        else:
+            return loop
 
 
 def _coalesce_version_id(*args) -> Optional[str]:
@@ -499,6 +511,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 version_id=kwargs.get("version_id"),
             )
         return super().info(path)
+
+    def modified(self, path: str) -> datetime:
+        return self.info(path)["last_modified"]
+
+    def created(self, path: str) -> datetime:
+        return self.info(path)["creation_time"]
 
     async def _info(self, path, refresh=False, **kwargs):
         """Give details of entry at path
