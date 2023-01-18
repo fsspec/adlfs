@@ -497,21 +497,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             version_id if self.version_aware and version_id else None,
         )
 
-    def info(self, path, refresh=False, **kwargs):
-        try:
-            fetch_from_azure = (path and self._ls_from_cache(path) is None) or refresh
-        except Exception:
-            fetch_from_azure = True
-        if fetch_from_azure:
-            return sync(
-                self.loop,
-                self._info,
-                path,
-                refresh,
-                version_id=kwargs.get("version_id"),
-            )
-        return super().info(path)
-
     def modified(self, path: str) -> datetime:
         return self.info(path)["last_modified"]
 
@@ -531,10 +516,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        if refresh:
-            invalidate_cache = True
-        else:
-            invalidate_cache = False
+        invalidate_cache = bool(refresh)
         container, path, path_version_id = self.split_path(path)
         fullpath = "/".join([container, path]) if path else container
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
@@ -559,6 +541,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if not info.get("metadata"):
                 info["metadata"] = None
             return info
+
+        if not refresh:
+            out = self._ls_from_cache(fullpath)
+            if out is not None:
+                if self.version_aware and version_id is not None:
+                    out = [
+                        o
+                        for o in out
+                        if o["name"] == fullpath and match_blob_version(o, version_id)
+                    ]
+                    if out:
+                        return out[0]
+                else:
+                    out = [o for o in out if o["name"] == fullpath]
+                    if out:
+                        return out[0]
+                    return {"name": fullpath, "size": None, "type": "directory"}
 
         out = await self._ls(
             fullpath, detail=True, invalidate_cache=invalidate_cache, **kwargs
