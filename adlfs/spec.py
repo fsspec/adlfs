@@ -516,7 +516,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         dict with keys: name (full path in the FS), size (in bytes), type (file,
         directory, or something else) and other FS-specific keys.
         """
-        invalidate_cache = bool(refresh)
         container, path, path_version_id = self.split_path(path)
         fullpath = "/".join([container, path]) if path else container
         version_id = _coalesce_version_id(path_version_id, kwargs.get("version_id"))
@@ -559,35 +558,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         return out[0]
                     return {"name": fullpath, "size": None, "type": "directory"}
 
-        out = await self._ls(
-            fullpath, detail=True, invalidate_cache=invalidate_cache, **kwargs
-        )
-        fullpath = fullpath.rstrip("/")
-        out1 = [
-            o
-            for o in out
-            if o["name"].rstrip("/") == fullpath
-            and (version_id is None or o["version_id"] == version_id)
-        ]
-        if len(out1) == 1:
-            if "size" not in out1[0]:
-                out1[0]["size"] = None
-            return out1[0]
-        elif len(out1) > 1 or out:
-            return {"name": fullpath, "size": None, "type": "directory"}
-        else:
-            # Check the directory listing as the path may have been deleted
-            out = await self._ls(
-                self._parent(path),
-                detail=True,
-                invalidate_cache=invalidate_cache,
-                **kwargs,
-            )
-            out = [o for o in out if o["name"].rstrip("/") == path]
-            if out:
-                return out[0]
-            else:
-                raise FileNotFoundError
+        try:
+            async with self.service_client.get_blob_client(container, path) as bc:
+                props = await bc.get_blob_properties(version_id=version_id)
+            return (await self._details([props]))[0]
+        except ResourceNotFoundError:
+            pass
+
+        if not version_id:
+            if await self._dir_exists(container, path):
+                return {"name": fullpath, "size": None, "type": "directory"}
+
+        raise FileNotFoundError
 
     def glob(self, path, **kwargs):
         return sync(self.loop, self._glob, path)
@@ -1407,17 +1389,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if version_id is not None:
                     return False
                 raise
+        return await self._dir_exists(container_name, path)
 
+    async def _dir_exists(self, container, path):
         dir_path = path.rstrip("/") + "/"
-        async with self.service_client.get_container_client(
-            container=container_name
-        ) as container_client:
-            async for blob in container_client.list_blobs(
-                results_per_page=1, name_starts_with=dir_path
-            ):
-                return True
-            else:
-                return False
+        try:
+            async with self.service_client.get_container_client(
+                container=container
+            ) as container_client:
+                async for blob in container_client.list_blobs(
+                    results_per_page=1, name_starts_with=dir_path
+                ):
+                    return True
+                else:
+                    return False
+        except ResourceNotFoundError:
+            return False
 
     async def _pipe_file(self, path, value, overwrite=True, **kwargs):
         """Set the bytes of given file"""
