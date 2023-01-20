@@ -30,6 +30,7 @@ def test_connect(storage):
 def assert_blob_equals(blob, expected_blob):
     irregular_props = [
         "etag",
+        "deleted",
     ]
 
     time_based_props = [
@@ -132,7 +133,6 @@ def test_ls(storage):
                 "size": 10,
                 "type": "file",
                 "archive_status": None,
-                "deleted": None,
                 "creation_time": storage.insert_time,
                 "last_modified": storage.insert_time,
                 "deleted_time": None,
@@ -164,7 +164,6 @@ def test_ls(storage):
                 "size": 10,
                 "type": "file",
                 "archive_status": None,
-                "deleted": None,
                 "creation_time": storage.insert_time,
                 "last_modified": storage.insert_time,
                 "deleted_time": None,
@@ -189,7 +188,6 @@ def test_ls(storage):
                 "size": 10,
                 "type": "file",
                 "archive_status": None,
-                "deleted": None,
                 "creation_time": storage.insert_time,
                 "last_modified": storage.insert_time,
                 "deleted_time": None,
@@ -221,7 +219,6 @@ def test_ls(storage):
                 "size": 10,
                 "type": "file",
                 "archive_status": None,
-                "deleted": None,
                 "creation_time": storage.insert_time,
                 "last_modified": storage.insert_time,
                 "deleted_time": None,
@@ -290,9 +287,13 @@ async def test_ls_versioned(storage, mocker):
     )
 
 
-def test_info(storage):
+@pytest.mark.parametrize("version_aware", [False, True])
+def test_info(storage, version_aware):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=version_aware,
+        skip_instance_cache=True,
     )
 
     container_info = fs.info("data")
@@ -302,7 +303,6 @@ def test_info(storage):
             "name": "data",
             "type": "directory",
             "size": None,
-            "deleted": None,
             "last_modified": storage.insert_time,
             "metadata": None,
         },
@@ -319,63 +319,75 @@ def test_info(storage):
     )
 
     file_info = fs.info("data/root/a/file.txt")
-    assert_blob_equals(
-        file_info,
-        {
-            "name": "data/root/a/file.txt",
-            "size": 10,
-            "type": "file",
-            "archive_status": None,
-            "deleted": None,
-            "creation_time": storage.insert_time,
-            "last_modified": storage.insert_time,
-            "deleted_time": None,
-            "last_accessed_on": None,
-            "remaining_retention_days": None,
-            "tag_count": None,
-            "tags": None,
-            "metadata": {},
-            "content_settings": {
-                "content_type": "application/octet-stream",
-                "content_encoding": None,
-                "content_language": None,
-                "content_md5": bytearray(
-                    b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
-                ),
-                "content_disposition": None,
-                "cache_control": None,
-            },
+    expected = {
+        "name": "data/root/a/file.txt",
+        "size": 10,
+        "type": "file",
+        "archive_status": None,
+        "creation_time": storage.insert_time,
+        "last_modified": storage.insert_time,
+        "deleted_time": None,
+        "last_accessed_on": None,
+        "remaining_retention_days": None,
+        "tag_count": None,
+        "tags": None,
+        "metadata": {},
+        "content_settings": {
+            "content_type": "application/octet-stream",
+            "content_encoding": None,
+            "content_language": None,
+            "content_md5": bytearray(b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"),
+            "content_disposition": None,
+            "cache_control": None,
         },
-    )
+    }
+    if version_aware:
+        expected.update({"is_current_version": None, "version_id": None})
+    assert_blob_equals(file_info, expected)
+
     file_with_meta_info = fs.info("data/root/d/file_with_metadata.txt")
-    assert_blob_equals(
-        file_with_meta_info,
-        {
-            "name": "data/root/d/file_with_metadata.txt",
-            "size": 10,
-            "type": "file",
-            "archive_status": None,
-            "deleted": None,
-            "creation_time": storage.insert_time,
-            "last_modified": storage.insert_time,
-            "deleted_time": None,
-            "last_accessed_on": None,
-            "remaining_retention_days": None,
-            "tag_count": None,
-            "tags": None,
-            "metadata": {"meta": "data"},
-            "content_settings": {
-                "content_type": "application/octet-stream",
-                "content_encoding": None,
-                "content_language": None,
-                "content_md5": bytearray(
-                    b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"
-                ),
-                "content_disposition": None,
-                "cache_control": None,
-            },
+    expected = {
+        "name": "data/root/d/file_with_metadata.txt",
+        "size": 10,
+        "type": "file",
+        "archive_status": None,
+        "creation_time": storage.insert_time,
+        "last_modified": storage.insert_time,
+        "deleted_time": None,
+        "last_accessed_on": None,
+        "remaining_retention_days": None,
+        "tag_count": None,
+        "tags": None,
+        "metadata": {"meta": "data"},
+        "content_settings": {
+            "content_type": "application/octet-stream",
+            "content_encoding": None,
+            "content_language": None,
+            "content_md5": bytearray(b"x\x1e^$]i\xb5f\x97\x9b\x86\xe2\x8d#\xf2\xc7"),
+            "content_disposition": None,
+            "cache_control": None,
         },
+    }
+    if version_aware:
+        expected.update({"is_current_version": None, "version_id": None})
+    assert_blob_equals(file_with_meta_info, expected)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "does-not-exist",
+        "does-not-exist/foo",
+        "data/does_not_exist",
+        "data/root/does_not_exist",
+    ],
+)
+def test_info_missing(storage, path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
     )
+    with pytest.raises(FileNotFoundError):
+        fs.info(path)
 
 
 def test_time_info(storage):
@@ -494,7 +506,6 @@ def test_find(storage):
                 "size": 10,
                 "type": "file",
                 "archive_status": None,
-                "deleted": None,
                 "creation_time": storage.insert_time,
                 "last_modified": storage.insert_time,
                 "deleted_time": None,
@@ -1560,6 +1571,7 @@ def test_exists(storage):
     assert fs.exists("data/")
     assert not fs.exists("non-existent-container")
     assert not fs.exists("non-existent-container/")
+    assert not fs.exists("non-existent-container/key")
     assert fs.exists("")
     assert not fs.exists("data/not-a-key")
 
