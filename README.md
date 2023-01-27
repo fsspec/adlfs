@@ -88,6 +88,7 @@ The following environmental variables can also be set and picked up for authenti
 - "AZURE_STORAGE_TENANT_ID"
 - "AZURE_STORAGE_CLIENT_ID"
 - "AZURE_STORAGE_CLIENT_SECRET"
+- "AZURE_STORAGE_ANON"
 
 The filesystem can be instantiated for different use cases based on a variety of `storage_options` combinations. The following list describes some common use cases utilizing `AzureBlobFileSystem`, i.e. protocols `abfs`or `az`. Note that all cases require the `account_name` argument to be provided:
 1. Anonymous connection to public container: `storage_options={'account_name': ACCOUNT_NAME, 'anon': True}` will assume the `ACCOUNT_NAME` points to a public container, and attempt to use an anonymous login. Note, the default value for `anon` is True.
