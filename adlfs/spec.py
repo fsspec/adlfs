@@ -1413,7 +1413,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             container=container_name, blob=path
         ) as bc:
             result = await bc.upload_blob(
-                data=value, overwrite=overwrite, metadata={"is_directory": "false"}
+                data=value,
+                overwrite=overwrite,
+                metadata={"is_directory": "false"},
+                **kwargs,
             )
         self.invalidate_cache(self._parent(path))
         return result
