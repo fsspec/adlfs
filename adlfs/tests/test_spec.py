@@ -122,6 +122,8 @@ def test_ls(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
     ]
+    # Ensure ls works with protocol prefix
+    assert fs.ls("data/root/e+f/") == fs.ls("abfs://data/root/e+f/")
 
     # file details
     files = fs.ls("data/root/a/file.txt", detail=True)
