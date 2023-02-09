@@ -82,6 +82,14 @@ to list all the files or directories in the top-level of a storage container, yo
 api.md
 ```
 
+**Note**: When uploading a blob (with `write_bytes` or `write_text`) you can injects kwargs directly into `upload_blob` method:
+
+```{code-block} python
+>>> from azure.storage.blob import ContentSettings
+>>> fs = adlfs.AzureBlobFileSystem(account_name="ai4edataeuwest")
+>>> fs.write_bytes(path="path", value=data, overwrite=True, **{"content_settings": ContentSettings(content_type="application/json", content_encoding="br")})
+```
+
 [fsspec]: https://filesystem-spec.readthedocs.io
 [Azure Blob storage]: https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction
 [Azure Data Lake Storage Gen2]: https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction
