@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    timeout-minutes: 45
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+        pyv: ["3.8"]
+        reqs: ["earliest", "latest", "dev"]
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+  
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.pyv }}
+        cache: 'pip'
+        cache-dependency-path: setup.cfg
+
+    - name: install
+      run: |
+        pip install --upgrade pip wheel
+        pip install -r "requirements/${{ matrix.reqs }}.txt"
+
+    - name: lint
+      timeout-minutes: 10
+      uses: pre-commit/action@v3.0.0
+
+    - name: run tests
+      timeout-minutes: 15
+      run: pytest -v --cov-report=xml --cov-report=term
+
+    - name: upload coverage report
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
