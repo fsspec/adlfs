@@ -571,7 +571,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 return {"name": fullpath, "size": None, "type": "directory"}
 
         raise FileNotFoundError(
-            errno.ENOENT, os.strerror(errno.ENOENT), target_path
+            errno.ENOENT, os.strerror(errno.ENOENT), fullpath
         )
 
     def glob(self, path, **kwargs):
