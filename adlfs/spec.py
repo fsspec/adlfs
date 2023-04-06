@@ -570,7 +570,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if await self._dir_exists(container, path):
                 return {"name": fullpath, "size": None, "type": "directory"}
 
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fullpath)
+        raise FileNotFoundError(
+            errno.ENOENT, os.strerror(errno.ENOENT), target_path
+        )
 
     def glob(self, path, **kwargs):
         return sync(self.loop, self._glob, path)
@@ -732,7 +734,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             else:
                                 pass
         except ResourceNotFoundError:
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), target_path)
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), target_path
+            )
         finalblobs = await self._details(
             outblobs,
             target_path=target_path,
@@ -744,7 +748,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return finalblobs
         if not finalblobs:
             if not await self._exists(target_path):
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), target_path)
+                raise FileNotFoundError(
+                    errno.ENOENT, os.strerror(errno.ENOENT), target_path
+                )
             return []
         if not self.version_aware or finalblobs[0].get("is_current_version"):
             self.dircache[target_path] = finalblobs
@@ -1570,7 +1576,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     out.add(fullpath)
 
         if not out:
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), path
+            )
         return list(sorted(out))
 
     async def _put_file(
