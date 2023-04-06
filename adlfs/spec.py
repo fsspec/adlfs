@@ -570,9 +570,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if await self._dir_exists(container, path):
                 return {"name": fullpath, "size": None, "type": "directory"}
 
-        raise FileNotFoundError(
-            errno.ENOENT, os.strerror(errno.ENOENT), fullpath
-        )
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fullpath)
 
     def glob(self, path, **kwargs):
         return sync(self.loop, self._glob, path)
@@ -1576,9 +1574,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     out.add(fullpath)
 
         if not out:
-            raise FileNotFoundError(
-                errno.ENOENT, os.strerror(errno.ENOENT), path
-            )
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
         return list(sorted(out))
 
     async def _put_file(
