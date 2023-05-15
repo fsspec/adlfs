@@ -160,7 +160,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Whether to support blob versioning.  If enable this will require the
         user to have the necessary permissions for dealing with versioned blobs.
     assume_container_exists: Optional[bool] (None)
-        Set this to true to not check for existance of containers at all, assuming they exist. 
+        Set this to true to not check for existance of containers at all, assuming they exist.
         None (default) means to warn in case of a failure when checking for existance of a container
         False throws if retrieving container properties fails
     Pass on to fsspec:
@@ -224,7 +224,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
         version_aware: bool = False,
-        assume_container_exists: Optional[bool] = None
+        assume_container_exists: Optional[bool] = None,
         **kwargs,
     ):
         super_kwargs = {
@@ -1116,12 +1116,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return False
         except Exception as e:
             if self.assume_container_exists is None:
-                logger.warning(f"Failed to fetch container properties for {container_name}. Assume it exists already", exc_info=e)
+                logger.warning(
+                    f"Failed to fetch container properties for {container_name}. Assume it exists already",
+                    exc_info=e,
+                )
                 return True
             else:
                 raise ValueError(
                     f"Failed to fetch container properties for {container_name} for {e}"
-                ) from e 
+                ) from e
         else:
             return True
 
