@@ -162,7 +162,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     assume_container_exists: Optional[bool] (None)
         Set this to true to not check for existance of containers at all, assuming they exist.
         None (default) means to warn in case of a failure when checking for existance of a container
-        False throws if retrieving container properties fails
+        False throws if retrieving container properties fails, which might happen if your
+        authentication is only valid at the storage container level, and not the
+        storage account level.
     Pass on to fsspec:
 
     skip_instance_cache:  to control reuse of instances
