@@ -1108,9 +1108,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except ResourceNotFoundError:
             return False
         except Exception as e:
-            raise ValueError(
-                f"Failed to fetch container properties for {container_name} for {e}"
-            ) from e
+            logger.warning(f"Failed to fetch container properties for {container_name}. Assume it exists already", exc_info=e)
+            return True
         else:
             return True
 
