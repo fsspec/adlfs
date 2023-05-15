@@ -159,7 +159,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
     version_aware : bool (False)
         Whether to support blob versioning.  If enable this will require the
         user to have the necessary permissions for dealing with versioned blobs.
-
+    assume_container_exists: Optional[bool] (None)
+        Set this to true to not check for existance of containers at all, assuming they exist. 
+        None (default) means to warn in case of a failure when checking for existance of a container
+        False throws if retrieving container properties fails
     Pass on to fsspec:
 
     skip_instance_cache:  to control reuse of instances
@@ -221,6 +224,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
         version_aware: bool = False,
+        assume_container_exists: Optional[bool] = None
         **kwargs,
     ):
         super_kwargs = {
@@ -245,6 +249,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
+        self.assume_container_exists = assume_container_exists
         if socket_timeout is not _SOCKET_TIMEOUT_DEFAULT:
             warnings.warn(
                 "socket_timeout is deprecated and has no effect.", FutureWarning
@@ -1100,6 +1105,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 yield path, dirs, files
 
     async def _container_exists(self, container_name):
+        if self.assume_container_exists:
+            return True
         try:
             async with self.service_client.get_container_client(
                 container_name
@@ -1108,8 +1115,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except ResourceNotFoundError:
             return False
         except Exception as e:
-            logger.warning(f"Failed to fetch container properties for {container_name}. Assume it exists already", exc_info=e)
-            return True
+            if self.assume_container_exists is None:
+                logger.warning(f"Failed to fetch container properties for {container_name}. Assume it exists already", exc_info=e)
+                return True
+            else:
+                raise ValueError(
+                    f"Failed to fetch container properties for {container_name} for {e}"
+                ) from e 
         else:
             return True
 
