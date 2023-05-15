@@ -779,7 +779,7 @@ def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
-        assume_container_exists=False
+        assume_container_exists=False,
     )
 
     # Verify mkdir will create a new container when create_parents is True
