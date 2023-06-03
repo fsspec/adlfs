@@ -5,10 +5,10 @@
     <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="prev" title="adlfs" href="../" />
 
-    <!-- Generated with Sphinx 6.1.3 and Furo 2023.03.27 -->
+    <!-- Generated with Sphinx 6.2.1 and Furo 2023.05.20 -->
         <title>API Reference - adlfs documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=fad236701ea90a88636c2a8c73b44ae642ed2a53" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=e6660623a769aa55fea372102b9bf3151b292993" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
     
     
@@ -241,6 +241,12 @@ is desired.  Docs in fsspec</p>
 </dd>
 <dt><strong>version_aware</strong><span class="classifier">bool (False)</span></dt><dd><p>Whether to support blob versioning.  If enable this will require the
 user to have the necessary permissions for dealing with versioned blobs.</p>
+</dd>
+<dt><strong>assume_container_exists: Optional[bool] (None)</strong></dt><dd><p>Set this to true to not check for existance of containers at all, assuming they exist.
+None (default) means to warn in case of a failure when checking for existance of a container
+False throws if retrieving container properties fails, which might happen if your
+authentication is only valid at the storage container level, and not the
+storage account level.</p>
 </dd>
 <dt><strong>Pass on to fsspec:</strong></dt><dd></dd>
 <dt><strong>skip_instance_cache:  to control reuse of instances</strong></dt><dd></dd>
@@ -572,6 +578,7 @@ Tries credentials first, then connection string and finally account key</p>
 <span class="sig-name descname"><span class="pre">expand_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recursive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maxdepth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_noexist</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.expand_path" title="Permalink to this definition">#</a></dt>
 <dd><p>Turn one or more globs or directories into a list of all matching paths
 to files or directories.</p>
+<p>kwargs are passed to <code class="docutils literal notranslate"><span class="pre">glob</span></code> or <code class="docutils literal notranslate"><span class="pre">find</span></code>, which may in turn call <code class="docutils literal notranslate"><span class="pre">ls</span></code></p>
 </dd></dl>
 
 <dl class="py method">
