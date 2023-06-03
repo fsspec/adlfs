@@ -779,6 +779,7 @@ def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
+        assume_container_exists=False,
     )
 
     # Verify mkdir will create a new container when create_parents is True
@@ -809,6 +810,22 @@ def test_mkdir(storage):
     # Test raising error when container does not exist
     with pytest.raises(PermissionError):
         fs.mkdir("new-container/dir", create_parents=False)
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        assume_container_exists=None,
+    )
+
+    with pytest.warns():
+        fs.mkdir("bad_container_name")
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        assume_container_exists=True,
+    )
+    fs.mkdir("bad_container_name")  # should not throw as we assume it exists
 
 
 def test_makedir(storage):
