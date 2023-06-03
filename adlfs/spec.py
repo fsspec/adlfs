@@ -1120,7 +1120,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if self.assume_container_exists is None:
                 warnings.warn(
                     f"Failed to fetch container properties for {container_name}. Assume it exists already",
-                    
                 )
                 return True
             else:

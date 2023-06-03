@@ -811,22 +811,22 @@ def test_mkdir(storage):
     with pytest.raises(PermissionError):
         fs.mkdir("new-container/dir", create_parents=False)
 
-    
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
         assume_container_exists=None,
     )
-    
+
     with pytest.warns():
-        fs.mkdir("bad_container_name")    
-    
+        fs.mkdir("bad_container_name")
+
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
         assume_container_exists=True,
     )
-    fs.mkdir("bad_container_name") # should not throw as we assume it exists
+    fs.mkdir("bad_container_name")  # should not throw as we assume it exists
+
 
 def test_makedir(storage):
     fs = AzureBlobFileSystem(
