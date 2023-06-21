@@ -898,7 +898,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     data["size"] = None
                 elif data["metadata"].get("is_directory") == "false":
                     data["type"] = "file"
-                elif data["metadata"].get("hdi_isfolder") == "true" or data["metadata"].get("Hdi_isfolder") == "true":
+                elif (
+                    # In some cases Hdi_isfolder is capitalized, see #418
+                    data["metadata"].get("hdi_isfolder") == "true"
+                    or data["metadata"].get("Hdi_isfolder") == "true"
+                ):
                     data["type"] = "directory"
                     data["size"] = None
             if return_glob:
