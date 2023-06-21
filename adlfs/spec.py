@@ -1548,10 +1548,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         lpath,
         rpath,
         delimiter="/",
-        overwrite=False,
+        overwrite=True,
         callback=None,
         max_concurrency=None,
-        **kwargws,
+        **kwargs,
     ):
         """
         Copy single file to remote
@@ -1559,7 +1559,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         :param lpath: Path to local file
         :param rpath: Path to remote file
         :param delimitier: Filepath delimiter
-        :param overwrite: Boolean (False).  If True, overwrite the existing file present
+        :param overwrite: Boolean (True). Whether to overwrite any existing file
+            (True) or raise if one already exists (False).
         """
 
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
