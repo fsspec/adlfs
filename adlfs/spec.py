@@ -26,7 +26,7 @@ from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
 from azure.storage.blob._shared.base_client import create_configuration
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
-from fsspec.asyn import AsyncFileSystem, get_loop, sync, sync_wrapper
+from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
@@ -165,6 +165,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         False throws if retrieving container properties fails, which might happen if your
         authentication is only valid at the storage container level, and not the
         storage account level.
+    max_concurrency:
+        The number of concurrent connections to use when uploading or downloading a blob.
+        If None it will be inferred from fsspec.asyn._get_batch_size().
+
     Pass on to fsspec:
 
     skip_instance_cache:  to control reuse of instances
@@ -227,6 +231,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         default_cache_type: str = "bytes",
         version_aware: bool = False,
         assume_container_exists: Optional[bool] = None,
+        max_concurrency: Optional[int] = None,
         **kwargs,
     ):
         super_kwargs = {
@@ -291,6 +296,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if self.credential is not None:
             weakref.finalize(self, sync, self.loop, close_credential, self)
+
+        self.max_concurrency = max_concurrency or (_get_batch_size() // 4)
 
     @classmethod
     def _strip_protocol(cls, path: str):
@@ -1426,7 +1433,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except ResourceNotFoundError:
             return False
 
-    async def _pipe_file(self, path, value, overwrite=True, **kwargs):
+    async def _pipe_file(
+        self, path, value, overwrite=True, max_concurrency=None, **kwargs
+    ):
         """Set the bytes of given file"""
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
@@ -1436,6 +1445,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data=value,
                 overwrite=overwrite,
                 metadata={"is_directory": "false"},
+                max_concurrency=max_concurrency or self.max_concurrency,
                 **kwargs,
             )
         self.invalidate_cache(self._parent(path))
@@ -1443,7 +1453,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     pipe_file = sync_wrapper(_pipe_file)
 
-    async def _cat_file(self, path, start=None, end=None, **kwargs):
+    async def _cat_file(
+        self, path, start=None, end=None, max_concurrency=None, **kwargs
+    ):
         path = self._strip_protocol(path)
         if end is not None:
             start = start or 0  # download_blob requires start if length is provided.
@@ -1456,7 +1468,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ) as bc:
             try:
                 stream = await bc.download_blob(
-                    offset=start, length=length, version_id=version_id
+                    offset=start,
+                    length=length,
+                    version_id=version_id,
+                    max_concurrency=max_concurrency or self.max_concurrency,
                 )
             except ResourceNotFoundError as e:
                 raise FileNotFoundError from e
@@ -1593,7 +1608,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return list(sorted(out))
 
     async def _put_file(
-        self, lpath, rpath, delimiter="/", overwrite=False, callback=None, **kwargws
+        self,
+        lpath,
+        rpath,
+        delimiter="/",
+        overwrite=False,
+        callback=None,
+        max_concurrency=None,
+        **kwargws,
     ):
         """
         Copy single file to remote
@@ -1621,6 +1643,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback
                             ),
+                            max_concurrency=max_concurrency or self.max_concurrency,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1668,7 +1691,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
 
     async def _get_file(
-        self, rpath, lpath, recursive=False, delimiter="/", callback=None, **kwargs
+        self,
+        rpath,
+        lpath,
+        recursive=False,
+        delimiter="/",
+        callback=None,
+        max_concurrency=None,
+        **kwargs,
     ):
         """Copy single file remote to local"""
         if os.path.isdir(lpath):
@@ -1683,6 +1713,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         "download_stream_current", callback
                     ),
                     version_id=version_id,
+                    max_concurrency=max_concurrency or self.max_concurrency,
                 )
                 with open(lpath, "wb") as my_blob:
                     await stream.readinto(my_blob)
