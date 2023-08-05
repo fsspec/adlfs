@@ -392,7 +392,9 @@ def test_info_missing(storage, path):
 
 def test_time_info(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        max_concurrency=1,
     )
 
     creation_time = fs.created("data/root/d/file_with_metadata.txt")
@@ -1486,7 +1488,10 @@ async def test_cat_file_versioned(storage, mocker):
 
     await fs._cat_file(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
     download_blob.assert_called_once_with(
-        offset=None, length=None, version_id=DEFAULT_VERSION_ID
+        offset=None,
+        length=None,
+        version_id=DEFAULT_VERSION_ID,
+        max_concurrency=fs.max_concurrency,
     )
 
     download_blob.reset_mock()
@@ -1744,7 +1749,9 @@ async def test_get_file_versioned(storage, mocker, tmp_path):
         f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", tmp_path / "file.txt"
     )
     download_blob.assert_called_once_with(
-        raw_response_hook=mocker.ANY, version_id=DEFAULT_VERSION_ID
+        raw_response_hook=mocker.ANY,
+        version_id=DEFAULT_VERSION_ID,
+        max_concurrency=fs.max_concurrency,
     )
     download_blob.reset_mock()
     download_blob.side_effect = ResourceNotFoundError
