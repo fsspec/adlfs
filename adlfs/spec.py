@@ -810,7 +810,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         """
         logger.debug("abfs.ls() is searching for %s", path)
-        target_path = path.strip("/")
+        target_path = self._strip_protocol(path).strip("/")
         container, path, path_version_id = self.split_path(path)
         version_id = _coalesce_version_id(version_id, path_version_id)
 
