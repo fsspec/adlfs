@@ -1,13 +1,13 @@
 <!doctype html>
-<html class="no-js" lang="en">
+<html class="no-js" lang="en" data-content_root="./">
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="genindex/" /><link rel="search" title="Search" href="search/" /><link rel="next" title="API Reference" href="api/" />
 
-    <!-- Generated with Sphinx 7.1.2 and Furo 2023.07.26 -->
+    <!-- Generated with Sphinx 7.2.5 and Furo 2023.08.19 -->
         <title>adlfs documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=362ab14a" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=135e06be" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=36a5483c" />
     
@@ -191,10 +191,10 @@
         </div>
         <article role="main">
           <section id="adlfs">
-<h1>adlfs<a class="headerlink" href="#adlfs" title="Permalink to this heading">#</a></h1>
+<h1>adlfs<a class="headerlink" href="#adlfs" title="Link to this heading">#</a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">adlfs</span></code> provides an <a class="reference external" href="https://filesystem-spec.readthedocs.io"><code class="docutils literal notranslate"><span class="pre">fsspec</span></code></a>-compatible interface to <a class="reference external" href="https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction">Azure Blob storage</a>, <a class="reference external" href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction">Azure Data Lake Storage Gen2</a>, and <a class="reference external" href="https://docs.microsoft.com/en-us/azure/data-lake-store/">Azure Data Lake Storage Gen1</a>.</p>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">#</a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">adlfs</span></code> can be installed using pip</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>pip install adlfs
 </pre></div>
@@ -205,7 +205,7 @@
 </div>
 </section>
 <section id="fsspec-protocols">
-<h2><code class="docutils literal notranslate"><span class="pre">fsspec</span></code> protocols<a class="headerlink" href="#fsspec-protocols" title="Permalink to this heading">#</a></h2>
+<h2><code class="docutils literal notranslate"><span class="pre">fsspec</span></code> protocols<a class="headerlink" href="#fsspec-protocols" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">adlfs</span></code> registers the following protocols with <code class="docutils literal notranslate"><span class="pre">fsspec</span></code>.</p>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
@@ -229,7 +229,7 @@
 </div>
 </section>
 <section id="authentication">
-<h2>Authentication<a class="headerlink" href="#authentication" title="Permalink to this heading">#</a></h2>
+<h2>Authentication<a class="headerlink" href="#authentication" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem</span></code> implementation uses the <a class="reference external" href="https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python"><code class="docutils literal notranslate"><span class="pre">azure.storage.blob</span></code></a> library internally. For the most
 part, you can authenticate with Azure using any of the methods it supports.</p>
 <p>For anonymous authentication, simply provide the storage account name:</p>
@@ -258,7 +258,7 @@ part, you can authenticate with Azure using any of the methods it supports.</p>
 </div>
 </section>
 <section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">#</a></h2>
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
 <p>See the <a class="reference external" href="https://filesystem-spec.readthedocs.io/en/latest/usage.html">fsspec documentation</a> on usage.</p>
 <p>Note that <code class="docutils literal notranslate"><span class="pre">adlfs</span></code> generally uses just the “name” portion of an account name. For example, you would provide
 <code class="docutils literal notranslate"><span class="pre">account_name=&quot;ai4edataeuwest&quot;</span></code> rather than <code class="docutils literal notranslate"><span class="pre">account_name=&quot;https://ai4edataeuwest.blob.core.windows.net&quot;</span></code>.</p>
@@ -348,9 +348,9 @@ to list all the files or directories in the top-level of a storage container, yo
       
     </aside>
   </div>
-</div><script data-url_root="#" id="documentation_options" src="_static/documentation_options.js?v=df4b10f6"></script>
+</div><script src="_static/documentation_options.js?v=187304be"></script>
     <script src="_static/doctools.js?v=888ff710"></script>
-    <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=32e29ea5"></script>
     </body>
 </html>
