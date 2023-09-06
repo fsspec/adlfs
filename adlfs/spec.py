@@ -907,7 +907,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             name = _name = info["name"]
             while True:
                 parent_dir = self._parent(_name).rstrip("/") + "/"
-                if parent_dir not in dir_set and parent_dir != full_path.strip("/") + "/":
+                if (
+                    parent_dir not in dir_set
+                    and parent_dir != full_path.strip("/") + "/"
+                ):
                     dir_set.add(parent_dir)
                     dirs[parent_dir] = {
                         "name": parent_dir,
