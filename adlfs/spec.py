@@ -936,42 +936,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             return names
         return {name: files[name] for name in names}
 
-    async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        """List all files below path in a recusrsive manner.
-        Like posix ``find`` command without conditions
-        Parameters
-        ----------
-        path : str
-        maxdepth: int or None
-            If not None, the maximum number of levels to descend
-        withdirs: bool
-            Whether to include directory paths in the output. This is True
-            when used by glob, but users usually only want files.
-        kwargs are passed to ``ls``.
-        """
-        # TODO: allow equivalent of -name parameter
-        path = self._strip_protocol(path)
-        out = dict()
-        detail = kwargs.pop("detail", False)
-        async for path, dirs, files in self._async_walk(
-            path, maxdepth, detail=True, **kwargs
-        ):
-            if files == []:
-                files = {}
-                dirs = {}
-            if withdirs:
-                files.update(dirs)
-            out.update({info["name"]: info for name, info in files.items()})
-        if await self._isfile(path) and path not in out:
-            # walk works on directories, but find should also return [path]
-            # when path happens to be a file
-            out[path] = {}
-        names = sorted(out)
-        if not detail:
-            return names
-        else:
-            return {name: out[name] for name in names}
-
     def _walk(self, path, dirs, files):
         for p, d, f in zip([path], [dirs], [files]):
             yield p, d, f
