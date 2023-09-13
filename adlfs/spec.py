@@ -219,7 +219,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
-        blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
+        blocksize: int = create_configuration(storage_sdk="blob", sdk_moniker="storage-blob").max_block_size,
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
