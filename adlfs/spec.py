@@ -224,7 +224,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
-        blocksize: int = _DEFAULT_BLOCK_SIZE
+        blocksize: int = _DEFAULT_BLOCK_SIZE,
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
@@ -290,7 +290,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.sas_token is None
             and self.account_key is None
         ):
-
             (
                 self.credential,
                 self.sync_credential,
@@ -402,7 +401,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return (async_credential, sync_credential)
 
     def _get_default_azure_credential(self, **kwargs):
-
         """
         Create a Credential for authentication using DefaultAzureCredential
 
