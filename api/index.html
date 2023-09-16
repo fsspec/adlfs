@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="prev" title="adlfs" href="../" />
 
-    <!-- Generated with Sphinx 7.2.5 and Furo 2023.08.19 -->
+    <!-- Generated with Sphinx 7.2.6 and Furo 2023.09.10 -->
         <title>API Reference - adlfs documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
@@ -369,7 +369,7 @@ If None it will be inferred from fsspec.asyn._get_batch_size().</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_mapper</span></code>([root, check, create, ...])</p></td>
 <td><p>Create key/value store based on this file-system</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.glob" title="adlfs.AzureBlobFileSystem.glob"><code class="xref py py-obj docutils literal notranslate"><span class="pre">glob</span></code></a>(path, **kwargs)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">glob</span></code>(path[, maxdepth])</p></td>
 <td><p>Find files by glob-matching.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">head</span></code>(path[, size])</p></td>
@@ -608,20 +608,6 @@ when used by glob, but users usually only want files.</p>
 <dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.get_file">
 <span class="sig-name descname"><span class="pre">get_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rpath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lpath</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recursive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delimiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'/'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_concurrency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.get_file" title="Link to this definition">#</a></dt>
 <dd><p>Copy single file remote to local</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.glob">
-<span class="sig-name descname"><span class="pre">glob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.glob" title="Link to this definition">#</a></dt>
-<dd><p>Find files by glob-matching.</p>
-<p>If the path ends with ‘/’, only folders are returned.</p>
-<p>We support <code class="docutils literal notranslate"><span class="pre">&quot;**&quot;</span></code>,
-<code class="docutils literal notranslate"><span class="pre">&quot;?&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;[..]&quot;</span></code>. We do not support ^ for pattern negation.</p>
-<p>The <cite>maxdepth</cite> option is applied on the first <cite>**</cite> found in the path.</p>
-<p>Search path names that contain embedded characters special to this
-implementation of glob may not produce expected results;
-e.g., ‘foo/bar/<em>starredfilename</em>’.</p>
-<p>kwargs are passed to <code class="docutils literal notranslate"><span class="pre">ls</span></code>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -966,7 +952,6 @@ Tries credentials first, then connection string and finally account key</p>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.expand_path"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.expand_path()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.find"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.find()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.get_file"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.get_file()</span></code></a></li>
-<li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.glob"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.glob()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.invalidate_cache"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.invalidate_cache()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.isdir"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.isdir()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.isfile"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.isfile()</span></code></a></li>
