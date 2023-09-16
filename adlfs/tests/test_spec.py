@@ -547,24 +547,16 @@ def test_glob(storage):
 
     # just the directory name
     assert fs.glob("data/root") == ["data/root"]
+    assert fs.glob("data/root/") == ["data/root/"]
 
     # top-level contents of a directory
-    assert fs.glob("data/root/") == [
-        "data/root/a",
-        "data/root/a1",
-        "data/root/b",
-        "data/root/c",
-        "data/root/d",
-        "data/root/e+f",
-        "data/root/rfile.txt",
-    ]
     assert fs.glob("data/root/*") == [
-        "data/root/a",
-        "data/root/a1",
-        "data/root/b",
-        "data/root/c",
-        "data/root/d",
-        "data/root/e+f",
+        "data/root/a/",
+        "data/root/a1/",
+        "data/root/b/",
+        "data/root/c/",
+        "data/root/d/",
+        "data/root/e+f/",
         "data/root/rfile.txt",
     ]
 
@@ -609,40 +601,41 @@ def test_glob(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
     # all files
     assert fs.glob("data/root/**") == [
-        "data/root/a",
+        "data/root/a/",
         "data/root/a/file.txt",
-        "data/root/a1",
+        "data/root/a1/",
         "data/root/a1/file1.txt",
-        "data/root/b",
+        "data/root/b/",
         "data/root/b/file.txt",
-        "data/root/c",
+        "data/root/c/",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d",
+        "data/root/d/",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f",
+        "data/root/e+f/",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.glob("data/roo**") == [
-        "data/root",
-        "data/root/a",
+        "data/root/",
+        "data/root/a/",
         "data/root/a/file.txt",
-        "data/root/a1",
+        "data/root/a1/",
         "data/root/a1/file1.txt",
-        "data/root/b",
+        "data/root/b/",
         "data/root/b/file.txt",
-        "data/root/c",
+        "data/root/c/",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d",
+        "data/root/d/",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f",
+        "data/root/e+f/",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -666,6 +659,7 @@ def test_glob_full_uri(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
     assert fs.glob("account.dfs.core.windows.net/data/**/*.txt") == [
@@ -678,6 +672,7 @@ def test_glob_full_uri(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
 
@@ -1196,7 +1191,7 @@ def test_dask_parquet(storage):
         write_metadata_file=True,
     )
     assert fs.glob("test/test_group3.parquet/*") == [
-        "test/test_group3.parquet/A=1",
+        "test/test_group3.parquet/A=1/",
         "test/test_group3.parquet/_common_metadata",
         "test/test_group3.parquet/_metadata",
     ]

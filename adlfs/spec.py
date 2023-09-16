@@ -593,84 +593,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fullpath)
 
-    def glob(self, path, **kwargs):
-        return sync(self.loop, self._glob, path)
-
-    async def _glob(self, path, **kwargs):
-        """
-        Find files by glob-matching.
-        If the path ends with '/' and does not contain "*", it is essentially
-        the same as ``ls(path)``, returning only files.
-        We support ``"**"``,
-        ``"?"`` and ``"[..]"``.
-        kwargs are passed to ``ls``.
-        """
-        import re
-
-        ends = path.endswith("/")
-        path = self._strip_protocol(path)
-        indstar = path.find("*") if path.find("*") >= 0 else len(path)
-        indques = path.find("?") if path.find("?") >= 0 else len(path)
-        indbrace = path.find("[") if path.find("[") >= 0 else len(path)
-
-        ind = min(indstar, indques, indbrace)
-
-        detail = kwargs.pop("detail", False)
-
-        if not has_magic(path):
-            root = path
-            depth = 1
-            if ends:
-                path += "/*"
-            elif await self._exists(path):
-                if not detail:
-                    return [path]
-                else:
-                    return {path: await self._info(path)}
-            else:
-                if not detail:
-                    return []  # glob of non-existent returns empty
-                else:
-                    return {}
-        elif "/" in path[:ind]:
-            ind2 = path[:ind].rindex("/")
-            root = path[: ind2 + 1]
-            depth = 20 if "**" in path else path[ind2 + 1 :].count("/") + 1
-        else:
-            root = ""
-            depth = 20 if "**" in path else 1
-
-        allpaths = await self._glob_find(
-            root, maxdepth=depth, withdirs=True, detail=True, **kwargs
-        )
-        pattern = (
-            "^"
-            + (
-                path.replace("\\", r"\\")
-                .replace(".", r"\.")
-                .replace("+", r"\+")
-                .replace("//", "/")
-                .replace("(", r"\(")
-                .replace(")", r"\)")
-                .replace("|", r"\|")
-                .rstrip("/")
-                .replace("?", ".")
-            )
-            + "$"
-        )
-        pattern = re.sub("[*]{2}", "=PLACEHOLDER=", pattern)
-        pattern = re.sub("[*]", "[^/]*", pattern)
-        pattern = re.compile(pattern.replace("=PLACEHOLDER=", ".*"))
-        out = {
-            p: allpaths[p]
-            for p in sorted(allpaths)
-            if pattern.match(p.replace("//", "/").rstrip("/"))
-        }
-        if detail:
-            return out
-        else:
-            return list(out)
-
     async def _ls_containers(self, return_glob: bool = False):
         if _ROOT_PATH not in self.dircache or return_glob:
             # This is the case where only the containers are being returned
@@ -985,15 +907,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
             infos = []
 
         for info in infos:
-            name = info["name"]
-            parent_dir = self._parent(name).rstrip("/") + "/"
-            if parent_dir not in dir_set and parent_dir != full_path.strip("/"):
-                dir_set.add(parent_dir)
-                dirs[parent_dir] = {
-                    "name": parent_dir,
-                    "type": "directory",
-                    "size": 0,
-                }
+            name = _name = info["name"]
+            while True:
+                parent_dir = self._parent(_name).rstrip("/") + "/"
+                if (
+                    parent_dir not in dir_set
+                    and parent_dir != full_path.strip("/") + "/"
+                ):
+                    dir_set.add(parent_dir)
+                    dirs[parent_dir] = {
+                        "name": parent_dir,
+                        "type": "directory",
+                        "size": 0,
+                    }
+                    _name = parent_dir.rstrip("/")
+                else:
+                    break
+
             if info["type"] == "directory":
                 dirs[name] = info
             if info["type"] == "file":
@@ -1016,42 +946,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if not detail:
             return names
         return {name: files[name] for name in names}
-
-    async def _glob_find(self, path, maxdepth=None, withdirs=False, **kwargs):
-        """List all files below path in a recusrsive manner.
-        Like posix ``find`` command without conditions
-        Parameters
-        ----------
-        path : str
-        maxdepth: int or None
-            If not None, the maximum number of levels to descend
-        withdirs: bool
-            Whether to include directory paths in the output. This is True
-            when used by glob, but users usually only want files.
-        kwargs are passed to ``ls``.
-        """
-        # TODO: allow equivalent of -name parameter
-        path = self._strip_protocol(path)
-        out = dict()
-        detail = kwargs.pop("detail", False)
-        async for path, dirs, files in self._async_walk(
-            path, maxdepth, detail=True, **kwargs
-        ):
-            if files == []:
-                files = {}
-                dirs = {}
-            if withdirs:
-                files.update(dirs)
-            out.update({info["name"]: info for name, info in files.items()})
-        if await self._isfile(path) and path not in out:
-            # walk works on directories, but find should also return [path]
-            # when path happens to be a file
-            out[path] = {}
-        names = sorted(out)
-        if not detail:
-            return names
-        else:
-            return {name: out[name] for name in names}
 
     def _walk(self, path, dirs, files):
         for p, d, f in zip([path], [dirs], [files]):
