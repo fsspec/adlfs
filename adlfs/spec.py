@@ -21,11 +21,15 @@ from azure.core.exceptions import (
     ResourceExistsError,
     ResourceNotFoundError,
 )
-from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-from azure.storage.blob._models import BlobBlock, BlobProperties, BlobType
-from azure.storage.blob._shared.base_client import create_configuration
+from azure.storage.blob import (
+    BlobBlock,
+    BlobProperties,
+    BlobSasPermissions,
+    BlobType,
+    generate_blob_sas,
+)
+from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-from azure.storage.blob.aio._list_blobs_helper import BlobPrefix
 from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
@@ -61,6 +65,7 @@ VERSIONED_BLOB_PROPERTIES = [
     "is_current_version",
 ]
 _ROOT_PATH = "/"
+_DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
 
 _SOCKET_TIMEOUT_DEFAULT = object()
 
@@ -143,7 +148,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity
     blocksize: int
-        The block size to use for download/upload operations. Defaults to the value of
+        The block size to use for download/upload operations. Defaults to hardcoded value of
         ``BlockBlobService.MAX_BLOCK_SIZE``
     client_id: str
         Client ID to use when authenticating using an AD Service Principal client/secret.
@@ -219,7 +224,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
-        blocksize: int = create_configuration(storage_sdk="blob").max_block_size,
+        blocksize: int = _DEFAULT_BLOCK_SIZE,
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
@@ -285,7 +290,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.sas_token is None
             and self.account_key is None
         ):
-
             (
                 self.credential,
                 self.sync_credential,
@@ -397,7 +401,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return (async_credential, sync_credential)
 
     def _get_default_azure_credential(self, **kwargs):
-
         """
         Create a Credential for authentication using DefaultAzureCredential
 
