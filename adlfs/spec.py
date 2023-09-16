@@ -23,12 +23,12 @@ from azure.core.exceptions import (
 )
 from azure.storage.blob import (
     BlobBlock,
-    BlobPrefix,
     BlobProperties,
     BlobSasPermissions,
     BlobType,
     generate_blob_sas,
 )
+from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
