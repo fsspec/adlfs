@@ -251,6 +251,14 @@ storage account level.</p>
 <dt><strong>max_concurrency:</strong></dt><dd><p>The number of concurrent connections to use when uploading or downloading a blob.
 If None it will be inferred from fsspec.asyn._get_batch_size().</p>
 </dd>
+<dt><strong>timeout: int</strong></dt><dd><p>Sets the server-side timeout when uploading or downloading a blob.</p>
+</dd>
+<dt><strong>connection_timeout: int</strong></dt><dd><p>The number of seconds the client will wait to establish a connection to the server
+when uploading or downloading a blob.</p>
+</dd>
+<dt><strong>read_timeout: int</strong></dt><dd><p>The number of seconds the client will wait, between consecutive read operations,
+for a response from the server while uploading or downloading a blob.</p>
+</dd>
 <dt><strong>Pass on to fsspec:</strong></dt><dd></dd>
 <dt><strong>skip_instance_cache:  to control reuse of instances</strong></dt><dd></dd>
 <dt><strong>use_listings_cache, listings_expiry_time, max_paths: to control reuse of directory listings</strong></dt><dd></dd>
