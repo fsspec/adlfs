@@ -1757,3 +1757,106 @@ async def test_get_file_versioned(storage, mocker, tmp_path):
     with pytest.raises(FileNotFoundError):
         await fs._get_file("data/root/a/file.txt?versionid=invalid_version", dest)
     assert not dest.exists()
+
+
+async def test_cat_file_timeout(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._cat_file("data/root/a/file.txt")
+    download_blob.assert_called_once_with(
+        offset=None,
+        length=None,
+        max_concurrency=fs.max_concurrency,
+        version_id=None,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_get_file_timeout(storage, mocker, tmp_path):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._get_file("data/root/a/file.txt", str(tmp_path / "out"))
+    download_blob.assert_called_once_with(
+        raw_response_hook=None,
+        max_concurrency=fs.max_concurrency,
+        version_id=None,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_pipe_file_timeout(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    upload_blob = mocker.patch.object(BlobClient, "upload_blob")
+
+    await fs._pipe_file("putdir/pipefiletimeout", b"data")
+    upload_blob.assert_called_once_with(
+        data=b"data",
+        metadata={"is_directory": "false"},
+        overwrite=True,
+        max_concurrency=fs.max_concurrency,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_put_file_timeout(storage, mocker, tmp_path):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    upload_blob = mocker.patch.object(BlobClient, "upload_blob")
+
+    src = tmp_path / "putfiletimeout"
+    src.write_bytes(b"data")
+
+    await fs._put_file(str(src), "putdir/putfiletimeout")
+    upload_blob.assert_called_once_with(
+        mocker.ANY,
+        metadata={"is_directory": "false"},
+        overwrite=False,
+        raw_response_hook=None,
+        max_concurrency=fs.max_concurrency,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )

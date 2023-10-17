@@ -173,6 +173,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
     max_concurrency:
         The number of concurrent connections to use when uploading or downloading a blob.
         If None it will be inferred from fsspec.asyn._get_batch_size().
+    timeout: int
+        Sets the server-side timeout when uploading or downloading a blob.
+    connection_timeout: int
+        The number of seconds the client will wait to establish a connection to the server
+        when uploading or downloading a blob.
+    read_timeout: int
+        The number of seconds the client will wait, between consecutive read operations,
+        for a response from the server while uploading or downloading a blob.
 
     Pass on to fsspec:
 
@@ -237,6 +245,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_aware: bool = False,
         assume_container_exists: Optional[bool] = None,
         max_concurrency: Optional[int] = None,
+        timeout: Optional[int] = None,
+        connection_timeout: Optional[int] = None,
+        read_timeout: Optional[int] = None,
         **kwargs,
     ):
         super_kwargs = {
@@ -270,6 +281,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.default_fill_cache = default_fill_cache
         self.default_cache_type = default_cache_type
         self.version_aware = version_aware
+
+        self._timeout_kwargs = {}
+        if timeout is not None:
+            self._timeout_kwargs["timeout"] = timeout
+        if connection_timeout is not None:
+            self._timeout_kwargs["connection_timeout"] = connection_timeout
+        if read_timeout is not None:
+            self._timeout_kwargs["read_timeout"] = read_timeout
+
         if (
             self.credential is None
             and self.account_key is None
@@ -1347,6 +1367,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 overwrite=overwrite,
                 metadata={"is_directory": "false"},
                 max_concurrency=max_concurrency or self.max_concurrency,
+                **self._timeout_kwargs,
                 **kwargs,
             )
         self.invalidate_cache(self._parent(path))
@@ -1379,6 +1400,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     length=length,
                     version_id=version_id,
                     max_concurrency=max_concurrency or self.max_concurrency,
+                    **self._timeout_kwargs,
                 )
             except ResourceNotFoundError as e:
                 raise FileNotFoundError from e
@@ -1557,6 +1579,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                                 "upload_stream_current", callback
                             ),
                             max_concurrency=max_concurrency or self.max_concurrency,
+                            **self._timeout_kwargs,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -1633,6 +1656,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     ),
                     version_id=version_id,
                     max_concurrency=max_concurrency or self.max_concurrency,
+                    **self._timeout_kwargs,
                 )
                 with open(lpath, "wb") as my_blob:
                     await stream.readinto(my_blob)
