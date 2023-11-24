@@ -236,7 +236,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         client_id: str = None,
         client_secret: str = None,
         tenant_id: str = None,
-        anon: bool = True,
+        anon: bool = None,
         location_mode: str = "primary",
         loop=None,
         asynchronous: bool = False,
@@ -268,7 +268,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.client_id = client_id or os.getenv("AZURE_STORAGE_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("AZURE_STORAGE_CLIENT_SECRET")
         self.tenant_id = tenant_id or os.getenv("AZURE_STORAGE_TENANT_ID")
-        self.anon = anon
+        self.anon = anon or os.getenv("AZURE_STORAGE_ANON", True)
         self.location_mode = location_mode
         self.credential = credential
         self.request_session = request_session
