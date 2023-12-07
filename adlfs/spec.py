@@ -1197,12 +1197,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_container_client(
             container=container_name
         ) as cc:
+            print(files)
+            blobs = [file for file in files if not file.endswith("/")]
+            print(blobs)
+            directory_markers = [file for file in files if file.endswith("/")]
+            print(directory_markers)
             file_exs = await asyncio.gather(
-                *([cc.delete_blob(file) for file in files if not file.endswith("/")]), return_exceptions=True
+                *([cc.delete_blob(file) for file in blobs]), return_exceptions=True
             )
+            print("deleted blobs")
             directory_marker_exs = await asyncio.gather(
-                *([cc.delete_blob(file) for file in files if file.endswith("/")]), return_exceptions=True
+                *([cc.delete_blob(file) for file in directory_markers]), return_exceptions=True
             )
+            print("deleted directory markers")
             for ex in file_exs + directory_marker_exs:
                 if ex is not None:
                     raise ex
