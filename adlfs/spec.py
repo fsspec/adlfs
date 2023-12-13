@@ -82,7 +82,9 @@ def make_callback(key, callback):
 
         current = response.context.get(key)
         total = response.context["data_stream_total"]
-        if not sent_total:
+        if current is None:
+            return
+        if not sent_total and total is not None:
             callback.set_size(total)
         callback.absolute_update(current)
 
