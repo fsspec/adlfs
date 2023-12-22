@@ -2064,7 +2064,7 @@ class AzureBlobFile(AbstractBufferedFile):
                             block_list=block_list, metadata=self.metadata
                         )
                 else:
-                    raise RuntimeError(f"Failed to upload block{e}!") from e
+                    raise RuntimeError(f"Failed to upload block: {e}!") from e
         elif self.mode == "ab":
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.upload_blob(
