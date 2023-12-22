@@ -1,3 +1,2 @@
-include versioneer.py
-include adlfs/_version.py
 include LICENSE.txt
+include adlfs/_version.py
