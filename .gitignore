@@ -146,3 +146,5 @@ tests/dummyfiles/*
 # Azurite
 *azurite*
 *blobstorage*
+
+/adlfs/_version.py
