@@ -5,7 +5,7 @@ docker
 msrestazure
 pyarrow
 pytest
-pytest-asyncio
+pytest-asyncio==0.21.1
 pytest-cov
 pytest-mock
 requests
