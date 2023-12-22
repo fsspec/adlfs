@@ -880,12 +880,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return output
 
-    def find(self, path, withdirs=False, prefix="", **kwargs):
-        return sync(
-            self.loop, self._find, path=path, withdirs=withdirs, prefix=prefix, **kwargs
-        )
-
-    async def _find(self, path, withdirs=False, prefix="", with_parent=False, **kwargs):
+    async def _find(self, path, withdirs=False, prefix="", **kwargs):
         """List all files below path.
         Like posix ``find`` command without conditions.
 
@@ -931,11 +926,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for info in infos:
             name = _name = info["name"]
             while True:
-                parent_dir = self._parent(_name).rstrip("/") + "/"
-                if (
-                    parent_dir not in dir_set
-                    and parent_dir != full_path.strip("/") + "/"
-                ):
+                parent_dir = self._parent(_name).rstrip("/")
+                if parent_dir not in dir_set and parent_dir != full_path.strip("/"):
                     dir_set.add(parent_dir)
                     dirs[parent_dir] = {
                         "name": parent_dir,
@@ -960,8 +952,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 files[file["name"]] = file
 
         if withdirs:
-            if not with_parent:
-                dirs.pop(target_path, None)
             files.update(dirs)
         files = {k: v for k, v in files.items() if k.startswith(target_path)}
         names = sorted([n for n in files.keys()])
@@ -1160,7 +1150,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         if expand_path:
             path = await self._expand_path(
-                path, recursive=recursive, maxdepth=maxdepth, with_parent=True
+                path,
+                recursive=recursive,
+                maxdepth=maxdepth,
             )
         elif isinstance(path, str):
             path = [path]
@@ -1491,10 +1483,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self, path, recursive=False, maxdepth=None, skip_noexist=True, **kwargs
     ):
         """Turn one or more globs or directories into a list of all matching files"""
-        with_parent = kwargs.get(
-            "with_parent", False
-        )  # Sets whether to return the parent dir
-
         if isinstance(path, list):
             path = [f"{p.strip('/')}" for p in path if not p.endswith("*")]
         else:
@@ -1502,7 +1490,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 path = f"{path.strip('/')}"
         if isinstance(path, str):
             out = await self._expand_path(
-                [path], recursive, maxdepth, with_parent=with_parent
+                [path],
+                recursive,
+                maxdepth,
             )
         else:
             out = set()
@@ -1526,7 +1516,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         await self._find(
                             glob_p,
                             withdirs=True,
-                            with_parent=with_parent,
                             version_id=version_id,
                         )
                     )

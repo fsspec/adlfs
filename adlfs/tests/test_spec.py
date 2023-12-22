@@ -450,35 +450,35 @@ def test_find(storage):
 
     # all files and directories
     assert fs.find("data/root", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -494,9 +494,9 @@ def test_find(storage):
     ]
 
     assert fs.find("data/root", prefix="a", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
     ]
 
@@ -504,7 +504,7 @@ def test_find(storage):
     assert_blobs_equals(
         list(find_results.values()),
         [
-            {"name": "data/root/a1/", "size": 0, "type": "directory"},
+            {"name": "data/root/a1", "size": 0, "type": "directory"},
             {
                 "name": "data/root/a1/file1.txt",
                 "size": 10,
@@ -551,12 +551,12 @@ def test_glob(storage):
 
     # top-level contents of a directory
     assert fs.glob("data/root/*") == [
-        "data/root/a/",
-        "data/root/a1/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/d/",
-        "data/root/e+f/",
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
 
@@ -606,36 +606,36 @@ def test_glob(storage):
 
     # all files
     assert fs.glob("data/root/**") == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
-    assert fs.glob("data/roo**") == [
-        "data/root/",
-        "data/root/a/",
+    assert fs.glob("data/roo*/**") == [
+        "data/root",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -1191,7 +1191,7 @@ def test_dask_parquet(storage):
         write_metadata_file=True,
     )
     assert fs.glob("test/test_group3.parquet/*") == [
-        "test/test_group3.parquet/A=1/",
+        "test/test_group3.parquet/A=1",
         "test/test_group3.parquet/_common_metadata",
         "test/test_group3.parquet/_metadata",
     ]
