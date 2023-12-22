@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+  - cron: '5 1 * * *'  # every day at 01:05
   workflow_dispatch:
 
 concurrency:
