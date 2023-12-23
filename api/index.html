@@ -365,7 +365,7 @@ for a response from the server while uploading or downloading a blob.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.expand_path" title="adlfs.AzureBlobFileSystem.expand_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">expand_path</span></code></a>(path[, recursive, maxdepth, ...])</p></td>
 <td><p>Turn one or more globs or directories into a list of all matching paths to files or directories.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.find" title="adlfs.AzureBlobFileSystem.find"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find</span></code></a>(path[, withdirs, prefix])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">find</span></code>(path[, maxdepth, withdirs, detail])</p></td>
 <td><p>List all files below path.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_json</span></code>(blob)</p></td>
@@ -593,26 +593,6 @@ Tries credentials first, then connection string and finally account key</p>
 <dd><p>Turn one or more globs or directories into a list of all matching paths
 to files or directories.</p>
 <p>kwargs are passed to <code class="docutils literal notranslate"><span class="pre">glob</span></code> or <code class="docutils literal notranslate"><span class="pre">find</span></code>, which may in turn call <code class="docutils literal notranslate"><span class="pre">ls</span></code></p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.find">
-<span class="sig-name descname"><span class="pre">find</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">withdirs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.find" title="Link to this definition">#</a></dt>
-<dd><p>List all files below path.</p>
-<p>Like posix <code class="docutils literal notranslate"><span class="pre">find</span></code> command without conditions</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>path</strong><span class="classifier">str</span></dt><dd></dd>
-<dt><strong>maxdepth: int or None</strong></dt><dd><p>If not None, the maximum number of levels to descend</p>
-</dd>
-<dt><strong>withdirs: bool</strong></dt><dd><p>Whether to include directory paths in the output. This is True
-when used by glob, but users usually only want files.</p>
-</dd>
-<dt><strong>kwargs are passed to ``ls``.</strong></dt><dd></dd>
-</dl>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -961,7 +941,6 @@ Tries credentials first, then connection string and finally account key</p>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.download"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.download()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.exists"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.exists()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.expand_path"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.expand_path()</span></code></a></li>
-<li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.find"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.find()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.get_file"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.get_file()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.invalidate_cache"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.invalidate_cache()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.isdir"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.isdir()</span></code></a></li>
