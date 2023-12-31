@@ -1,6 +1,7 @@
 import datetime
 import tempfile
 
+import azure.storage.blob
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -1753,3 +1754,17 @@ async def test_get_file_versioned(storage, mocker, tmp_path):
     with pytest.raises(FileNotFoundError):
         await fs._get_file("data/root/a/file.txt?versionid=invalid_version", dest)
     assert not dest.exists()
+
+
+@pytest.mark.parametrize("value", ["true", "True"])
+def test_hdi_isfolder_case(storage: azure.storage.blob.BlobServiceClient, value: str):
+    cc = storage.get_container_client("data")
+    cc.upload_blob(b"folder", b"", metadata={"hdi_isfolder": value}, overwrite=True)
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR
+    )
+
+    result = fs.info("data/folder")
+    assert result["type"] == "directory"
