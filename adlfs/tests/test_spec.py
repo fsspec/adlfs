@@ -123,6 +123,8 @@ def test_ls(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
     ]
+    # Ensure ls works with protocol prefix
+    assert fs.ls("data/root/e+f/") == fs.ls("abfs://data/root/e+f/")
 
     # file details
     files = fs.ls("data/root/a/file.txt", detail=True)
@@ -393,7 +395,9 @@ def test_info_missing(storage, path):
 
 def test_time_info(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        max_concurrency=1,
     )
 
     creation_time = fs.created("data/root/d/file_with_metadata.txt")
@@ -447,35 +451,35 @@ def test_find(storage):
 
     # all files and directories
     assert fs.find("data/root", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -491,9 +495,9 @@ def test_find(storage):
     ]
 
     assert fs.find("data/root", prefix="a", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
     ]
 
@@ -501,7 +505,7 @@ def test_find(storage):
     assert_blobs_equals(
         list(find_results.values()),
         [
-            {"name": "data/root/a1/", "size": 0, "type": "directory"},
+            {"name": "data/root/a1", "size": 0, "type": "directory"},
             {
                 "name": "data/root/a1/file1.txt",
                 "size": 10,
@@ -544,17 +548,9 @@ def test_glob(storage):
 
     # just the directory name
     assert fs.glob("data/root") == ["data/root"]
+    assert fs.glob("data/root/") == ["data/root/"]
 
     # top-level contents of a directory
-    assert fs.glob("data/root/") == [
-        "data/root/a",
-        "data/root/a1",
-        "data/root/b",
-        "data/root/c",
-        "data/root/d",
-        "data/root/e+f",
-        "data/root/rfile.txt",
-    ]
     assert fs.glob("data/root/*") == [
         "data/root/a",
         "data/root/a1",
@@ -606,6 +602,7 @@ def test_glob(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
     # all files
@@ -626,7 +623,7 @@ def test_glob(storage):
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
-    assert fs.glob("data/roo**") == [
+    assert fs.glob("data/roo*/**") == [
         "data/root",
         "data/root/a",
         "data/root/a/file.txt",
@@ -663,6 +660,7 @@ def test_glob_full_uri(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
     assert fs.glob("account.dfs.core.windows.net/data/**/*.txt") == [
@@ -675,6 +673,7 @@ def test_glob_full_uri(storage):
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
+        "data/top_file.txt",
     ]
 
 
@@ -1487,7 +1486,10 @@ async def test_cat_file_versioned(storage, mocker):
 
     await fs._cat_file(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}")
     download_blob.assert_called_once_with(
-        offset=None, length=None, version_id=DEFAULT_VERSION_ID
+        offset=None,
+        length=None,
+        version_id=DEFAULT_VERSION_ID,
+        max_concurrency=fs.max_concurrency,
     )
 
     download_blob.reset_mock()
@@ -1745,7 +1747,9 @@ async def test_get_file_versioned(storage, mocker, tmp_path):
         f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", tmp_path / "file.txt"
     )
     download_blob.assert_called_once_with(
-        raw_response_hook=mocker.ANY, version_id=DEFAULT_VERSION_ID
+        raw_response_hook=mocker.ANY,
+        version_id=DEFAULT_VERSION_ID,
+        max_concurrency=fs.max_concurrency,
     )
     download_blob.reset_mock()
     download_blob.side_effect = ResourceNotFoundError
@@ -1754,6 +1758,109 @@ async def test_get_file_versioned(storage, mocker, tmp_path):
     with pytest.raises(FileNotFoundError):
         await fs._get_file("data/root/a/file.txt?versionid=invalid_version", dest)
     assert not dest.exists()
+
+
+async def test_cat_file_timeout(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._cat_file("data/root/a/file.txt")
+    download_blob.assert_called_once_with(
+        offset=None,
+        length=None,
+        max_concurrency=fs.max_concurrency,
+        version_id=None,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_get_file_timeout(storage, mocker, tmp_path):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._get_file("data/root/a/file.txt", str(tmp_path / "out"))
+    download_blob.assert_called_once_with(
+        raw_response_hook=None,
+        max_concurrency=fs.max_concurrency,
+        version_id=None,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_pipe_file_timeout(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    upload_blob = mocker.patch.object(BlobClient, "upload_blob")
+
+    await fs._pipe_file("putdir/pipefiletimeout", b"data")
+    upload_blob.assert_called_once_with(
+        data=b"data",
+        metadata={"is_directory": "false"},
+        overwrite=True,
+        max_concurrency=fs.max_concurrency,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+
+
+async def test_put_file_timeout(storage, mocker, tmp_path):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    upload_blob = mocker.patch.object(BlobClient, "upload_blob")
+
+    src = tmp_path / "putfiletimeout"
+    src.write_bytes(b"data")
+
+    await fs._put_file(str(src), "putdir/putfiletimeout")
+    upload_blob.assert_called_once_with(
+        mocker.ANY,
+        metadata={"is_directory": "false"},
+        overwrite=False,
+        raw_response_hook=None,
+        max_concurrency=fs.max_concurrency,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
 
 
 @pytest.mark.parametrize("value", ["true", "True"])

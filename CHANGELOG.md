@@ -1,4 +1,14 @@
 **Change Log**
+
+2023.10.0
+---------
+- Added support for timeout/connection_timeout/read_timeout
+
+2023.9.0
+---------
+- Compatability with new ``glob`` behavior in fsspec 2023.9.0
+- Compatability with ``azure.storage.blob`` 12.18.1
+
 2022.11.2
 ---------
 - Reorder fs.info() to search the parent directory only after searching for the specified item directly
