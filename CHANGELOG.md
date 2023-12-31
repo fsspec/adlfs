@@ -1,5 +1,10 @@
 **Change Log**
 
+Unreleased
+----------
+
+- Handle mixed casing for `hdi_isfolder` metadata when determining whether a blob should be treated as a folder.
+
 2023.10.0
 ---------
 - Added support for timeout/connection_timeout/read_timeout
