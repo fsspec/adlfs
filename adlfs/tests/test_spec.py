@@ -1,6 +1,7 @@
 import datetime
 import tempfile
 
+import azure.storage.blob
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -1860,3 +1861,16 @@ async def test_put_file_timeout(storage, mocker, tmp_path):
         connection_timeout=12,
         read_timeout=13,
     )
+
+
+@pytest.mark.parametrize("key", ["hdi_isfolder", "Hdi_isfolder"])
+def test_hdi_isfolder_case(storage: azure.storage.blob.BlobServiceClient, key: str):
+    cc = storage.get_container_client("data")
+    cc.upload_blob(b"folder", b"", metadata={key: "true"}, overwrite=True)
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    result = fs.info("data/folder")
+    assert result["type"] == "directory"
