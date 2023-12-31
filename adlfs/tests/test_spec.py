@@ -1869,8 +1869,7 @@ def test_hdi_isfolder_case(storage: azure.storage.blob.BlobServiceClient, value:
     cc.upload_blob(b"folder", b"", metadata={"hdi_isfolder": value}, overwrite=True)
 
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR
+        account_name=storage.account_name, connection_string=CONN_STR
     )
 
     result = fs.info("data/folder")
