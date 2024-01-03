@@ -4,6 +4,7 @@ Unreleased
 ----------
 
 - Handle mixed casing for `hdi_isfolder` metadata when determining whether a blob should be treated as a folder.
+- `_put_file`: `overwrite` now defaults to `True`.
 
 2023.10.0
 ---------
