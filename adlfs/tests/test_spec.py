@@ -1538,6 +1538,10 @@ async def test_url_versioned(storage, mocker):
         permission=mocker.ANY,
         expiry=mocker.ANY,
         version_id=DEFAULT_VERSION_ID,
+        content_disposition=None,
+        content_encoding=None,
+        content_language=None,
+        content_type=None,
     )
 
 
