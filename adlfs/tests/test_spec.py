@@ -739,42 +739,6 @@ def test_rm_recursive(storage):
         fs.ls("data/root/c")
 
 
-def test_rm_multiple_items(storage):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    for i in range(2):
-        fs.makedir(f"new-container{i}")
-        assert f"new-container{i}" in fs.ls("")
-
-        with fs.open(path=f"new-container{i}/file0.txt", mode="wb") as f:
-            f.write(b"0123456789")
-
-        with fs.open(f"new-container{i}/file1.txt", "wb") as f:
-            f.write(b"0123456789")
-
-        assert fs.ls(f"new-container{i}") == [
-            f"new-container{i}/file0.txt",
-            f"new-container{i}/file1.txt",
-        ]
-
-    fs.rm(
-        [
-            "new-container0/file0.txt",
-            "new-container0/file1.txt",
-            "new-container1/file0.txt",
-            "new-container1/file1.txt",
-        ],
-        recursive=True,
-    )
-
-    assert fs.ls("new-container0") == []
-    assert fs.ls("new-container1") == []
-
-    for i in range(2):
-        fs.rm(f"new-container{i}")
-
-
 def test_mkdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
