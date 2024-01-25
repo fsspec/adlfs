@@ -9,6 +9,7 @@ import io
 import logging
 import os
 import re
+import typing
 import warnings
 import weakref
 from collections import defaultdict
@@ -1185,7 +1186,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     rm = sync_wrapper(_rm)
 
-    async def _rm_files(self, container_name, files, **kwargs):
+    async def _rm_files(self, container_name, file_paths, **kwargs):
         """
         Delete the given file(s)
 
@@ -1197,24 +1198,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_container_client(
             container=container_name
         ) as cc:
-            files = sorted(files)
-            blobs = [files[-1]]  # The last file lexographically cannot be a directory marker
-            directory_markers = []
-            for file0, file1 in zip(files, files[1:]):
-                if file0 == file1:
-                    continue
-                if file1.startswith(file0) and file1[len(file0)] == "/":
-                    directory_markers.append(file0)
-                else:
-                    blobs.append(file0)
+            files, directory_markers = await self._separate_directory_markers_for_non_empty_directories(file_paths)
 
+            # Files and directory markers of empty directories can be deleted in any order. We delete them all 
+            # asynchronously for performance reasons. 
             file_exs = await asyncio.gather(
-                *([cc.delete_blob(file) for file in blobs]), return_exceptions=True
+                *([cc.delete_blob(file) for file in files]), return_exceptions=True
             )
             for ex in file_exs:
                 if ex is not None:
                     raise ex
 
+            # Directory markers of non-empty directories must be deleted in reverse order to avoid deleting a directory 
+            # marker before the directory is empty. If these are deleted out of order 
             for directory_marker in reversed(directory_markers):
                 cc.delete_blob(directory_marker)
 
@@ -1222,6 +1218,27 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.invalidate_cache(self._parent(file))
 
     sync_wrapper(_rm_files)
+
+    async def _separate_directory_markers_for_non_empty_directories(self, file_paths: typing.Iterable[str]) -> typing.Tuple[typing.List[str], typing.List[str]]:
+        """
+        Distinguish directory markers of non-empty directories from files and directory markers for empty directories. 
+        A directory marker is an empty blob who's name is the path of the directory including trailing '/'.
+        """
+        unique_sorted_file_paths = sorted(set(file_paths))  # Remove duplicates and sort
+        directory_markers = []
+        files = [unique_sorted_file_paths[-1]]  # The last file lexographically cannot be a directory marker for a non-empty directory. 
+        
+        for file, next_file in zip(files, files[1:]):
+            # /path/to/directory -- file that looks similar to a directory marker
+            # /path/to/directory/ -- directory marker
+            # /path/to/directory/file  -- file in directory
+            # /path/to/directory2/file -- file in different directory
+            if file.endswith("/") and next_file.startswith(file):
+                directory_markers.append(file)
+            else:
+                files.append(file)
+        
+        return files, directory_markers
 
     def rmdir(self, path: str, delimiter="/", **kwargs):
         sync(self.loop, self._rmdir, path, delimiter=delimiter, **kwargs)
