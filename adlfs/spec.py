@@ -1210,7 +1210,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     raise ex
 
             # Directory markers of non-empty directories must be deleted in reverse order to avoid deleting a directory 
-            # marker before the directory is empty. If these are deleted out of order 
+            # marker before the directory is empty. If these are deleted out of order we will get 
+            # `This operation is not permitted on a non-empty directory.` on hierarchical namespace storage accounts.
             for directory_marker in reversed(directory_markers):
                 cc.delete_blob(directory_marker)
 
