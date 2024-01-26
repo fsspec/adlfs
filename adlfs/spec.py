@@ -1125,11 +1125,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _rm(
         self,
-        path,
-        recursive=False,
-        maxdepth=None,
-        delimiter="/",
-        expand_path=True,
+        path: typing.Union[str, typing.List[str]],
+        recursive: bool = False,
+        maxdepth: typing.Optional[int] = None,
+        delimiter: str = "/",
+        expand_path: bool = True,
         **kwargs,
     ):
         """Delete files.
@@ -1186,13 +1186,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     rm = sync_wrapper(_rm)
 
-    async def _rm_files(self, container_name, file_paths, **kwargs):
+    async def _rm_files(self, container_name: str, file_paths: typing.Iterable[str], **kwargs):
         """
         Delete the given file(s)
 
         Parameters
         ----------
-        path: str or list of str
+        file_paths: iterable of str
             File(s) to delete.
         """
         async with self.service_client.get_container_client(
