@@ -763,17 +763,7 @@ def test_rm_recursive2(mock_delete_blob, storage):
     )
 
     assert "data/root" in fs.ls("/data")
-
-    # print(fs.ls("/data/", invalidate_cache=True))
-    # assert fs.ls("/data/*") == [
-    #     "data/root/a",
-    #     "data/root/a1",
-    #     "data/root/b",
-    #     "data/root/c",
-    #     "data/root/d",
-    #     "data/root/e+f",
-    #     "data/root/rfile.txt",
-    # ]
+    
     fs.rm("data/root", recursive=True)
     assert "data/root" not in fs.ls("/data")
 
