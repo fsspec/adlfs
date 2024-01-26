@@ -751,6 +751,48 @@ def test_rm_recursive(mock_delete_blob, storage):
     ), "The directory deletion should be the last call"
 
 
+@mock.patch.object(
+    azure.storage.blob.aio.ContainerClient,
+    "delete_blob",
+    side_effect=azure.storage.blob.aio.ContainerClient.delete_blob,
+    autospec=True,
+)
+def test_rm_recursive2(mock_delete_blob, storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root" in fs.ls("/data")
+
+    # print(fs.ls("/data/", invalidate_cache=True))
+    # assert fs.ls("/data/*") == [
+    #     "data/root/a",
+    #     "data/root/a1",
+    #     "data/root/b",
+    #     "data/root/c",
+    #     "data/root/d",
+    #     "data/root/e+f",
+    #     "data/root/rfile.txt",
+    # ]
+    fs.rm("data/root", recursive=True)
+    assert "data/root" not in fs.ls("/data")
+
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root")
+
+    last_deleted_paths = [call.args[1] for call in mock_delete_blob.mock_calls[-7:]]
+    print(last_deleted_paths)
+    assert last_deleted_paths == [
+        "root/e+f",
+        "root/d",
+        "root/c",
+        "root/b",
+        "root/a1",
+        "root/a",
+        "root",
+    ], "The directory deletion should be in reverse lexographical order"
+
+
 def test_rm_multiple_items(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
