@@ -1214,7 +1214,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             for directory_marker in reversed(directory_markers):
                 cc.delete_blob(directory_marker)
 
-        for file in files:
+        for file in file_paths:
             self.invalidate_cache(self._parent(file))
 
     sync_wrapper(_rm_files)
@@ -1228,12 +1228,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         directory_markers = []
         files = [unique_sorted_file_paths[-1]]  # The last file lexographically cannot be a directory marker for a non-empty directory. 
         
-        for file, next_file in zip(files, files[1:]):
-            # /path/to/directory -- file that looks similar to a directory marker
-            # /path/to/directory/ -- directory marker
+        for file, next_file in zip(unique_sorted_file_paths, unique_sorted_file_paths[1:]):
+            # /path/to/directory -- directory marker
             # /path/to/directory/file  -- file in directory
             # /path/to/directory2/file -- file in different directory
-            if file.endswith("/") and next_file.startswith(file):
+            if next_file.startswith(file + "/"):
                 directory_markers.append(file)
             else:
                 files.append(file)
