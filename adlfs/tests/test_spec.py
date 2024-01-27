@@ -403,10 +403,14 @@ def test_time_info(storage):
     )
 
     creation_time = fs.created("data/root/d/file_with_metadata.txt")
-    assert_almost_equal(creation_time, storage.insert_time, datetime.timedelta(seconds=1))
+    assert_almost_equal(
+        creation_time, storage.insert_time, datetime.timedelta(seconds=1)
+    )
 
     modified_time = fs.modified("data/root/d/file_with_metadata.txt")
-    assert_almost_equal(modified_time, storage.insert_time, datetime.timedelta(seconds=1))
+    assert_almost_equal(
+        modified_time, storage.insert_time, datetime.timedelta(seconds=1)
+    )
 
 
 def test_find(storage):

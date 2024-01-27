@@ -1186,7 +1186,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     rm = sync_wrapper(_rm)
 
-    async def _rm_files(self, container_name: str, file_paths: typing.Iterable[str], **kwargs):
+    async def _rm_files(
+        self, container_name: str, file_paths: typing.Iterable[str], **kwargs
+    ):
         """
         Delete the given file(s)
 
@@ -1198,10 +1200,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         async with self.service_client.get_container_client(
             container=container_name
         ) as cc:
-            files, directory_markers = await self._separate_directory_markers_for_non_empty_directories(file_paths)
+            (
+                files,
+                directory_markers,
+            ) = await self._separate_directory_markers_for_non_empty_directories(
+                file_paths
+            )
 
-            # Files and directory markers of empty directories can be deleted in any order. We delete them all 
-            # asynchronously for performance reasons. 
+            # Files and directory markers of empty directories can be deleted in any order. We delete them all
+            # asynchronously for performance reasons.
             file_exs = await asyncio.gather(
                 *([cc.delete_blob(file) for file in files]), return_exceptions=True
             )
@@ -1209,8 +1216,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if ex is not None:
                     raise ex
 
-            # Directory markers of non-empty directories must be deleted in reverse order to avoid deleting a directory 
-            # marker before the directory is empty. If these are deleted out of order we will get 
+            # Directory markers of non-empty directories must be deleted in reverse order to avoid deleting a directory
+            # marker before the directory is empty. If these are deleted out of order we will get
             # `This operation is not permitted on a non-empty directory.` on hierarchical namespace storage accounts.
             for directory_marker in reversed(directory_markers):
                 cc.delete_blob(directory_marker)
@@ -1220,16 +1227,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     sync_wrapper(_rm_files)
 
-    async def _separate_directory_markers_for_non_empty_directories(self, file_paths: typing.Iterable[str]) -> typing.Tuple[typing.List[str], typing.List[str]]:
+    async def _separate_directory_markers_for_non_empty_directories(
+        self, file_paths: typing.Iterable[str]
+    ) -> typing.Tuple[typing.List[str], typing.List[str]]:
         """
-        Distinguish directory markers of non-empty directories from files and directory markers for empty directories. 
-        A directory marker is an empty blob who's name is the path of the directory including trailing '/'.
+        Distinguish directory markers of non-empty directories from files and directory markers for empty directories.
+        A directory marker is an empty blob who's name is the path of the directory.
         """
         unique_sorted_file_paths = sorted(set(file_paths))  # Remove duplicates and sort
         directory_markers = []
-        files = [unique_sorted_file_paths[-1]]  # The last file lexographically cannot be a directory marker for a non-empty directory. 
-        
-        for file, next_file in zip(unique_sorted_file_paths, unique_sorted_file_paths[1:]):
+        files = [
+            unique_sorted_file_paths[-1]
+        ]  # The last file lexographically cannot be a directory marker for a non-empty directory.
+
+        for file, next_file in zip(
+            unique_sorted_file_paths, unique_sorted_file_paths[1:]
+        ):
             # /path/to/directory -- directory marker
             # /path/to/directory/file  -- file in directory
             # /path/to/directory2/file -- file in different directory
@@ -1237,7 +1250,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 directory_markers.append(file)
             else:
                 files.append(file)
-        
+
         return files, directory_markers
 
     def rmdir(self, path: str, delimiter="/", **kwargs):

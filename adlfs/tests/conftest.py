@@ -58,6 +58,7 @@ def storage(host):
 
     bbs.delete_container("data")
 
+
 @pytest.fixture(scope="session")
 def event_loop():
     policy = asyncio.get_event_loop_policy()
