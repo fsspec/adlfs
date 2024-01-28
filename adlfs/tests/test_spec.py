@@ -775,7 +775,6 @@ def test_rm_recursive2(mock_delete_blob, storage):
         fs.ls("data/root")
 
     last_deleted_paths = [call.args[1] for call in mock_delete_blob.mock_calls[-7:]]
-    print(last_deleted_paths)
     assert last_deleted_paths == [
         "root/e+f",
         "root/d",
