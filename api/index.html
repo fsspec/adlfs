@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="prev" title="adlfs" href="../" />
 
-    <!-- Generated with Sphinx 7.2.6 and Furo 2023.09.10 -->
+    <!-- Generated with Sphinx 7.2.6 and Furo 2024.01.29 -->
         <title>API Reference - adlfs documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=135e06be" />
@@ -464,8 +464,8 @@ for a response from the server while uploading or downloading a blob.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.rmdir" title="adlfs.AzureBlobFileSystem.rmdir"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rmdir</span></code></a>(path[, delimiter])</p></td>
 <td><p>Remove a directory, if empty</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">sign</span></code>(path[, expiration])</p></td>
-<td><p>Create a signed URL representing the given path</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.sign" title="adlfs.AzureBlobFileSystem.sign"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sign</span></code></a>(path[, expiration])</p></td>
+<td><p>Create a signed URL representing the given path.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.size" title="adlfs.AzureBlobFileSystem.size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">size</span></code></a>(path)</p></td>
 <td><p>Size in bytes of file</p></td>
@@ -730,6 +730,12 @@ efficient when you don’t need the operation.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.sign">
+<span class="sig-name descname"><span class="pre">sign</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expiration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.sign" title="Link to this definition">#</a></dt>
+<dd><p>Create a signed URL representing the given path.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.size">
 <span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.size" title="Link to this definition">#</a></dt>
 <dd><p>Size in bytes of file</p>
@@ -953,6 +959,7 @@ Tries credentials first, then connection string and finally account key</p>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.put_file"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.put_file()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.rm"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.rm()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.rmdir"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.rmdir()</span></code></a></li>
+<li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.sign"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.sign()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.size"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.size()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.split_path"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.split_path()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFileSystem.upload"><code class="docutils literal notranslate"><span class="pre">AzureBlobFileSystem.upload()</span></code></a></li>
