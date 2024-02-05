@@ -1499,7 +1499,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def url(self, path, expires=3600, **kwargs):
         return sync(self.loop, self._url, path, expires, **kwargs)
 
-    async def _url(self, path, expires=3600, **kwargs):
+    async def _url(
+        self,
+        path,
+        expires=3600,
+        content_disposition=None,
+        content_encoding=None,
+        content_language=None,
+        content_type=None,
+        **kwargs,
+    ):
         """Generate presigned URL to access path by HTTP
 
         Parameters
@@ -1508,6 +1517,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
             the key path we are interested in
         expires : int
             the number of seconds this signature will be good for.
+        content_disposition : string
+            Response header value for Content-Disposition when this URL is accessed.
+        content_encoding: string
+            Response header value for Content-Encoding when this URL is accessed.
+        content_language: string
+            Response header value for Content-Language when this URL is accessed.
+        content_type: string
+            Response header value for Content-Type when this URL is accessed.
         """
         container_name, blob, version_id = self.split_path(path)
 
@@ -1519,6 +1536,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             permission=BlobSasPermissions(read=True),
             expiry=datetime.utcnow() + timedelta(seconds=expires),
             version_id=version_id,
+            content_disposition=content_disposition,
+            content_encoding=content_encoding,
+            content_language=content_language,
+            content_type=content_type,
         )
 
         async with self.service_client.get_blob_client(container_name, blob) as bc:
@@ -1682,6 +1703,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def download(self, rpath, lpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.get`."""
         return self.get(rpath, lpath, recursive=recursive, **kwargs)
+
+    def sign(self, path, expiration=100, **kwargs):
+        """Create a signed URL representing the given path."""
+        return self.url(path, expires=expiration, **kwargs)
 
     async def _get_file(
         self,
