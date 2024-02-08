@@ -1220,7 +1220,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             # marker before the directory is empty. If these are deleted out of order we will get
             # `This operation is not permitted on a non-empty directory.` on hierarchical namespace storage accounts.
             for directory_marker in reversed(directory_markers):
-                cc.delete_blob(directory_marker)
+                await cc.delete_blob(directory_marker)
 
         for file in file_paths:
             self.invalidate_cache(self._parent(file))
