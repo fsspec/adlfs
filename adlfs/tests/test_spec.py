@@ -809,7 +809,6 @@ async def test_rm_recursive_call_order(storage, mocker):
     ], "The directory deletion should be in reverse lexographical order"
 
 
-
 def test_rm_multiple_items(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
