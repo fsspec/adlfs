@@ -2,7 +2,6 @@ import datetime
 import tempfile
 from unittest import mock
 
-import azure.storage.blob
 import azure.storage.blob.aio
 import dask.dataframe as dd
 import numpy as np
@@ -754,14 +753,8 @@ def test_rm_recursive(mock_delete_blob, storage):
         mock.ANY, "root/c"
     ), "The directory deletion should be the last call"
 
-
-@mock.patch.object(
-    azure.storage.blob.aio.ContainerClient,
-    "delete_blob",
-    side_effect=azure.storage.blob.aio.ContainerClient.delete_blob,
-    autospec=True,
-)
-def test_rm_recursive2(mock_delete_blob, storage):
+@pytest.mark.filterwarnings("error")
+def test_rm_recursive2(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
@@ -769,12 +762,42 @@ def test_rm_recursive2(mock_delete_blob, storage):
     assert "data/root" in fs.ls("/data")
 
     fs.rm("data/root", recursive=True)
+
     assert "data/root" not in fs.ls("/data")
 
     with pytest.raises(FileNotFoundError):
         fs.ls("data/root")
 
-    last_deleted_paths = [call.args[1] for call in mock_delete_blob.mock_calls[-7:]]
+
+async def test_rm_recursive_call_order(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    delete_blob_mock = mocker.patch.object(ContainerClient, "delete_blob", return_value=None)
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    container_name = "data"
+    file_paths = [
+        "root/a", 
+        "root/a/file.txt",
+        "root/a1",
+        "root/a1/file1.txt",
+        "root/b",
+        "root/b/file.txt",
+        "root",
+        "root/c",
+        "root/c/file1.txt",
+        "root/c/file2.txt",
+        "root/d",
+        "root/d/file_with_metadata.txt",
+        "root/e+f",
+        "root/e+f/file1.txt",
+        "root/e+f/file2.txt",
+        "root/rfile.txt"
+    ]
+    await fs._rm_files(container_name=container_name, file_paths=file_paths)
+    last_deleted_paths = [call.args[0] for call in delete_blob_mock.call_args_list[-7:]]
     assert last_deleted_paths == [
         "root/e+f",
         "root/d",
@@ -784,6 +807,7 @@ def test_rm_recursive2(mock_delete_blob, storage):
         "root/a",
         "root",
     ], "The directory deletion should be in reverse lexographical order"
+
 
 
 def test_rm_multiple_items(storage):
