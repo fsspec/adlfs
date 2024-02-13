@@ -762,7 +762,6 @@ def test_rm_recursive2(storage):
     assert "data/root" in fs.ls("/data")
 
     fs.rm("data/root", recursive=True)
-
     assert "data/root" not in fs.ls("/data")
 
     with pytest.raises(FileNotFoundError):
