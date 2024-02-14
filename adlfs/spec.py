@@ -156,6 +156,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Client secret to use when authenticating using an AD Service Principal client/secret.
     tenant_id: str
         Tenant ID to use when authenticating using an AD Service Principal client/secret.
+    anon: boolean
+        Flag to enable/disable anonymous azure access, that checks AZURE_STORAGE_ANON environment variable
+        if no value is passed. Setting AZURE_STORAGE_ANON to false, f or 0 will set this flag to False.
+        Default behaviour is True.
+        Usefull for code (fsspec) that only requires env vars to have same behaviour accross clouds.
     default_fill_cache: bool = True
         Whether to use cache filling with opoen by default
     default_cache_type: string ('bytes')
