@@ -1,12 +1,12 @@
-import os
 import datetime
+import os
 import tempfile
+from unittest import mock
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pytest
-from unittest import mock
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
@@ -31,10 +31,13 @@ def test_connect(storage):
 
 def test_anon_env(storage):
     with mock.patch.dict(os.environ, {"AZURE_STORAGE_ANON": "false"}):
-        AzureBlobFileSystem.cachable = False  # Setting cachable to false to avoid re-testing the instance from the previous test
-        x = AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
+        # Setting cachable to false to avoid re-testing the instance from the previous test
+        AzureBlobFileSystem.cachable = False
+        x = AzureBlobFileSystem(
+            account_name=storage.account_name, connection_string=CONN_STR
+        )
         assert not x.anon
-        AzureBlobFileSystem.cachable = True # Restoring cachable value
+        AzureBlobFileSystem.cachable = True  # Restoring cachable value
 
 
 def assert_blob_equals(blob, expected_blob):
