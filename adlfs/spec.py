@@ -147,9 +147,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         request session. See
         http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
         for the connection string format.
-    credential: TokenCredential or SAS token
+    credential: (async!) TokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
-        Can include an instance of TokenCredential class from azure.identity
+        Can include an instance of TokenCredential class from azure.identity.aio.
     blocksize: int
         The block size to use for download/upload operations. Defaults to hardcoded value of
         ``BlockBlobService.MAX_BLOCK_SIZE``
