@@ -753,6 +753,7 @@ def test_rm_recursive(mock_delete_blob, storage):
         mock.ANY, "root/c"
     ), "The directory deletion should be the last call"
 
+
 @pytest.mark.filterwarnings("error")
 def test_rm_recursive2(storage):
     fs = AzureBlobFileSystem(
@@ -771,14 +772,16 @@ def test_rm_recursive2(storage):
 async def test_rm_recursive_call_order(storage, mocker):
     from azure.storage.blob.aio import ContainerClient
 
-    delete_blob_mock = mocker.patch.object(ContainerClient, "delete_blob", return_value=None)
+    delete_blob_mock = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
 
     container_name = "data"
     file_paths = [
-        "root/a", 
+        "root/a",
         "root/a/file.txt",
         "root/a1",
         "root/a1/file1.txt",
@@ -793,7 +796,7 @@ async def test_rm_recursive_call_order(storage, mocker):
         "root/e+f",
         "root/e+f/file1.txt",
         "root/e+f/file2.txt",
-        "root/rfile.txt"
+        "root/rfile.txt",
     ]
     await fs._rm_files(container_name=container_name, file_paths=file_paths)
     last_deleted_paths = [call.args[0] for call in delete_blob_mock.call_args_list[-7:]]
