@@ -8,7 +8,7 @@ You can create a virtual environment using ``conda`` and install the development
 ```bash
 $ conda create -n adlfs-dev python=3.8
 $ conda activate adlfs-dev
-$ pip install -r requirements/latest.txt
+$ pip install -r requirements/latest.txt -r requirements.dev
 ```
 
 You can run tests from the main directory as follows:
