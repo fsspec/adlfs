@@ -147,7 +147,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         request session. See
         http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/
         for the connection string format.
-    credential: azure.core.credentials.AsyncTokenCredential or SAS token
+    credential: azure.core.credentials_async.AsyncTokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
     blocksize: int
