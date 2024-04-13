@@ -75,7 +75,10 @@ The `storage_options` can be instantiated with a variety of keyword arguments de
 - `account_key`
 - `sas_token`
 - `tenant_id`, `client_id`, and `client_secret` are combined for an Azure ServicePrincipal e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`
-- `anon`: `True` or `False`. The fallback if no value is passed is to check the AZURE_STORAGE_ANON environment variable. Having `AZURE_STORAGE_ANON` set to `false`, `0` or `f` will set anon (i.e. anonymous) to `False`. Otherwise the value for anon is True.
+- `anon`: boo, optional.
+   The value to use for whether to attempt anonymous access if no other credential is passed. By default (`None`), the
+   `AZURE_STORAGE_ANON` environment variable is checked. False values (`false`, `0`, `f`) will resolve to `False` and
+   anonymous access will not be attempted. Otherwise the value for `anon` resolves to True.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
 For more argument details see all arguments for [`AzureBlobFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L328) and [`AzureDatalakeFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L69).

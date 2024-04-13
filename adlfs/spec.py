@@ -159,13 +159,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Client secret to use when authenticating using an AD Service Principal client/secret.
     tenant_id: str
         Tenant ID to use when authenticating using an AD Service Principal client/secret.
-    anon: boolean
-        Flag to enable/disable anonymous azure access, that checks AZURE_STORAGE_ANON environment variable
-        if no value is passed. Setting AZURE_STORAGE_ANON to false, f or 0 will set this flag to False.
-        Default behaviour is True.
-        Usefull for code (fsspec) that only requires env vars to have same behaviour accross clouds.
+    anon: boolean, optional
+        The value to use for whether to attempt anonymous access if no other credential is
+        passed. By default (``None``), the ``AZURE_STORAGE_ANON`` environment variable is
+        checked. False values (``false``, ``0``, ``f``) will resolve to `False` and
+        anonymous access will not be attempted. Otherwise the value for ``anon`` resolves
+        to ``True``.
     default_fill_cache: bool = True
-        Whether to use cache filling with opoen by default
+        Whether to use cache filling with open by default
     default_cache_type: string ('bytes')
         If given, the default cache_type value used for "open()".  Set to none if no caching
         is desired.  Docs in fsspec
@@ -173,8 +174,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         Whether to support blob versioning.  If enable this will require the
         user to have the necessary permissions for dealing with versioned blobs.
     assume_container_exists: Optional[bool] (None)
-        Set this to true to not check for existance of containers at all, assuming they exist.
-        None (default) means to warn in case of a failure when checking for existance of a container
+        Set this to true to not check for existence of containers at all, assuming they exist.
+        None (default) means to warn in case of a failure when checking for existence of a container
         False throws if retrieving container properties fails, which might happen if your
         authentication is only valid at the storage container level, and not the
         storage account level.
