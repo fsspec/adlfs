@@ -222,8 +222,8 @@ request session. See
 <a class="reference external" href="http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/">http://azure.microsoft.com/en-us/documentation/articles/storage-configure-connection-string/</a>
 for the connection string format.</p>
 </dd>
-<dt><strong>credential: TokenCredential or SAS token</strong></dt><dd><p>The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
-Can include an instance of TokenCredential class from azure.identity</p>
+<dt><strong>credential: azure.core.credentials_async.AsyncTokenCredential or SAS token</strong></dt><dd><p>The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
+Can include an instance of TokenCredential class from azure.identity.aio.</p>
 </dd>
 <dt><strong>blocksize: int</strong></dt><dd><p>The block size to use for download/upload operations. Defaults to hardcoded value of
 <code class="docutils literal notranslate"><span class="pre">BlockBlobService.MAX_BLOCK_SIZE</span></code></p>
