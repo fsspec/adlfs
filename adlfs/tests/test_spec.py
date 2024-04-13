@@ -1,4 +1,5 @@
 import datetime
+import os
 import tempfile
 from unittest import mock
 
@@ -27,6 +28,17 @@ def assert_almost_equal(x, y, threshold, prop_name=None):
 
 def test_connect(storage):
     AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
+
+
+def test_anon_env(storage):
+    with mock.patch.dict(os.environ, {"AZURE_STORAGE_ANON": "false"}):
+        # Setting cachable to false to avoid re-testing the instance from the previous test
+        AzureBlobFileSystem.cachable = False
+        x = AzureBlobFileSystem(
+            account_name=storage.account_name, connection_string=CONN_STR
+        )
+        assert not x.anon
+        AzureBlobFileSystem.cachable = True  # Restoring cachable value
 
 
 def assert_blob_equals(blob, expected_blob):

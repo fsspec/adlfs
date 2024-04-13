@@ -75,7 +75,10 @@ The `storage_options` can be instantiated with a variety of keyword arguments de
 - `account_key`
 - `sas_token`
 - `tenant_id`, `client_id`, and `client_secret` are combined for an Azure ServicePrincipal e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`
-- `anon`: `True` or `False`. The default value for anon (i.e. anonymous) is True
+- `anon`: boo, optional.
+   The value to use for whether to attempt anonymous access if no other credential is passed. By default (`None`), the
+   `AZURE_STORAGE_ANON` environment variable is checked. False values (`false`, `0`, `f`) will resolve to `False` and
+   anonymous access will not be attempted. Otherwise the value for `anon` resolves to True.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
 For more argument details see all arguments for [`AzureBlobFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L328) and [`AzureDatalakeFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L69).
@@ -92,7 +95,8 @@ The following environmental variables can also be set and picked up for authenti
 The filesystem can be instantiated for different use cases based on a variety of `storage_options` combinations. The following list describes some common use cases utilizing `AzureBlobFileSystem`, i.e. protocols `abfs`or `az`. Note that all cases require the `account_name` argument to be provided:
 1. Anonymous connection to public container: `storage_options={'account_name': ACCOUNT_NAME, 'anon': True}` will assume the `ACCOUNT_NAME` points to a public container, and attempt to use an anonymous login. Note, the default value for `anon` is True.
 2. Auto credential solving using Azure's DefaultAzureCredential() library: `storage_options={'account_name': ACCOUNT_NAME, 'anon': False}` will use [`DefaultAzureCredential`](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python) to get valid credentials to the container `ACCOUNT_NAME`. `DefaultAzureCredential` attempts to authenticate via the [mechanisms and order visualized here](https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python#defaultazurecredential).
-3. Azure ServicePrincipal: `tenant_id`, `client_id`, and `client_secret` are all used as credentials for an Azure ServicePrincipal: e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`.
+3. Auto credential solving without requiring `storage_options`: Set `AZURE_STORAGE_ANON` to `false`, resulting in automatic credential resolution. Useful for compatibility with fsspec.
+4. Azure ServicePrincipal: `tenant_id`, `client_id`, and `client_secret` are all used as credentials for an Azure ServicePrincipal: e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`.
 
 ### Append Blob
 The `AzureBlobFileSystem` accepts [all of the Async BlobServiceClient arguments](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python).
