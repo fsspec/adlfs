@@ -234,7 +234,13 @@ Can include an instance of TokenCredential class from azure.identity</p>
 </dd>
 <dt><strong>tenant_id: str</strong></dt><dd><p>Tenant ID to use when authenticating using an AD Service Principal client/secret.</p>
 </dd>
-<dt><strong>default_fill_cache: bool = True</strong></dt><dd><p>Whether to use cache filling with opoen by default</p>
+<dt><strong>anon: boolean, optional</strong></dt><dd><p>The value to use for whether to attempt anonymous access if no other credential is
+passed. By default (<code class="docutils literal notranslate"><span class="pre">None</span></code>), the <code class="docutils literal notranslate"><span class="pre">AZURE_STORAGE_ANON</span></code> environment variable is
+checked. False values (<code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>) will resolve to <cite>False</cite> and
+anonymous access will not be attempted. Otherwise the value for <code class="docutils literal notranslate"><span class="pre">anon</span></code> resolves
+to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+</dd>
+<dt><strong>default_fill_cache: bool = True</strong></dt><dd><p>Whether to use cache filling with open by default</p>
 </dd>
 <dt><strong>default_cache_type: string (‘bytes’)</strong></dt><dd><p>If given, the default cache_type value used for “open()”.  Set to none if no caching
 is desired.  Docs in fsspec</p>
@@ -242,8 +248,8 @@ is desired.  Docs in fsspec</p>
 <dt><strong>version_aware</strong><span class="classifier">bool (False)</span></dt><dd><p>Whether to support blob versioning.  If enable this will require the
 user to have the necessary permissions for dealing with versioned blobs.</p>
 </dd>
-<dt><strong>assume_container_exists: Optional[bool] (None)</strong></dt><dd><p>Set this to true to not check for existance of containers at all, assuming they exist.
-None (default) means to warn in case of a failure when checking for existance of a container
+<dt><strong>assume_container_exists: Optional[bool] (None)</strong></dt><dd><p>Set this to true to not check for existence of containers at all, assuming they exist.
+None (default) means to warn in case of a failure when checking for existence of a container
 False throws if retrieving container properties fails, which might happen if your
 authentication is only valid at the storage container level, and not the
 storage account level.</p>
