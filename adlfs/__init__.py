@@ -1,13 +1,11 @@
-from ._version import get_versions
 from .gen1 import AzureDatalakeFileSystem
 from .spec import AzureBlobFile, AzureBlobFileSystem
 
 __all__ = ["AzureBlobFileSystem", "AzureBlobFile", "AzureDatalakeFileSystem"]
 
-__version__ = get_versions()["version"]
-del get_versions
-
-from ._version import get_versions
-
-__version__ = get_versions()["version"]
-del get_versions
+try:
+    from ._version import version as __version__  # type: ignore[import]
+    from ._version import version_tuple  # type: ignore[import]
+except ImportError:
+    __version__ = "UNKNOWN"
+    version_tuple = (0, 0, __version__)  # type: ignore[assignment]

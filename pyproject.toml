@@ -1,2 +1,52 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=7"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "adlfs/_version.py"
+
+[project]
+name = "adlfs"
+description = "Access Azure Datalake Gen1 with fsspec and dask"
+readme = "README.md"
+license = {text = "BSD"}
+maintainers = [{ name = "Greg Hayes", email = "hayesgb@gmail.com"}]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+keywords = ["file-system", "dask", "azure"]
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = [
+    "azure-core>=1.23.1,<2.0.0",
+    "azure-datalake-store>=0.0.46,<0.1",
+    "azure-identity",
+    "azure-storage-blob>=12.12.0",
+    "fsspec>=2023.12.0",
+    "aiohttp>=3.7.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "myst-parser",
+    "furo",
+    "numpydoc",
+]
+tests = ["pytest", "docker", "pytest-mock", "arrow", "dask[dataframe]"]
+
+[project.entry-points."fsspec.specs"]
+abfss = "adlfs:AzureBlobFileSystem"
+
+[tool.setuptools.packages.find]
+include = ["adlfs*"]
+exclude = ["tests"]
+namespaces = false
+
 [tool.isort]
 profile = "black"

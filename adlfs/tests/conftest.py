@@ -28,7 +28,7 @@ def host(request):
     return request.config.getoption("--host")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def storage(host):
     """
     Create blob using azurite.
@@ -55,6 +55,8 @@ def storage(host):
     container_client.upload_blob("root/e+f/file1.txt", data)
     container_client.upload_blob("root/e+f/file2.txt", data)
     yield bbs
+
+    bbs.delete_container("data")
 
 
 @pytest.fixture(scope="session")

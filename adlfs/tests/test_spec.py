@@ -3,6 +3,7 @@ import os
 import tempfile
 from unittest import mock
 
+import azure.storage.blob.aio
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -413,10 +414,14 @@ def test_time_info(storage):
     )
 
     creation_time = fs.created("data/root/d/file_with_metadata.txt")
-    assert creation_time == storage.insert_time
+    assert_almost_equal(
+        creation_time, storage.insert_time, datetime.timedelta(seconds=1)
+    )
 
     modified_time = fs.modified("data/root/d/file_with_metadata.txt")
-    assert modified_time == storage.insert_time
+    assert_almost_equal(
+        modified_time, storage.insert_time, datetime.timedelta(seconds=1)
+    )
 
 
 def test_find(storage):
@@ -463,35 +468,35 @@ def test_find(storage):
 
     # all files and directories
     assert fs.find("data/root", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
     assert fs.find("data/root/", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -507,9 +512,9 @@ def test_find(storage):
     ]
 
     assert fs.find("data/root", prefix="a", withdirs=True) == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
     ]
 
@@ -517,7 +522,7 @@ def test_find(storage):
     assert_blobs_equals(
         list(find_results.values()),
         [
-            {"name": "data/root/a1/", "size": 0, "type": "directory"},
+            {"name": "data/root/a1", "size": 0, "type": "directory"},
             {
                 "name": "data/root/a1/file1.txt",
                 "size": 10,
@@ -564,12 +569,12 @@ def test_glob(storage):
 
     # top-level contents of a directory
     assert fs.glob("data/root/*") == [
-        "data/root/a/",
-        "data/root/a1/",
-        "data/root/b/",
-        "data/root/c/",
-        "data/root/d/",
-        "data/root/e+f/",
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
+        "data/root/e+f",
         "data/root/rfile.txt",
     ]
 
@@ -619,36 +624,36 @@ def test_glob(storage):
 
     # all files
     assert fs.glob("data/root/**") == [
-        "data/root/a/",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
     ]
-    assert fs.glob("data/roo**") == [
-        "data/root/",
-        "data/root/a/",
+    assert fs.glob("data/roo*/**") == [
+        "data/root",
+        "data/root/a",
         "data/root/a/file.txt",
-        "data/root/a1/",
+        "data/root/a1",
         "data/root/a1/file1.txt",
-        "data/root/b/",
+        "data/root/b",
         "data/root/b/file.txt",
-        "data/root/c/",
+        "data/root/c",
         "data/root/c/file1.txt",
         "data/root/c/file2.txt",
-        "data/root/d/",
+        "data/root/d",
         "data/root/d/file_with_metadata.txt",
-        "data/root/e+f/",
+        "data/root/e+f",
         "data/root/e+f/file1.txt",
         "data/root/e+f/file2.txt",
         "data/root/rfile.txt",
@@ -733,7 +738,13 @@ def test_rm(storage):
         fs.ls("/data/root/a/file.txt", refresh=True)
 
 
-def test_rm_recursive(storage):
+@mock.patch.object(
+    azure.storage.blob.aio.ContainerClient,
+    "delete_blob",
+    side_effect=azure.storage.blob.aio.ContainerClient.delete_blob,
+    autospec=True,
+)
+def test_rm_recursive(mock_delete_blob, storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
@@ -749,6 +760,67 @@ def test_rm_recursive(storage):
 
     with pytest.raises(FileNotFoundError):
         fs.ls("data/root/c")
+
+    assert mock_delete_blob.mock_calls[-1] == mock.call(
+        mock.ANY, "root/c"
+    ), "The directory deletion should be the last call"
+
+
+@pytest.mark.filterwarnings("error")
+def test_rm_recursive2(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    assert "data/root" in fs.ls("/data")
+
+    fs.rm("data/root", recursive=True)
+    assert "data/root" not in fs.ls("/data")
+
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/root")
+
+
+async def test_rm_recursive_call_order(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    delete_blob_mock = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    container_name = "data"
+    file_paths = [
+        "root/a",
+        "root/a/file.txt",
+        "root/a1",
+        "root/a1/file1.txt",
+        "root/b",
+        "root/b/file.txt",
+        "root",
+        "root/c",
+        "root/c/file1.txt",
+        "root/c/file2.txt",
+        "root/d",
+        "root/d/file_with_metadata.txt",
+        "root/e+f",
+        "root/e+f/file1.txt",
+        "root/e+f/file2.txt",
+        "root/rfile.txt",
+    ]
+    await fs._rm_files(container_name=container_name, file_paths=file_paths)
+    last_deleted_paths = [call.args[0] for call in delete_blob_mock.call_args_list[-7:]]
+    assert last_deleted_paths == [
+        "root/e+f",
+        "root/d",
+        "root/c",
+        "root/b",
+        "root/a1",
+        "root/a",
+        "root",
+    ], "The directory deletion should be in reverse lexographical order"
 
 
 def test_rm_multiple_items(storage):
@@ -1204,7 +1276,7 @@ def test_dask_parquet(storage):
         write_metadata_file=True,
     )
     assert fs.glob("test/test_group3.parquet/*") == [
-        "test/test_group3.parquet/A=1/",
+        "test/test_group3.parquet/A=1",
         "test/test_group3.parquet/_common_metadata",
         "test/test_group3.parquet/_metadata",
     ]
@@ -1550,6 +1622,10 @@ async def test_url_versioned(storage, mocker):
         permission=mocker.ANY,
         expiry=mocker.ANY,
         version_id=DEFAULT_VERSION_ID,
+        content_disposition=None,
+        content_encoding=None,
+        content_language=None,
+        content_type=None,
     )
 
 
@@ -1866,10 +1942,23 @@ async def test_put_file_timeout(storage, mocker, tmp_path):
     upload_blob.assert_called_once_with(
         mocker.ANY,
         metadata={"is_directory": "false"},
-        overwrite=False,
+        overwrite=True,
         raw_response_hook=None,
         max_concurrency=fs.max_concurrency,
         timeout=11,
         connection_timeout=12,
         read_timeout=13,
     )
+
+
+@pytest.mark.parametrize("key", ["hdi_isfolder", "Hdi_isfolder"])
+def test_hdi_isfolder_case(storage: azure.storage.blob.BlobServiceClient, key: str):
+    cc = storage.get_container_client("data")
+    cc.upload_blob(b"folder", b"", metadata={key: "true"}, overwrite=True)
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    result = fs.info("data/folder")
+    assert result["type"] == "directory"
