@@ -75,7 +75,7 @@ The `storage_options` can be instantiated with a variety of keyword arguments de
 - `account_key`
 - `sas_token`
 - `tenant_id`, `client_id`, and `client_secret` are combined for an Azure ServicePrincipal e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`
-- `anon`: boo, optional.
+- `anon`: bool, optional.
    The value to use for whether to attempt anonymous access if no other credential is passed. By default (`None`), the
    `AZURE_STORAGE_ANON` environment variable is checked. False values (`false`, `0`, `f`) will resolve to `False` and
    anonymous access will not be attempted. Otherwise the value for `anon` resolves to True.
