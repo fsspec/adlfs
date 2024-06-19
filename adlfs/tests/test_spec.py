@@ -1629,6 +1629,26 @@ async def test_url_versioned(storage, mocker):
     )
 
 
+async def test_url_with_conn_str(mocker):
+    fs = AzureBlobFileSystem(connection_string=CONN_STR)
+    generate_blob_sas = mocker.patch("adlfs.spec.generate_blob_sas")
+
+    await fs._url("data/root/a/file.txt")
+    generate_blob_sas.assert_called_once_with(
+        account_name=ACCOUNT_NAME,
+        container_name="data",
+        blob_name="root/a/file.txt",
+        account_key=KEY,
+        permission=mocker.ANY,
+        expiry=mocker.ANY,
+        version_id=None,
+        content_disposition=None,
+        content_encoding=None,
+        content_language=None,
+        content_type=None,
+    )
+
+
 def test_cp_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
