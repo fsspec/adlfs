@@ -13,7 +13,7 @@ def test_fs_pickling(storage):
     fs2 : AzureBlobFileSystem = pickle.loads(pickle.dumps(fs))
     assert fs.ls("") == ["data"]
     assert fs2.ls("") == ["data"]
-    
+
 def test_blob_pickling(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
