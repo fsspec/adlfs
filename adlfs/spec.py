@@ -1841,37 +1841,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_type=cache_type,
             metadata=metadata,
             version_id=version_id,
-            **kwargs,
+           **kwargs,
         )
-
-    def __getnewargs__(self):
-        """Return the arguments that would be passed to __init__, useful for pickling"""
-        # Tuple elements and __init__ parameters must be identical!
-        return (
-            self.account_name,
-            self.account_key,
-            self.connection_string,
-            self.credential,
-            self.sas_token,
-            None,
-            _SOCKET_TIMEOUT_DEFAULT,
-            self.blocksize,
-            self.client_id,
-            self.client_secret,
-            self.tenant_id,
-            self.anon,
-            self.location_mode,
-            None,
-            self.asynchronous,
-            self.default_fill_cache,
-            self.default_cache_type,
-            self.version_aware,
-            self.assume_container_exists,
-            self.max_concurrency,
-            self._timeout_kwargs.get("timeout", None),
-            self._timeout_kwargs.get("connection_timeout", None),
-            self._timeout_kwargs.get("read_timeout", None),
-            self.kwargs)
 
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
