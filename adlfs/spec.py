@@ -136,9 +136,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         If any of account key, sas token or client_id is specified, anonymous access
         will be used.
     account_host: str
-        The storage account host. This string is the entire url to the storage account
+        The storage account host. This string is the entire url to the for the storage
         after the https://, i.e. "https://{account_host}". This parameter is only
-        required for Azure clouds that do not end with "blob.core.windows.net".
+        required for Azure clouds where account urls do not end with "blob.core.windows.net". 
+        Note that the account_name parameter is still required.
     sas_token: str
         A shared access signature token to use to authenticate requests
         instead of the account key. If account key and sas token are both
@@ -239,8 +240,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def __init__(
         self,
         account_name: str = None,
-        account_key: str = None,
         account_host: str = None,
+        account_key: str = None,
         connection_string: str = None,
         credential: str = None,
         sas_token: str = None,
