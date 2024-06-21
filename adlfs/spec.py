@@ -1944,22 +1944,8 @@ class AzureBlobFile(AbstractBufferedFile):
             else None
         )
 
-        try:
-            # Need to confirm there is an event loop running in
-            # the thread. If not, create the fsspec loop
-            # and set it.  This is to handle issues with
-            # Async Credentials from the Azure SDK
-            loop = get_running_loop()
-
-        except RuntimeError:
-            loop = get_loop()
-            asyncio.set_event_loop(loop)
-
-        self.loop = self.fs.loop or get_loop()
-        self.container_client = (
-            fs.service_client.get_container_client(self.container_name)
-            or self.connect_client()
-        )
+        self.loop = self._get_loop() 
+        self.container_client = self._get_container_client()
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -2020,6 +2006,26 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
+
+    def _get_loop(self):
+        try:
+            # Need to confirm there is an event loop running in
+            # the thread. If not, create the fsspec loop
+            # and set it.  This is to handle issues with
+            # Async Credentials from the Azure SDK
+            loop = get_running_loop()
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+
+        return self.fs.loop or get_loop()
+
+    def _get_container_client(self):
+        return (
+            self.fs.service_client.get_container_client(self.container_name)
+            or self.connect_client()
+        )
 
     def close(self):
         """Close file and azure client."""
@@ -2211,16 +2217,15 @@ class AzureBlobFile(AbstractBufferedFile):
         except TypeError:
             pass
     
-    def __getnewargs__(self):
-        return (
-            self.fs,
-            self.path,
-            self.mode,
-            self.block_size,
-            self.autocommit,
-            self.cache_type,
-            self.cache_options,
-            self.metadata,
-            self.version_id,
-            self.kwargs,
-        )
+    def __getstate__(self):
+        # loop and container client, can be reconstructed after pickling
+        # Anyway they don't allow us to pickly because they are weak refs
+        state = self.__dict__.copy()
+        del state['container_client']
+        del state['loop']
+        return state
+    
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.loop = self._get_loop()
+        self.container_client = self._get_container_client()

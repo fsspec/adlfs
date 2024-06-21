@@ -22,4 +22,5 @@ def test_blob_pickling(storage):
     blob = fs2.open("data/root/a/file.txt")
     assert blob.read() == b"0123456789"
     blob2 = pickle.loads(pickle.dumps(blob))
+    blob2.seek(0)
     assert blob2.read() == b"0123456789"
