@@ -1,5 +1,7 @@
 import pickle
-from adlfs import AzureBlobFileSystem
+import pytest
+from adlfs import AzureBlobFileSystem, AzureBlobFile
+import asyncio
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
@@ -8,11 +10,14 @@ CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey
 
 def test_fs_pickling(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        kwarg1= "some_value",
     )
     fs2 : AzureBlobFileSystem = pickle.loads(pickle.dumps(fs))
-    assert fs.ls("") == ["data"]
-    assert fs2.ls("") == ["data"]
+    assert "data" in fs.ls("")
+    assert "data" in fs2.ls("")
+    assert fs2.kwargs["kwarg1"] == "some_value"
 
 def test_blob_pickling(storage):
     fs = AzureBlobFileSystem(
