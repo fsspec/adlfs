@@ -259,6 +259,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         read_timeout: Optional[int] = None,
         **kwargs,
     ):
+        self.kwargs = kwargs.copy()
         super_kwargs = {
             k: kwargs.pop(k)
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
@@ -1843,6 +1844,34 @@ class AzureBlobFileSystem(AsyncFileSystem):
             **kwargs,
         )
 
+    def __getnewargs__(self):
+        """Return the arguments that would be passed to __init__, useful for pickling"""
+        # Tuple elements and __init__ parameters must be identical!
+        return (
+            self.account_name,
+            self.account_key,
+            self.connection_string,
+            self.credential,
+            self.sas_token,
+            None,
+            _SOCKET_TIMEOUT_DEFAULT,
+            self.blocksize,
+            self.client_id,
+            self.client_secret,
+            self.tenant_id,
+            self.anon,
+            self.location_mode,
+            None,
+            self.asynchronous,
+            self.default_fill_cache,
+            self.default_cache_type,
+            self.version_aware,
+            self.assume_container_exists,
+            self.max_concurrency,
+            self._timeout_kwargs.get("timeout", None),
+            self._timeout_kwargs.get("connection_timeout", None),
+            self._timeout_kwargs.get("read_timeout", None),
+            self.kwargs)
 
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
@@ -1969,6 +1998,8 @@ class AzureBlobFile(AbstractBufferedFile):
                     self.path, version_id=self.version_id, refresh=True
                 )
             self.size = self.details["size"]
+            self.cache_type = cache_type
+            self.cache_options = cache_options
             self.cache = caches[cache_type](
                 blocksize=self.blocksize,
                 fetcher=self._fetch_range,
@@ -2179,3 +2210,17 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.close()
         except TypeError:
             pass
+    
+    def __getnewargs__(self):
+        return (
+            self.fs,
+            self.path,
+            self.mode,
+            self.block_size,
+            self.autocommit,
+            self.cache_type,
+            self.cache_options,
+            self.metadata,
+            self.version_id,
+            self.kwargs,
+        )
