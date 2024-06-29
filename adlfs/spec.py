@@ -2189,8 +2189,6 @@ class AzureBlobFile(AbstractBufferedFile):
             pass
     
     def __getstate__(self):
-        # loop and container client, can be reconstructed after pickling
-        # Anyway they don't allow us to pickly because they are weak refs
         state = self.__dict__.copy()
         del state['container_client']
         del state['loop']
