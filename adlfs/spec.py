@@ -1841,8 +1841,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_type=cache_type,
             metadata=metadata,
             version_id=version_id,
-           **kwargs,
+            **kwargs,
         )
+
 
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
@@ -1915,7 +1916,7 @@ class AzureBlobFile(AbstractBufferedFile):
             else None
         )
 
-        self.loop = self._get_loop() 
+        self.loop = self._get_loop()
         self.container_client = self._get_container_client()
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
@@ -2187,13 +2188,13 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.close()
         except TypeError:
             pass
-    
+
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['container_client']
-        del state['loop']
+        del state["container_client"]
+        del state["loop"]
         return state
-    
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.loop = self._get_loop()
