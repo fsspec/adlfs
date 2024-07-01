@@ -190,6 +190,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
     read_timeout: int
         The number of seconds the client will wait, between consecutive read operations,
         for a response from the server while uploading or downloading a blob.
+    account_host: str
+        The storage account host. This string is the entire url to the for the storage
+        after the https://, i.e. "https://{account_host}". This parameter is only
+        required for Azure clouds where account urls do not end with "blob.core.windows.net".
+        Note that the account_name parameter is still required.
 
     Pass on to fsspec:
 
@@ -257,6 +262,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         timeout: Optional[int] = None,
         connection_timeout: Optional[int] = None,
         read_timeout: Optional[int] = None,
+        account_host: str = None,
         **kwargs,
     ):
         super_kwargs = {
@@ -287,6 +293,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ]
         self.location_mode = location_mode
         self.credential = credential
+        if account_host:
+            self.account_host = account_host
         self.request_session = request_session
         self.assume_container_exists = assume_container_exists
         if socket_timeout is not _SOCKET_TIMEOUT_DEFAULT:
