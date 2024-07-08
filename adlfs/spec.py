@@ -265,6 +265,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_host: str = None,
         **kwargs,
     ):
+        self.kwargs = kwargs.copy()
         super_kwargs = {
             k: kwargs.pop(k)
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
@@ -1923,22 +1924,8 @@ class AzureBlobFile(AbstractBufferedFile):
             else None
         )
 
-        try:
-            # Need to confirm there is an event loop running in
-            # the thread. If not, create the fsspec loop
-            # and set it.  This is to handle issues with
-            # Async Credentials from the Azure SDK
-            loop = get_running_loop()
-
-        except RuntimeError:
-            loop = get_loop()
-            asyncio.set_event_loop(loop)
-
-        self.loop = self.fs.loop or get_loop()
-        self.container_client = (
-            fs.service_client.get_container_client(self.container_name)
-            or self.connect_client()
-        )
+        self.loop = self._get_loop()
+        self.container_client = self._get_container_client()
         self.blocksize = (
             self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
@@ -1977,6 +1964,8 @@ class AzureBlobFile(AbstractBufferedFile):
                     self.path, version_id=self.version_id, refresh=True
                 )
             self.size = self.details["size"]
+            self.cache_type = cache_type
+            self.cache_options = cache_options
             self.cache = caches[cache_type](
                 blocksize=self.blocksize,
                 fetcher=self._fetch_range,
@@ -1997,6 +1986,26 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
+
+    def _get_loop(self):
+        try:
+            # Need to confirm there is an event loop running in
+            # the thread. If not, create the fsspec loop
+            # and set it.  This is to handle issues with
+            # Async Credentials from the Azure SDK
+            loop = get_running_loop()
+
+        except RuntimeError:
+            loop = get_loop()
+            asyncio.set_event_loop(loop)
+
+        return self.fs.loop or get_loop()
+
+    def _get_container_client(self):
+        return (
+            self.fs.service_client.get_container_client(self.container_name)
+            or self.connect_client()
+        )
 
     def close(self):
         """Close file and azure client."""
@@ -2187,3 +2196,14 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.close()
         except TypeError:
             pass
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["container_client"]
+        del state["loop"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.loop = self._get_loop()
+        self.container_client = self._get_container_client()

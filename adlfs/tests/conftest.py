@@ -37,7 +37,8 @@ def storage(host):
     conn_str = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
 
     bbs = BlobServiceClient.from_connection_string(conn_str=conn_str)
-    bbs.create_container("data")
+    if "data" not in [c["name"] for c in bbs.list_containers()]:
+        bbs.create_container("data")
     container_client = bbs.get_container_client(container="data")
     bbs.insert_time = datetime.datetime.utcnow().replace(
         microsecond=0, tzinfo=datetime.timezone.utc

@@ -3,6 +3,7 @@
 Unreleased
 ----------
 
+- `AzureBlobFileSystem` and `AzureBlobFile` support pickling.
 - Handle mixed casing for `hdi_isfolder` metadata when determining whether a blob should be treated as a folder.
 - `_put_file`: `overwrite` now defaults to `True`.
 
