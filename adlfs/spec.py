@@ -22,6 +22,7 @@ from azure.core.exceptions import (
     ResourceExistsError,
     ResourceNotFoundError,
 )
+from azure.core.utils import parse_connection_string
 from azure.storage.blob import (
     BlobBlock,
     BlobProperties,
@@ -1550,11 +1551,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
         container_name, blob, version_id = self.split_path(path)
 
+        if self.connection_string:
+            args_dict = parse_connection_string(self.connection_string)
+            account_name = args_dict.get("accountname")
+            account_key = args_dict.get("accountkey")
+        else:
+            account_name = self.account_name
+            account_key = self.account_key
+
         sas_token = generate_blob_sas(
-            account_name=self.account_name,
+            account_name=account_name,
             container_name=container_name,
             blob_name=blob,
-            account_key=self.account_key,
+            account_key=account_key,
             permission=BlobSasPermissions(read=True),
             expiry=datetime.utcnow() + timedelta(seconds=expires),
             version_id=version_id,
