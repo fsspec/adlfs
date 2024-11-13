@@ -15,7 +15,8 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta
 from glob import has_magic
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
+from uuid import uuid4
 
 from azure.core.exceptions import (
     HttpResponseError,
@@ -2138,8 +2139,7 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         data = self.buffer.getvalue()
         length = len(data)
-        block_id = len(self._block_list)
-        block_id = f"{block_id:07d}"
+        block_id = self._get_block_id(self._block_list)
         if self.mode == "wb":
             try:
                 for chunk in self._get_chunks(data):
@@ -2152,8 +2152,7 @@ class AzureBlobFile(AbstractBufferedFile):
                             length=len(chunk),
                         )
                         self._block_list.append(block_id)
-                        block_id = len(self._block_list)
-                        block_id = f"{block_id:07d}"
+                        block_id = self._get_block_id(self._block_list)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2168,7 +2167,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
-                if block_id == "0000000" and length == 0 and final:
+                if block_id == self._get_block_id([]) and length == 0 and final:
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
@@ -2196,6 +2195,10 @@ class AzureBlobFile(AbstractBufferedFile):
             raise ValueError(
                 "File operation modes other than wb or ab are not yet supported for upload_chunk"
             )
+
+    @staticmethod
+    def _get_block_id(block_list: List[str]) -> str:
+        return uuid4().hex if block_list else "0" * 32
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
 
