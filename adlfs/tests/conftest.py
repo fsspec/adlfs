@@ -40,9 +40,7 @@ def storage(host):
     if "data" not in [c["name"] for c in bbs.list_containers()]:
         bbs.create_container("data")
     container_client = bbs.get_container_client(container="data")
-    bbs.insert_time = datetime.datetime.utcnow().replace(
-        microsecond=0, tzinfo=datetime.timezone.utc
-    )
+    bbs.insert_time = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
     container_client.upload_blob("top_file.txt", data)
     container_client.upload_blob("root/rfile.txt", data)
     container_client.upload_blob("root/a/file.txt", data)
