@@ -523,7 +523,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.do_connect()
 
         except Exception as e:
-            raise ValueError(f"unable to connect to account for {e}")
+            raise ValueError(f"unable to connect to account for {e}") from e
 
     def split_path(
         self, path, delimiter="/", return_container: bool = False, **kwargs
@@ -1204,7 +1204,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
         except Exception as e:
-            raise RuntimeError("Failed to remove %s for %s", path, e)
+            raise RuntimeError("Failed to remove %s for %s", path, e) from e
 
         self.invalidate_cache()
 
@@ -2065,7 +2065,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
-            )
+            ) from e
 
     async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
         """
