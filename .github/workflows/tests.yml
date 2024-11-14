@@ -22,8 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
-        pyv: ["3.8"]
+        os: [ubuntu-22.04]
+        pyv: ["3.12"]
         reqs: ["earliest", "latest", "dev"]
 
     steps:
