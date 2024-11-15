@@ -1233,9 +1233,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
             # Files and directory markers of empty directories can be deleted in any order. We delete them all
             # asynchronously for performance reasons.
-            file_exs = await asyncio.gather(
-                *([cc.delete_blob(file) for file in files]), return_exceptions=True
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+                file_exs = await asyncio.gather(
+                    *([cc.delete_blob(file) for file in files]), return_exceptions=True
+                )
             for ex in file_exs:
                 if ex is not None:
                     raise ex
