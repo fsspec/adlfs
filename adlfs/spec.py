@@ -13,7 +13,7 @@ import typing
 import warnings
 import weakref
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from glob import has_magic
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -523,7 +523,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.do_connect()
 
         except Exception as e:
-            raise ValueError(f"unable to connect to account for {e}")
+            raise ValueError(f"unable to connect to account for {e}") from e
 
     def split_path(
         self, path, delimiter="/", return_container: bool = False, **kwargs
@@ -1204,7 +1204,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except FileNotFoundError:
             pass
         except Exception as e:
-            raise RuntimeError("Failed to remove %s for %s", path, e)
+            raise RuntimeError("Failed to remove %s for %s", path, e) from e
 
         self.invalidate_cache()
 
@@ -1233,9 +1233,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
             # Files and directory markers of empty directories can be deleted in any order. We delete them all
             # asynchronously for performance reasons.
-            file_exs = await asyncio.gather(
-                *([cc.delete_blob(file) for file in files]), return_exceptions=True
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+                file_exs = await asyncio.gather(
+                    *([cc.delete_blob(file) for file in files]), return_exceptions=True
+                )
             for ex in file_exs:
                 if ex is not None:
                     raise ex
@@ -1566,7 +1569,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             blob_name=blob,
             account_key=account_key,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.utcnow() + timedelta(seconds=expires),
+            expiry=datetime.now(tz=timezone.utc) + timedelta(seconds=expires),
             version_id=version_id,
             content_disposition=content_disposition,
             content_encoding=content_encoding,
@@ -2065,7 +2068,7 @@ class AzureBlobFile(AbstractBufferedFile):
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
-            )
+            ) from e
 
     async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
         """

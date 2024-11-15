@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 
 import docker
@@ -40,8 +39,8 @@ def storage(host):
     if "data" not in [c["name"] for c in bbs.list_containers()]:
         bbs.create_container("data")
     container_client = bbs.get_container_client(container="data")
-    bbs.insert_time = datetime.datetime.utcnow().replace(
-        microsecond=0, tzinfo=datetime.timezone.utc
+    bbs.insert_time = datetime.datetime.now(tz=datetime.timezone.utc).replace(
+        microsecond=0
     )
     container_client.upload_blob("top_file.txt", data)
     container_client.upload_blob("root/rfile.txt", data)
@@ -58,17 +57,6 @@ def storage(host):
     yield bbs
 
     bbs.delete_container("data")
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    try:
-        yield loop
-    finally:
-        loop.close()
-        policy.set_event_loop(loop)
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -18,13 +18,17 @@ permissions:
 jobs:
   tests:
     timeout-minutes: 45
-    runs-on: ${{ matrix.os }}
+    runs-on: "ubuntu-22.04"
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
-        pyv: ["3.8"]
-        reqs: ["earliest", "latest", "dev"]
+        pyv: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        reqs: [ "latest" ]
+        include:
+          - pyv: "3.9"
+            reqs: earliest
+          - pyv: "3.13"
+            reqs: dev
 
     steps:
     - uses: actions/checkout@v3
