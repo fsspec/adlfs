@@ -23,8 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04]
-        pyv: ["3.12"]
-        reqs: ["earliest", "latest", "dev"]
+        pyv: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        reqs: [ latest ]
+        include:
+          - pyv: "3.9"
+            reqs: earliest
+          - pyv: "3.13"
+            reqs: dev
 
     steps:
     - uses: actions/checkout@v3
