@@ -25,10 +25,10 @@ keywords = ["file-system", "dask", "azure"]
 requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = [
-    "azure-core>=1.23.1,<2.0.0",
-    "azure-datalake-store>=0.0.46,<0.1",
+    "azure-core>=1.28.0,<2.0.0",
+    "azure-datalake-store>=0.0.53,<0.1",
     "azure-identity",
-    "azure-storage-blob>=12.12.0",
+    "azure-storage-blob>=12.17.0",
     "fsspec>=2023.12.0",
     "aiohttp>=3.7.0",
 ]

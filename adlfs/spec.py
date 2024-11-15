@@ -13,7 +13,7 @@ import typing
 import warnings
 import weakref
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from glob import has_magic
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -1566,7 +1566,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             blob_name=blob,
             account_key=account_key,
             permission=BlobSasPermissions(read=True),
-            expiry=datetime.utcnow() + timedelta(seconds=expires),
+            expiry=datetime.now(tz=timezone.utc) + timedelta(seconds=expires),
             version_id=version_id,
             content_disposition=content_disposition,
             content_encoding=content_encoding,
