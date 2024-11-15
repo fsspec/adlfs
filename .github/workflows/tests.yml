@@ -28,8 +28,10 @@ jobs:
         include:
           - pyv: "3.9"
             reqs: earliest
+            os: "ubuntu-22.04"
           - pyv: "3.13"
             reqs: dev
+            os: "ubuntu-22.04"
 
     steps:
     - uses: actions/checkout@v3
