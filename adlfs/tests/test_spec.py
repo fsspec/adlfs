@@ -1982,3 +1982,60 @@ def test_hdi_isfolder_case(storage: azure.storage.blob.BlobServiceClient, key: s
 
     result = fs.info("data/folder")
     assert result["type"] == "directory"
+
+
+def test_pipe_file_x(storage: azure.storage.blob.BlobServiceClient):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    fs.pipe_file("data/afile", b"data", mode="create")  # ok
+    fs.pipe_file("data/afile", b"data2")  # ok
+    with pytest.raises(FileExistsError):
+        fs.pipe_file("data/afile", b"data3", mode="create")
+    assert fs.cat_file("data/afile") == b"data2"
+
+
+def test_put_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    fn = f"{tmpdir}/afile"
+    with open(fn, "wb") as f:
+        f.write(b"data")
+    fs.put_file(fn, "data/afile", mode="create")  # ok
+    fs.put_file(fn, "data/afile")  # ok
+    with pytest.raises(FileExistsError):
+        fs.put_file(fn, "data/afile", mode="create")
+
+    assert fs.cat_file("data/afile") == b"data"
+
+
+def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+        timeout=11,
+        connection_timeout=12,
+        read_timeout=13,
+    )
+    with fs.open("data/afile", "xb") as f:
+        f.write(b"data")
+    with pytest.raises(FileExistsError):
+        with fs.open("data/afile", "xb") as f:
+            f.write(b"data2")
+    with pytest.raises(FileExistsError):
+        # zero-length file has a different codepath
+        with fs.open("data/afile", "xb") as f:
+            pass
+    assert fs.cat_file("data/afile") == b"data"

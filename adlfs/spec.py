@@ -1430,18 +1430,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self, path, value, overwrite=True, max_concurrency=None, **kwargs
     ):
         """Set the bytes of given file"""
+        if kwargs.pop("mode", "") == "create":
+            overwrite = False
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
         ) as bc:
-            result = await bc.upload_blob(
-                data=value,
-                overwrite=overwrite,
-                metadata={"is_directory": "false"},
-                max_concurrency=max_concurrency or self.max_concurrency,
-                **self._timeout_kwargs,
-                **kwargs,
-            )
+            try:
+                result = await bc.upload_blob(
+                    data=value,
+                    overwrite=overwrite,
+                    metadata={"is_directory": "false"},
+                    max_concurrency=max_concurrency or self.max_concurrency,
+                    **self._timeout_kwargs,
+                    **kwargs,
+                )
+            except ResourceExistsError:
+                raise FileExistsError(path)
         self.invalidate_cache(self._parent(path))
         return result
 
@@ -1664,6 +1669,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             (True) or raise if one already exists (False).
         """
 
+        if kwargs.pop("mode", "") == "create":
+            overwrite = False
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
@@ -1961,7 +1968,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self.metadata = None
         self.kwargs = kwargs
 
-        if self.mode not in {"ab", "rb", "wb"}:
+        if self.mode not in {"ab", "rb", "wb", "xb"}:
             raise NotImplementedError("File mode not supported")
         if self.mode == "rb":
             if not hasattr(self, "details"):
@@ -2100,24 +2107,13 @@ class AzureBlobFile(AbstractBufferedFile):
     async def _async_initiate_upload(self, **kwargs):
         """Prepare a remote file upload"""
         self._block_list = []
-        if self.mode == "wb":
-            try:
-                await self.container_client.delete_blob(self.blob)
-            except ResourceNotFoundError:
-                pass
-            except HttpResponseError:
-                pass
-            else:
-                await self._reinitiate_async_upload()
 
-        elif self.mode == "ab":
+        if self.mode == "ab":
             if not await self.fs._exists(self.path):
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                    await bc.create_append_blob(metadata=self.metadata)
-        else:
-            raise ValueError(
-                "File operation modes other than wb are not yet supported for writing"
-            )
+                    await bc.create_append_blob(
+                        metadata=self.metadata, overwrite=(self.mode == "wb")
+                    )
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
@@ -2143,7 +2139,10 @@ class AzureBlobFile(AbstractBufferedFile):
         data = self.buffer.getvalue()
         length = len(data)
         block_id = self._get_block_id(self._block_list)
-        if self.mode == "wb":
+        commit_kw = {}
+        if self.mode == "xb":
+            commit_kw["headers"] = {"If-None-Match": "*"}
+        if self.mode in {"wb", "xb"}:
             try:
                 for chunk in self._get_chunks(data):
                     async with self.container_client.get_blob_client(
@@ -2163,8 +2162,10 @@ class AzureBlobFile(AbstractBufferedFile):
                         blob=self.blob
                     ) as bc:
                         await bc.commit_block_list(
-                            block_list=block_list, metadata=self.metadata
+                            block_list=block_list, metadata=self.metadata, **commit_kw
                         )
+            except ResourceExistsError as e:
+                raise FileExistsError(self.path) from e
             except Exception as e:
                 # This step handles the situation where data="" and length=0
                 # which is throws an InvalidHeader error from Azure, so instead
@@ -2174,16 +2175,25 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.upload_blob(data=data, metadata=self.metadata)
+                        await bc.upload_blob(
+                            data=data,
+                            metadata=self.metadata,
+                            overwrite=(self.mode == "wb"),
+                        )
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.commit_block_list(
-                            block_list=block_list, metadata=self.metadata
-                        )
+                        try:
+                            await bc.commit_block_list(
+                                block_list=block_list,
+                                metadata=self.metadata,
+                                **commit_kw,
+                            )
+                        except ResourceExistsError:
+                            raise FileExistsError(self.path)
                 else:
                     raise RuntimeError(f"Failed to upload block: {e}!") from e
         elif self.mode == "ab":
@@ -2196,7 +2206,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 )
         else:
             raise ValueError(
-                "File operation modes other than wb or ab are not yet supported for upload_chunk"
+                "File operation modes other than wb, xb or ab are not supported for upload_chunk"
             )
 
     @staticmethod
