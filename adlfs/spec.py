@@ -2111,9 +2111,7 @@ class AzureBlobFile(AbstractBufferedFile):
         if self.mode == "ab":
             if not await self.fs._exists(self.path):
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                    await bc.create_append_blob(
-                        metadata=self.metadata, overwrite=(self.mode == "wb")
-                    )
+                    await bc.create_append_blob(metadata=self.metadata)
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
