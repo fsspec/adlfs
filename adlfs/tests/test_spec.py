@@ -2023,7 +2023,7 @@ def test_put_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
 
 
 @pytest.mark.xfail(
-    parse_version(fsspec.__version__) < parse_version("2024.11.0"),
+    parse_version(fsspec.__version__) <= parse_version("2024.11.0"),
     reason="not supported upstream yet",
 )
 def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
