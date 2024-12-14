@@ -5,9 +5,11 @@ from unittest import mock
 
 import azure.storage.blob.aio
 import dask.dataframe as dd
+import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
@@ -2020,6 +2022,10 @@ def test_put_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
     assert fs.cat_file("data/afile") == b"data"
 
 
+@pytest.mark.xfail(
+    parse_version(fsspec.__version__) < parse_version("2024.11.0"),
+    reason="not supported upstream yet",
+)
 def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
