@@ -2094,7 +2094,11 @@ class AzureBlobFile(AbstractBufferedFile):
             length = None if end is None else (end - start)
         async with self.container_client:
             stream = await self.container_client.download_blob(
-                blob=self.blob, offset=start, length=length, version_id=self.version_id, max_concurrency=self.fs.max_concurrency or 1
+                blob=self.blob,
+                offset=start,
+                length=length,
+                version_id=self.version_id,
+                max_concurrency=self.fs.max_concurrency or 1,
             )
             blob = await stream.readall()
         return blob

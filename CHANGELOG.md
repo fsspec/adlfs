@@ -3,6 +3,20 @@
 Unreleased
 ----------
 
+- .
+
+
+2024.12.0
+---------
+
+- Add "exclusive" more to put, pipe and open, as in upstream fsspec
+- Allow concurrency in fetch_ranges
+- update versions
+- signed URLs from connection string; and add content type
+- CI cleanups
+- better error messages
+- honor anon parameter better
+- deterministic blob IDs on upload
 - `AzureBlobFileSystem` and `AzureBlobFile` support pickling.
 - Handle mixed casing for `hdi_isfolder` metadata when determining whether a blob should be treated as a folder.
 - `_put_file`: `overwrite` now defaults to `True`.
