@@ -89,6 +89,7 @@ def make_callback(key, callback):
             return
         if not sent_total and total is not None:
             callback.set_size(total)
+            sent_total = True
         callback.absolute_update(current)
 
     return wrapper
