@@ -78,16 +78,12 @@ def make_callback(key, callback):
     if callback is None:
         return None
 
-    sent_total = False
-
     def wrapper(response):
-        nonlocal sent_total
-
         current = response.context.get(key)
         total = response.context["data_stream_total"]
         if current is None:
             return
-        if not sent_total and total is not None:
+        if total is not None:
             callback.set_size(total)
         callback.absolute_update(current)
 
