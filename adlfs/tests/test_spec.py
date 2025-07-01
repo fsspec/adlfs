@@ -12,6 +12,8 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from azure.core.exceptions import ResourceNotFoundError
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
@@ -2210,3 +2212,69 @@ def test_write_max_concurrency(storage, max_concurrency, blob_size, blocksize):
     with fs.open(path, "rb") as f:
         assert f.read() == data
     fs.rm(container_name, recursive=True)
+
+def test_rm_files(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    file_list = [
+        "top_file.txt",
+        "root/a/file.txt",
+        "root/a1/file1.txt",
+    ]
+
+    fs.rm_files("data", file_list)
+    for file in file_list:
+        with pytest.raises(FileNotFoundError):
+            fs.ls(f"data/{file}")
+
+
+def test_rm_files_nonempty_directory_marker(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with pytest.raises(ResourceNotFoundError):
+        fs.rm_files("data", ["root/a/"])
+
+    assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]
+
+
+def test_rm_files_delete_directory_markers(storage, mocker):
+    mock_container = mocker.AsyncMock()
+    mock_container.delete_blob = mocker.AsyncMock(return_value=None)
+    mock_get_container_client = mocker.AsyncMock()
+    mock_get_container_client.__aenter__.return_value = mock_container
+    mock_get_container_client.__aexit__.return_value = None
+    mocker.patch.object(
+        AIOBlobServiceClient,
+        "get_container_client",
+        return_value=mock_get_container_client,
+    )
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    files = [blob.name for blob in storage.get_container_client("data").list_blobs()]
+    directory_markers = [
+        "root/a/",
+        "root/a1/",
+        "root/b/",
+        "root/c/",
+        "root/d/",
+        "root/e+f/",
+    ]
+
+    mocker.patch.object(
+        fs,
+        "_separate_directory_markers_for_non_empty_directories",
+        return_value=(files, directory_markers),
+    )
+
+    fs.rm_files("data", files)
+    expected_calls = [mocker.call(dir) for dir in reversed(directory_markers)]
+    actual_calls = mock_container.delete_blob.call_args_list[-len(directory_markers) :]
+    assert actual_calls == expected_calls

@@ -1285,7 +1285,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         for file in file_paths:
             self.invalidate_cache(self._parent(file))
 
-    sync_wrapper(_rm_files)
+    rm_files = sync_wrapper(_rm_files)
 
     async def _separate_directory_markers_for_non_empty_directories(
         self, file_paths: typing.Iterable[str]
