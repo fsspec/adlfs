@@ -15,7 +15,6 @@ from pandas.testing import assert_frame_equal
 from adlfs import AzureBlobFile, AzureBlobFileSystem
 from adlfs._version import version as __version__
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-import asyncio
 
 
 URL = "http://127.0.0.1:10000"
@@ -2056,7 +2055,7 @@ def test_user_agent_connection_str(storage: azure.storage.blob.BlobServiceClient
         account_name=storage.account_name, connection_string=CONN_STR
     )
     mock_client = mocker.patch.object(AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock())
-   
+
     fs.do_connect()
     mock_client.assert_called_once()
     assert "user_agent" in mock_client.call_args.kwargs
@@ -2092,20 +2091,30 @@ def test_user_agent_blob_file_connection_str(storage: azure.storage.blob.BlobSer
 
 
 def test_user_agent_blob_file_initializer(storage: azure.storage.blob.BlobServiceClient, mocker):
-    mock_client = mocker.patch("adlfs.spec.AIOBlobServiceClient", spec= True)
+    path = "root/a/file.txt"
+    mocker.patch("adlfs.spec.filter_blobs", [])
+
+    mock_details = mocker.PropertyMock(return_value={
+        "name": path,
+        "metadata": {},
+        "size": 0,
+        "content_settings": {"content_type": ""}
+    })
+    mocker.patch.object(AzureBlobFile, 'details', mock_details)
+    mock_client = mocker.patch("adlfs.spec.AIOBlobServiceClient", spec=True)
+
     mock_container_client = mocker.MagicMock()
     mock_blob_client = mocker.MagicMock()
+    mock_blob_client.get_blob_properties = mocker.AsyncMock(return_value={})
     mock_blob_client.__aenter__ = mocker.AsyncMock(return_value=mock_blob_client)
     mock_blob_client.__aexit__ = mocker.AsyncMock()
-    mock_blob_client.get_blob_properties = mocker.AsyncMock(return_value={})
     mock_container_client.get_blob_client = mocker.MagicMock(return_value=mock_blob_client)
     mock_client.return_value.get_container_client = mocker.MagicMock(return_value=mock_container_client)
-    
+
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
-    )   
-    f = AzureBlobFile(fs, "data/root/a/file.txt", mode="rb")
-    f.container_name = "data"
+    )
+    AzureBlobFile(fs, "data/root/a/file.txt", mode="rb")
 
     mock_client.assert_called_once()
     assert "user_agent" in mock_client.call_args.kwargs

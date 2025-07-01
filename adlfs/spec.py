@@ -120,7 +120,9 @@ def _coalesce_version_id(*args) -> Optional[str]:
         return version_ids.pop()
 
 
-def _create_aio_blob_service_client(account_url: str, location_mode: Optional[str] = None, credential: Optional[str] = None) -> AIOBlobServiceClient:
+def _create_aio_blob_service_client(
+    account_url: str, location_mode: Optional[str] = None, credential: Optional[str] = None
+) -> AIOBlobServiceClient:
     if credential is not None:
         return AIOBlobServiceClient(
             account_url=account_url,
@@ -1980,7 +1982,6 @@ class AzureBlobFile(AbstractBufferedFile):
         self.end = None
         self.start = None
         self.closed = False
-        self._user_agent = f"adlfs/{__version__}"
 
         if cache_options is None:
             cache_options = {}
@@ -2076,9 +2077,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 )
 
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
-            print(f"creds: {creds}")
             if any(creds):
-                print("call")
                 self.container_client = [
                     _create_aio_blob_service_client(
                         account_url=self.fs.account_url,
@@ -2089,17 +2088,14 @@ class AzureBlobFile(AbstractBufferedFile):
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                print("call")
                 self.container_client = _create_aio_blob_service_client_from_connection_string(
                     connection_string=self.fs.connection_string,
                 ).get_container_client(self.container_name)
             elif self.fs.sas_token is not None:
-                print("call")
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url + self.fs.sas_token,
                 ).get_container_client(self.container_name)
             else:
-                print("call")
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url,
                 ).get_container_client(self.container_name)
