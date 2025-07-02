@@ -9,13 +9,12 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
 from adlfs._version import version as __version__
-from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
-
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
@@ -2050,11 +2049,15 @@ def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
     assert fs.cat_file("data/afile") == b"data"
 
 
-def test_user_agent_connection_str(storage: azure.storage.blob.BlobServiceClient, mocker):
+def test_user_agent_connection_str(
+    storage: azure.storage.blob.BlobServiceClient, mocker
+):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    mock_client = mocker.patch.object(AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock())
+    mock_client = mocker.patch.object(
+        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
+    )
 
     fs.do_connect()
     mock_client.assert_called_once()
@@ -2074,11 +2077,15 @@ def test_user_agent_initializer(storage: azure.storage.blob.BlobServiceClient, m
     assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
 
 
-def test_user_agent_blob_file_connection_str(storage: azure.storage.blob.BlobServiceClient, mocker):
+def test_user_agent_blob_file_connection_str(
+    storage: azure.storage.blob.BlobServiceClient, mocker
+):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    mock_client = mocker.patch.object(AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock())
+    mock_client = mocker.patch.object(
+        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
+    )
     mock_client.return_value.get_container_client = mocker.MagicMock()
 
     f = AzureBlobFile(fs, "data/root/a/file.txt", mode="rb")
@@ -2090,17 +2097,21 @@ def test_user_agent_blob_file_connection_str(storage: azure.storage.blob.BlobSer
     assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
 
 
-def test_user_agent_blob_file_initializer(storage: azure.storage.blob.BlobServiceClient, mocker):
+def test_user_agent_blob_file_initializer(
+    storage: azure.storage.blob.BlobServiceClient, mocker
+):
     path = "root/a/file.txt"
     mocker.patch("adlfs.spec.filter_blobs", [])
 
-    mock_details = mocker.PropertyMock(return_value={
-        "name": path,
-        "metadata": {},
-        "size": 0,
-        "content_settings": {"content_type": ""}
-    })
-    mocker.patch.object(AzureBlobFile, 'details', mock_details)
+    mock_details = mocker.PropertyMock(
+        return_value={
+            "name": path,
+            "metadata": {},
+            "size": 0,
+            "content_settings": {"content_type": ""},
+        }
+    )
+    mocker.patch.object(AzureBlobFile, "details", mock_details)
     mock_client = mocker.patch("adlfs.spec.AIOBlobServiceClient", spec=True)
 
     mock_container_client = mocker.MagicMock()
@@ -2108,8 +2119,12 @@ def test_user_agent_blob_file_initializer(storage: azure.storage.blob.BlobServic
     mock_blob_client.get_blob_properties = mocker.AsyncMock(return_value={})
     mock_blob_client.__aenter__ = mocker.AsyncMock(return_value=mock_blob_client)
     mock_blob_client.__aexit__ = mocker.AsyncMock()
-    mock_container_client.get_blob_client = mocker.MagicMock(return_value=mock_blob_client)
-    mock_client.return_value.get_container_client = mocker.MagicMock(return_value=mock_container_client)
+    mock_container_client.get_blob_client = mocker.MagicMock(
+        return_value=mock_blob_client
+    )
+    mock_client.return_value.get_container_client = mocker.MagicMock(
+        return_value=mock_container_client
+    )
 
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,

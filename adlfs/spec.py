@@ -37,6 +37,7 @@ from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_w
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
+from ._version import version as __version__
 from .utils import (
     close_container_client,
     close_credential,
@@ -45,7 +46,6 @@ from .utils import (
     get_blob_metadata,
     match_blob_version,
 )
-from ._version import version as __version__
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,9 @@ def _coalesce_version_id(*args) -> Optional[str]:
 
 
 def _create_aio_blob_service_client(
-    account_url: str, location_mode: Optional[str] = None, credential: Optional[str] = None
+    account_url: str,
+    location_mode: Optional[str] = None,
+    credential: Optional[str] = None,
 ) -> AIOBlobServiceClient:
     if credential is not None:
         return AIOBlobServiceClient(
@@ -144,7 +146,9 @@ def _create_aio_blob_service_client(
         )
 
 
-def _create_aio_blob_service_client_from_connection_string(connection_string: str) -> AIOBlobServiceClient:
+def _create_aio_blob_service_client_from_connection_string(
+    connection_string: str,
+) -> AIOBlobServiceClient:
     return AIOBlobServiceClient.from_connection_string(
         conn_str=connection_string,
         user_agent=_USER_AGENT,
@@ -506,8 +510,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         try:
             if self.connection_string is not None:
-                self.service_client = _create_aio_blob_service_client_from_connection_string(
-                    connection_string=self.connection_string,
+                self.service_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.connection_string,
+                    )
                 )
             elif self.account_name is not None:
                 if hasattr(self, "account_host"):
@@ -2088,9 +2094,11 @@ class AzureBlobFile(AbstractBufferedFile):
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                self.container_client = _create_aio_blob_service_client_from_connection_string(
-                    connection_string=self.fs.connection_string,
-                ).get_container_client(self.container_name)
+                self.container_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.fs.connection_string,
+                    ).get_container_client(self.container_name)
+                )
             elif self.fs.sas_token is not None:
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url + self.fs.sas_token,
