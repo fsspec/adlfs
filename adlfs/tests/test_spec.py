@@ -14,7 +14,6 @@ from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
-from adlfs._version import version as __version__
 
 URL = "http://127.0.0.1:10000"
 ACCOUNT_NAME = "devstoreaccount1"
@@ -2049,42 +2048,16 @@ def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
     assert fs.cat_file("data/afile") == b"data"
 
 
-def test_user_agent_connection_str(
-    storage: azure.storage.blob.BlobServiceClient, mocker
-):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    mock_client = mocker.patch.object(
-        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
-    )
-
-    fs.do_connect()
-    mock_client.assert_called_once()
-    assert "user_agent" in mock_client.call_args.kwargs
-    assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
-
-
-def test_user_agent_initializer(storage: azure.storage.blob.BlobServiceClient, mocker):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-    )
-    mock_client = mocker.patch("adlfs.spec.AIOBlobServiceClient", spec=True)
-
-    fs.do_connect()
-    mock_client.assert_called_once()
-    assert "user_agent" in mock_client.call_args.kwargs
-    assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
-
-
 def test_user_agent_blob_file_connection_str(
     storage: azure.storage.blob.BlobServiceClient, mocker
 ):
+    from adlfs import __version__
+
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     mock_client = mocker.patch.object(
-        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
+        AIOBlobServiceClient, "from_connection_string", return_value=mocker.MagicMock()
     )
     mock_client.return_value.get_container_client = mocker.MagicMock()
 
@@ -2100,6 +2073,8 @@ def test_user_agent_blob_file_connection_str(
 def test_user_agent_blob_file_initializer(
     storage: azure.storage.blob.BlobServiceClient, mocker
 ):
+    from adlfs import __version__
+
     path = "root/a/file.txt"
     mocker.patch("adlfs.spec.filter_blobs", [])
 
@@ -2119,6 +2094,7 @@ def test_user_agent_blob_file_initializer(
     mock_blob_client.get_blob_properties = mocker.AsyncMock(return_value={})
     mock_blob_client.__aenter__ = mocker.AsyncMock(return_value=mock_blob_client)
     mock_blob_client.__aexit__ = mocker.AsyncMock()
+    mock_blob_client.close = mocker.AsyncMock()
     mock_container_client.get_blob_client = mocker.MagicMock(
         return_value=mock_blob_client
     )
@@ -2131,6 +2107,38 @@ def test_user_agent_blob_file_initializer(
     )
     AzureBlobFile(fs, "data/root/a/file.txt", mode="rb")
 
+    mock_client.assert_called_once()
+    assert "user_agent" in mock_client.call_args.kwargs
+    assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
+
+
+def test_user_agent_connection_str(
+    storage: azure.storage.blob.BlobServiceClient, mocker
+):
+    from adlfs import __version__
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    mock_client = mocker.patch.object(
+        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
+    )
+
+    fs.do_connect()
+    mock_client.assert_called_once()
+    assert "user_agent" in mock_client.call_args.kwargs
+    assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
+
+
+def test_user_agent_initializer(storage: azure.storage.blob.BlobServiceClient, mocker):
+    from adlfs import __version__
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+    )
+    mock_client = mocker.patch("adlfs.spec.AIOBlobServiceClient", spec=True)
+
+    fs.do_connect()
     mock_client.assert_called_once()
     assert "user_agent" in mock_client.call_args.kwargs
     assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"

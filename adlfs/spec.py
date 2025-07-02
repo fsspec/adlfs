@@ -37,7 +37,6 @@ from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_w
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
-from ._version import version as __version__
 from .utils import (
     close_container_client,
     close_credential,
@@ -72,7 +71,12 @@ _ROOT_PATH = "/"
 _DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
 
 _SOCKET_TIMEOUT_DEFAULT = object()
-_USER_AGENT = f"adlfs/{__version__}"
+
+
+def _get_user_agent():
+    from adlfs import __version__
+
+    return f"adlfs/{__version__}"
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -130,19 +134,19 @@ def _create_aio_blob_service_client(
             account_url=account_url,
             credential=credential,
             _location_mode=location_mode,
-            user_agent=_USER_AGENT,
+            user_agent=_get_user_agent(),
         )
     elif location_mode is not None:
         return AIOBlobServiceClient(
             account_url=account_url,
             credential=None,
             _location_mode=location_mode,
-            user_agent=_USER_AGENT,
+            user_agent=_get_user_agent(),
         )
     else:
         return AIOBlobServiceClient(
             account_url=account_url,
-            user_agent=_USER_AGENT,
+            user_agent=_get_user_agent(),
         )
 
 
@@ -151,7 +155,7 @@ def _create_aio_blob_service_client_from_connection_string(
 ) -> AIOBlobServiceClient:
     return AIOBlobServiceClient.from_connection_string(
         conn_str=connection_string,
-        user_agent=_USER_AGENT,
+        user_agent=_get_user_agent(),
     )
 
 
