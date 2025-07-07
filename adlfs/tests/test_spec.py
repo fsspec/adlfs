@@ -2,6 +2,7 @@ import datetime
 import os
 import tempfile
 from unittest import mock
+from unittest.mock import patch
 
 import azure.storage.blob.aio
 import dask.dataframe as dd
@@ -2112,19 +2113,20 @@ def test_user_agent_blob_file_initializer(
     assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
 
 
+@patch("adlfs.spec.AIOBlobServiceClient")
 def test_user_agent_connection_str(
     storage: azure.storage.blob.BlobServiceClient, mocker
 ):
     from adlfs import __version__
 
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    mock_client = mocker.patch.object(
-        AIOBlobServiceClient, "from_connection_string", return_value=mocker.AsyncMock()
+    mock_client_instance = mocker.MagicMock()
+    mock_client_instance.close = mocker.AsyncMock()
+    mock_client = mocker.patch(
+        "adlfs.spec.AIOBlobServiceClient.from_connection_string",
+        return_value=mock_client_instance,
     )
 
-    fs.do_connect()
+    AzureBlobFileSystem(account_name=storage.account_name, connection_string=CONN_STR)
     mock_client.assert_called_once()
     assert "user_agent" in mock_client.call_args.kwargs
     assert mock_client.call_args.kwargs["user_agent"] == f"adlfs/{__version__}"
