@@ -38,6 +38,7 @@ from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
 from .utils import (
+    __version__,
     close_container_client,
     close_credential,
     close_service_client,
@@ -72,11 +73,7 @@ _DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
 
 _SOCKET_TIMEOUT_DEFAULT = object()
 
-
-def _get_user_agent():
-    from adlfs import __version__
-
-    return f"adlfs/{__version__}"
+_USER_AGENT = f"adlfs/{__version__}"
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -129,25 +126,15 @@ def _create_aio_blob_service_client(
     location_mode: Optional[str] = None,
     credential: Optional[str] = None,
 ) -> AIOBlobServiceClient:
+    service_client_kwargs = {
+        "account_url": account_url,
+        "user_agent": _USER_AGENT,
+    }
     if credential is not None:
-        return AIOBlobServiceClient(
-            account_url=account_url,
-            credential=credential,
-            _location_mode=location_mode,
-            user_agent=_get_user_agent(),
-        )
+        service_client_kwargs["credential"] = credential
     elif location_mode is not None:
-        return AIOBlobServiceClient(
-            account_url=account_url,
-            credential=None,
-            _location_mode=location_mode,
-            user_agent=_get_user_agent(),
-        )
-    else:
-        return AIOBlobServiceClient(
-            account_url=account_url,
-            user_agent=_get_user_agent(),
-        )
+        service_client_kwargs["_location_mode"] = location_mode
+    return AIOBlobServiceClient(**service_client_kwargs)
 
 
 def _create_aio_blob_service_client_from_connection_string(
@@ -155,7 +142,7 @@ def _create_aio_blob_service_client_from_connection_string(
 ) -> AIOBlobServiceClient:
     return AIOBlobServiceClient.from_connection_string(
         conn_str=connection_string,
-        user_agent=_get_user_agent(),
+        user_agent=_USER_AGENT,
     )
 
 
@@ -521,7 +508,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
             elif self.account_name is not None:
                 if hasattr(self, "account_host"):
-                    self.account_url: str = f"https://{self.account_host}"
+                    if self.account_host.startswith("http://"):
+                        self.account_url: str = self.account_host
+                    else:
+                        self.account_url: str = f"https://{self.account_host}"
                 else:
                     self.account_url: str = (
                         f"https://{self.account_name}.blob.core.windows.net"
@@ -2080,7 +2070,10 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         try:
             if hasattr(self.fs, "account_host"):
-                self.fs.account_url: str = f"https://{self.fs.account_host}"
+                if self.fs.account_host.startswith("http://"):
+                    self.account_url: str = self.fs.account_host
+                else:
+                    self.fs.account_url: str = f"https://{self.fs.account_host}"
             else:
                 self.fs.account_url: str = (
                     f"https://{self.fs.account_name}.blob.core.windows.net"

@@ -3,7 +3,7 @@
 Unreleased
 ----------
 
-- .
+- Add adlfs user agent
 
 
 2024.12.0
