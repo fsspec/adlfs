@@ -471,7 +471,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
-        Tries credentials first, then connection string and finally account key
+        Tries connection string first, then credential and finally account key
 
         Raises
         ------
@@ -491,7 +491,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def _get_service_client(self) -> AIOBlobServiceClient:
         """Connect to the Asynchronous BlobServiceClient.
 
-        Tries connection string first, then credentials and finally account key.
+        Tries connection string first, then credential and finally account key
         """
         # Shortcut for connection string
         if self.connection_string is not None:
@@ -2037,6 +2037,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def connect_client(self):
         """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.
+        Tries connection string first, then credential and finally account key
 
         Raises
         ------
