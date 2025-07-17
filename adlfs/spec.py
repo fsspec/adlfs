@@ -350,6 +350,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 max_concurrency = batch_size
         self.max_concurrency = max_concurrency
 
+    @property
+    def account_url(self) -> str:
+        if hasattr(self, "account_host"):
+            return f"https://{self.account_host}"
+        else:
+            return f"https://{self.account_name}.blob.core.windows.net"
+
     @classmethod
     def _strip_protocol(cls, path: str):
         """
@@ -472,47 +479,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """
 
         try:
-            if self.connection_string is not None:
-                self.service_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.connection_string
-                )
-            elif self.account_name is not None:
-                if hasattr(self, "account_host"):
-                    self.account_url: str = f"https://{self.account_host}"
-                else:
-                    self.account_url: str = (
-                        f"https://{self.account_name}.blob.core.windows.net"
-                    )
-
-                creds = [self.credential, self.account_key]
-                if any(creds):
-                    self.service_client = [
-                        AIOBlobServiceClient(
-                            account_url=self.account_url,
-                            credential=cred,
-                            _location_mode=self.location_mode,
-                        )
-                        for cred in creds
-                        if cred is not None
-                    ][0]
-                elif self.sas_token is not None:
-                    if not self.sas_token.startswith("?"):
-                        self.sas_token = f"?{self.sas_token}"
-                    self.service_client = AIOBlobServiceClient(
-                        account_url=self.account_url + self.sas_token,
-                        credential=None,
-                        _location_mode=self.location_mode,
-                    )
-                else:
-                    # Fall back to anonymous login, and assume public container
-                    self.service_client = AIOBlobServiceClient(
-                        account_url=self.account_url
-                    )
-            else:
-                raise ValueError(
-                    "Must provide either a connection_string or account_name with credentials!!"
-                )
-
+            self.service_client = self._get_service_client()
         except RuntimeError:
             loop = get_loop()
             asyncio.set_event_loop(loop)
@@ -520,6 +487,46 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         except Exception as e:
             raise ValueError(f"unable to connect to account for {e}") from e
+
+    def _get_service_client(self) -> AIOBlobServiceClient:
+        """Connect to the Asynchronous BlobServiceClient.
+
+        Tries connection string first, then credentials and finally account key.
+        """
+        # Shortcut for connection string
+        if self.connection_string is not None:
+            logger.info("Connect using connection string")
+            return AIOBlobServiceClient.from_connection_string(
+                conn_str=self.connection_string
+            )
+
+        if self.account_name is not None:
+            kwargs = {
+                "account_url": self.account_url,
+                "credential": None,
+                "_location_mode": self.location_mode,
+            }
+            creds = ["credential", "sync_credential", "account_key"]
+            for name in creds:
+                if (cred := getattr(self, name, None)) is not None:
+                    logger.info("Connect using %s", name.replace("_", " "))
+                    kwargs["credential"] = cred
+                    break
+            else:
+                if self.sas_token is not None:
+                    logger.info("Connect using SAS token")
+                    if not self.sas_token.startswith("?"):
+                        self.sas_token = f"?{self.sas_token}"
+                    kwargs["account_url"] = f'{kwargs["account_url"]}{self.sas_token}'
+                else:
+                    logger.info("Connect using anonymous login")
+                    # Fall back to anonymous login, and assume public container
+
+            return AIOBlobServiceClient(**kwargs)
+
+        raise ValueError(
+            "Must provide either a connection_string or account_name with credentials!!"
+        )
 
     def split_path(
         self, path, delimiter="/", return_container: bool = False, **kwargs
@@ -2030,43 +2037,15 @@ class AzureBlobFile(AbstractBufferedFile):
 
     def connect_client(self):
         """Connect to the Asynchronous BlobServiceClient, using user-specified connection details.
-        Tries credentials first, then connection string and finally account key
 
         Raises
         ------
         ValueError if none of the connection details are available
         """
         try:
-            if hasattr(self.fs, "account_host"):
-                self.fs.account_url: str = f"https://{self.fs.account_host}"
-            else:
-                self.fs.account_url: str = (
-                    f"https://{self.fs.account_name}.blob.core.windows.net"
-                )
-
-            creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
-            if any(creds):
-                self.container_client = [
-                    AIOBlobServiceClient(
-                        account_url=self.fs.account_url,
-                        credential=cred,
-                        _location_mode=self.fs.location_mode,
-                    ).get_container_client(self.container_name)
-                    for cred in creds
-                    if cred is not None
-                ][0]
-            elif self.fs.connection_string is not None:
-                self.container_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.fs.connection_string
-                ).get_container_client(self.container_name)
-            elif self.fs.sas_token is not None:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url + self.fs.sas_token, credential=None
-                ).get_container_client(self.container_name)
-            else:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url
-                ).get_container_client(self.container_name)
+            self.container_client = self.fs._get_service_client().get_container_client(
+                self.container_name
+            )
 
         except Exception as e:
             raise ValueError(
