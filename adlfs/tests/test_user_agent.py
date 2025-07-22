@@ -7,13 +7,11 @@ from adlfs.tests.constants import CONN_STR, KEY
 from adlfs.utils import __version__ as __version__
 
 
-def assert_sets_adlfs_user_agent(mock_client_create_method):
-    mock_client_create_method.assert_called()
-    assert "user_agent" in mock_client_create_method.call_args.kwargs
-    assert (
-        mock_client_create_method.call_args.kwargs["user_agent"]
-        == f"adlfs/{__version__}"
-    )
+def assert_sets_adlfs_user_agent(mock_client_create_method, expected_call_count=1):
+    assert len(mock_client_create_method.call_args_list) == expected_call_count
+    for call in mock_client_create_method.call_args_list:
+        assert "user_agent" in call.kwargs
+        assert call.kwargs["user_agent"] == f"adlfs/{__version__}"
 
 
 @pytest.fixture()
@@ -46,7 +44,7 @@ def test_user_agent_blob_file_connection_str(
     )
     f = AzureBlobFile(fs, "data/root/a/file.txt", mode="rb")
     f.connect_client()
-    assert_sets_adlfs_user_agent(mock_from_connection_string)
+    assert_sets_adlfs_user_agent(mock_from_connection_string, expected_call_count=2)
 
 
 def test_user_agent_blob_file_initializer(
@@ -59,7 +57,7 @@ def test_user_agent_blob_file_initializer(
     )
     f = AzureBlobFile(fs, "data/root/a/file.txt", mode="wb")
     f.connect_client()
-    assert_sets_adlfs_user_agent(mock_service_client_init)
+    assert_sets_adlfs_user_agent(mock_service_client_init, expected_call_count=2)
     # Makes sure no API calls are made that would cause the test to hang because of ssl connection issues
     f.closed = True
 
