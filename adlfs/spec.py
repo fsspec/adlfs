@@ -508,10 +508,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 )
             elif self.account_name is not None:
                 if hasattr(self, "account_host"):
-                    if self.account_host.startswith("http://"):
-                        self.account_url: str = self.account_host
-                    else:
-                        self.account_url: str = f"https://{self.account_host}"
+                    self.account_url: str = f"https://{self.account_host}"
                 else:
                     self.account_url: str = (
                         f"https://{self.account_name}.blob.core.windows.net"
@@ -2070,10 +2067,7 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         try:
             if hasattr(self.fs, "account_host"):
-                if self.fs.account_host.startswith("http://"):
-                    self.account_url: str = self.fs.account_host
-                else:
-                    self.fs.account_url: str = f"https://{self.fs.account_host}"
+                self.fs.account_url: str = f"https://{self.fs.account_host}"
             else:
                 self.fs.account_url: str = (
                     f"https://{self.fs.account_name}.blob.core.windows.net"

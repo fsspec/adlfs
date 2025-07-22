@@ -4,10 +4,8 @@ import docker
 import pytest
 from azure.storage.blob import BlobServiceClient
 
-URL = "http://127.0.0.1:10000"
-ACCOUNT_NAME = "devstoreaccount1"
-KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
-CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
+from adlfs.tests.constants import ACCOUNT_NAME, KEY, URL
+
 data = b"0123456789"
 metadata = {"meta": "data"}
 

@@ -13,13 +13,13 @@ from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
-
-URL = "http://127.0.0.1:10000"
-ACCOUNT_NAME = "devstoreaccount1"
-KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # NOQA
-CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey={KEY};BlobEndpoint={URL}/{ACCOUNT_NAME};"  # NOQA
-DEFAULT_VERSION_ID = "1970-01-01T00:00:00.0000000Z"
-LATEST_VERSION_ID = "2022-01-01T00:00:00.0000000Z"
+from adlfs.tests.constants import (
+    ACCOUNT_NAME,
+    CONN_STR,
+    DEFAULT_VERSION_ID,
+    KEY,
+    LATEST_VERSION_ID,
+)
 
 
 def assert_almost_equal(x, y, threshold, prop_name=None):
