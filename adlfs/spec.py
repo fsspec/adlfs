@@ -132,7 +132,7 @@ def _create_aio_blob_service_client(
     }
     if credential is not None:
         service_client_kwargs["credential"] = credential
-    elif location_mode is not None:
+    if location_mode is not None:
         service_client_kwargs["_location_mode"] = location_mode
     return AIOBlobServiceClient(**service_client_kwargs)
 
