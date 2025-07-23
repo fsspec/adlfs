@@ -2093,6 +2093,7 @@ class AzureBlobFile(AbstractBufferedFile):
             elif self.fs.sas_token is not None:
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url + self.fs.sas_token,
+                    location_mode=self.fs.location_mode,
                 ).get_container_client(self.container_name)
             else:
                 self.container_client = _create_aio_blob_service_client(
