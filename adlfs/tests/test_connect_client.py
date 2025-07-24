@@ -33,30 +33,22 @@ def get_expected_client_init_call(
     account_url,
     credential=None,
     location_mode="primary",
-    user_agent=f"adlfs/{__version__}",
 ):
     call_kwargs = {
         "account_url": account_url,
+        "user_agent": f"adlfs/{__version__}",
     }
     if credential is not None:
         call_kwargs["credential"] = credential
     if location_mode is not None:
         call_kwargs["_location_mode"] = location_mode
-    if user_agent is not None:
-        call_kwargs["user_agent"] = user_agent
     return mock.call(mock.ANY, **call_kwargs)
 
 
 def get_expected_client_from_connection_string_call(
-    conn_str=None,
-    user_agent=f"adlfs/{__version__}",
+    conn_str,
 ):
-    call_kwargs = {
-        "conn_str": conn_str,
-    }
-    if user_agent is not None:
-        call_kwargs["user_agent"] = user_agent
-    return mock.call(**call_kwargs)
+    return mock.call(conn_str=conn_str, user_agent=f"adlfs/{__version__}")
 
 
 def assert_client_create_calls(
