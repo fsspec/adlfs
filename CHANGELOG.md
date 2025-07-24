@@ -3,7 +3,7 @@
 Unreleased
 ----------
 
-- .
+- Added "adlfs" to library's default user agent
 
 
 2024.12.0

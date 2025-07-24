@@ -38,6 +38,7 @@ from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
 from .utils import (
+    __version__,
     close_container_client,
     close_credential,
     close_service_client,
@@ -71,6 +72,8 @@ _ROOT_PATH = "/"
 _DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
 
 _SOCKET_TIMEOUT_DEFAULT = object()
+
+_USER_AGENT = f"adlfs/{__version__}"
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -116,6 +119,31 @@ def _coalesce_version_id(*args) -> Optional[str]:
         return None
     else:
         return version_ids.pop()
+
+
+def _create_aio_blob_service_client(
+    account_url: str,
+    location_mode: Optional[str] = None,
+    credential: Optional[str] = None,
+) -> AIOBlobServiceClient:
+    service_client_kwargs = {
+        "account_url": account_url,
+        "user_agent": _USER_AGENT,
+    }
+    if credential is not None:
+        service_client_kwargs["credential"] = credential
+    if location_mode is not None:
+        service_client_kwargs["_location_mode"] = location_mode
+    return AIOBlobServiceClient(**service_client_kwargs)
+
+
+def _create_aio_blob_service_client_from_connection_string(
+    connection_string: str,
+) -> AIOBlobServiceClient:
+    return AIOBlobServiceClient.from_connection_string(
+        conn_str=connection_string,
+        user_agent=_USER_AGENT,
+    )
 
 
 class AzureBlobFileSystem(AsyncFileSystem):
@@ -473,8 +501,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         try:
             if self.connection_string is not None:
-                self.service_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.connection_string
+                self.service_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.connection_string,
+                    )
                 )
             elif self.account_name is not None:
                 if hasattr(self, "account_host"):
@@ -487,10 +517,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 creds = [self.credential, self.account_key]
                 if any(creds):
                     self.service_client = [
-                        AIOBlobServiceClient(
+                        _create_aio_blob_service_client(
                             account_url=self.account_url,
+                            location_mode=self.location_mode,
                             credential=cred,
-                            _location_mode=self.location_mode,
                         )
                         for cred in creds
                         if cred is not None
@@ -498,15 +528,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 elif self.sas_token is not None:
                     if not self.sas_token.startswith("?"):
                         self.sas_token = f"?{self.sas_token}"
-                    self.service_client = AIOBlobServiceClient(
+                    self.service_client = _create_aio_blob_service_client(
                         account_url=self.account_url + self.sas_token,
-                        credential=None,
-                        _location_mode=self.location_mode,
+                        location_mode=self.location_mode,
                     )
                 else:
                     # Fall back to anonymous login, and assume public container
-                    self.service_client = AIOBlobServiceClient(
-                        account_url=self.account_url
+                    self.service_client = _create_aio_blob_service_client(
+                        account_url=self.account_url,
                     )
             else:
                 raise ValueError(
@@ -2047,27 +2076,28 @@ class AzureBlobFile(AbstractBufferedFile):
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
                 self.container_client = [
-                    AIOBlobServiceClient(
+                    _create_aio_blob_service_client(
                         account_url=self.fs.account_url,
                         credential=cred,
-                        _location_mode=self.fs.location_mode,
+                        location_mode=self.fs.location_mode,
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
                 ][0]
             elif self.fs.connection_string is not None:
-                self.container_client = AIOBlobServiceClient.from_connection_string(
-                    conn_str=self.fs.connection_string
-                ).get_container_client(self.container_name)
+                self.container_client = (
+                    _create_aio_blob_service_client_from_connection_string(
+                        connection_string=self.fs.connection_string,
+                    ).get_container_client(self.container_name)
+                )
             elif self.fs.sas_token is not None:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url + self.fs.sas_token, credential=None
+                self.container_client = _create_aio_blob_service_client(
+                    account_url=self.fs.account_url + self.fs.sas_token,
                 ).get_container_client(self.container_name)
             else:
-                self.container_client = AIOBlobServiceClient(
-                    account_url=self.fs.account_url
+                self.container_client = _create_aio_blob_service_client(
+                    account_url=self.fs.account_url,
                 ).get_container_client(self.container_name)
-
         except Exception as e:
             raise ValueError(
                 f"Unable to fetch container_client with provided params for {e}!!"
