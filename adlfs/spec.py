@@ -2159,6 +2159,16 @@ class AzureBlobFile(AbstractBufferedFile):
     async def _async_upload_chunk(
         self, final: bool = False, max_concurrency=None, **kwargs
     ):
+        """
+        Write one part of a multi-block file upload
+
+        Parameters
+        ----------
+        final: bool
+            This is the last block, so should complete file, if
+            self.autocommit is True.
+
+        """
         data = self.buffer.getvalue()
         length = len(data)
         block_id = self._get_block_id(self._block_list)
