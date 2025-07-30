@@ -4,6 +4,9 @@ Unreleased
 ----------
 
 - Added "adlfs" to library's default user agent
+- Fix issue where ``AzureBlobFile`` did not respect ``location_mode`` parameter
+  from parent ``AzureBlobFileSystem`` when using SAS credentials and connecting to
+  new SDK clients.
 
 
 2024.12.0
