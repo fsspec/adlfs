@@ -2142,20 +2142,26 @@ def test_blobfile_default_blocksize(storage):
     assert f.blocksize == 50 * 2**20
 
 
-@pytest.mark.parametrize("max_concurrency", [1, 2, 4, 8])
-def test_large_blob_max_concurrency(storage, max_concurrency):
+@pytest.mark.parametrize(
+    "max_concurrency, blob_size",
+    [
+        (1, 51 * 2**20),
+        (4, 200 * 2**20),
+        (4, 49 * 2**20),
+    ],
+)
+def test_max_concurrency(storage, max_concurrency, blob_size):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
         max_concurrency=max_concurrency,
     )
-    blob_size = 1_120_000_000
     data = os.urandom(blob_size)
     fs.mkdir("large-file-container")
-    path = "large-file-container/blob.bin"
+    path = "large-file-container/blob.txt"
 
-    with fs.open(path, "wb") as dst:
-        dst.write(data)
+    with fs.open(path, "wb") as f:
+        f.write(data)
 
     assert fs.exists(path)
     assert fs.size(path) == blob_size

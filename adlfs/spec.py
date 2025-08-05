@@ -2156,6 +2156,15 @@ class AzureBlobFile(AbstractBufferedFile):
             yield data[start:end]
             start = end
 
+    async def _upload(self, chunk, block_id, semaphore):
+        async with semaphore:
+            async with self.container_client.get_blob_client(blob=self.blob) as bc:
+                await bc.stage_block(
+                    block_id=block_id,
+                    data=chunk,
+                    length=len(chunk),
+                )
+
     async def _async_upload_chunk(
         self, final: bool = False, max_concurrency=None, **kwargs
     ):
@@ -2180,28 +2189,20 @@ class AzureBlobFile(AbstractBufferedFile):
                 max_concurrency = max_concurrency or self.fs.max_concurrency or 1
                 semaphore = asyncio.Semaphore(max_concurrency)
                 tasks = []
-                block_ids = []
+                block_ids = self._block_list or []
+                start_idx = len(block_ids)
                 chunks = list(self._get_chunks(data))
                 for _ in range(len(chunks)):
                     block_ids.append(block_id)
                     block_id = self._get_block_id(block_ids)
+
                 if chunks:
                     self._block_list = block_ids
-                for chunk, block_id in zip(chunks, block_ids):
+                for chunk, block_id in zip(chunks, block_ids[start_idx:]):
+                    tasks.append(self._upload(chunk, block_id, semaphore))
 
-                    async def _upload_chunk(chunk=chunk, block_id=block_id):
-                        async with semaphore:
-                            async with self.container_client.get_blob_client(
-                                blob=self.blob
-                            ) as bc:
-                                await bc.stage_block(
-                                    block_id=block_id,
-                                    data=chunk,
-                                    length=len(chunk),
-                                )
-
-                    tasks.append(_upload_chunk())
                 await asyncio.gather(*tasks)
+
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
                     async with self.container_client.get_blob_client(
