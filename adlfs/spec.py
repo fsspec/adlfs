@@ -69,7 +69,7 @@ VERSIONED_BLOB_PROPERTIES = [
     "is_current_version",
 ]
 _ROOT_PATH = "/"
-_DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
+_DEFAULT_BLOCK_SIZE = 50 * 2**20
 
 _SOCKET_TIMEOUT_DEFAULT = object()
 
@@ -1901,8 +1901,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2**20
-
     def __init__(
         self,
         fs: AzureBlobFileSystem,
@@ -1972,7 +1970,7 @@ class AzureBlobFile(AbstractBufferedFile):
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
         self.blocksize = (
-            self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
+            _DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         )
         self.loc = 0
         self.autocommit = autocommit
@@ -2146,7 +2144,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
-    def _get_chunks(self, data, chunk_size=1024**3):  # Keeping the chunk size as 1 GB
+    def _get_chunks(self, data, chunk_size):
         start = 0
         length = len(data)
         while start < length:
@@ -2173,7 +2171,7 @@ class AzureBlobFile(AbstractBufferedFile):
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
             try:
-                for chunk in self._get_chunks(data):
+                for chunk in self._get_chunks(data, self.blocksize):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
