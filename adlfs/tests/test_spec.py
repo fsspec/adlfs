@@ -1,7 +1,9 @@
 import datetime
+import math
 import os
 import tempfile
 from unittest import mock
+from unittest.mock import patch
 
 import azure.storage.blob.aio
 import dask.dataframe as dd
@@ -2045,3 +2047,37 @@ def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
         with fs.open("data/afile", "xb") as f:
             pass
     assert fs.cat_file("data/afile") == b"data"
+
+
+@pytest.mark.parametrize("blocksize", [5 * 2**20, 50 * 2**20, 100 * 2**20])
+def test_number_of_blocks(storage, mocker, blocksize):
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=blocksize,
+    )
+
+    content = b"1" * (blocksize * 2 + 1)
+    with fs.open("data/root/a/file.txt", "wb", blocksize=blocksize) as f:
+        mocker.patch(
+            "azure.storage.blob.aio.BlobClient.commit_block_list", autospec=True
+        )
+        with patch(
+            "azure.storage.blob.aio.BlobClient.stage_block", autospec=True
+        ) as mock_stage_block:
+            f.write(content)
+            expected_blocks = math.ceil(len(content) / blocksize)
+            actual_blocks = mock_stage_block.call_count
+            assert actual_blocks == expected_blocks
+
+
+def test_block_size(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=5 * 2**20,
+    )
+
+    with fs.open("data/root/a/file.txt", "wb") as f:
+        assert f.blocksize == 5 * 2**20
