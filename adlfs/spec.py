@@ -1862,7 +1862,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             What mode to open the file in - defaults to "rb"
 
         block_size: int
-            Size per block for multi-part downloads.
+            Size per block for multi-part uploads and downloads. This overrides the block_size parameter
+            and if not provided, defaults to the filesystem blocksize.
 
         autocommit: bool
             Whether or not to write to the destination directly
@@ -2147,11 +2148,11 @@ class AzureBlobFile(AbstractBufferedFile):
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
-    def _get_chunks(self, data, chunk_size):
+    def _get_chunks(self, data):
         start = 0
         length = len(data)
         while start < length:
-            end = min(start + chunk_size, length)
+            end = min(start + self.blocksize, length)
             yield data[start:end]
             start = end
 
@@ -2174,7 +2175,7 @@ class AzureBlobFile(AbstractBufferedFile):
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
             try:
-                for chunk in self._get_chunks(data, self.blocksize):
+                for chunk in self._get_chunks(data):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
