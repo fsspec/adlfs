@@ -2048,7 +2048,7 @@ def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
     assert fs.cat_file("data/afile") == b"data"
 
 
-def test_number_of_blocks(storage, mocker):
+def test_uses_block_size_for_partitioned_uploads(storage, mocker):
     from azure.storage.blob.aio import BlobClient
 
     blocksize = 5 * 2**20
@@ -2075,15 +2075,21 @@ def test_number_of_blocks(storage, mocker):
 
 
 @pytest.mark.parametrize(
-    "filesystem_blocksize, file_blocksize, expected_blocksize",
+    "filesystem_blocksize, file_blocksize, expected_blocksize, expected_filesystem_blocksize",
     [
-        (None, None, 50 * 2**20),
-        (50 * 2**20, None, 50 * 2**20),
-        (None, 5 * 2**20, 5 * 2**20),
-        (50 * 2**20, 7 * 2**20, 7 * 2**20),
+        (None, None, 50 * 2**20, None),
+        (7 * 2**20, None, 7 * 2**20, 7 * 2**20),
+        (None, 5 * 2**20, 5 * 2**20, None),
+        (40 * 2**20, 7 * 2**20, 7 * 2**20, 40 * 2**20),
     ],
 )
-def test_block_size(storage, filesystem_blocksize, file_blocksize, expected_blocksize):
+def test_block_size(
+    storage,
+    filesystem_blocksize,
+    file_blocksize,
+    expected_blocksize,
+    expected_filesystem_blocksize,
+):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
@@ -2092,6 +2098,7 @@ def test_block_size(storage, filesystem_blocksize, file_blocksize, expected_bloc
 
     with fs.open("data/root/a/file.txt", "wb", block_size=file_blocksize) as f:
         assert f.blocksize == expected_blocksize
+        assert fs.blocksize == expected_filesystem_blocksize
 
 
 @pytest.mark.parametrize(
@@ -2111,17 +2118,16 @@ def test_blocksize_from_blobfile(storage, file_blocksize, expected_blocksize):
         block_size=file_blocksize,
     )
     assert f.blocksize == expected_blocksize
-    assert fs.blocksize == 50 * 2**20
 
 
-def test_override_blocksize(storage):
+def test_blobfile_default_blocksize(storage):
     fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=20 * 2**20,
     )
     f = AzureBlobFile(
         fs,
         "data/root/a/file.txt",
     )
     assert f.blocksize == 50 * 2**20
-    f.blocksize = 2 * 2**20
-    assert f.blocksize == 2 * 2**20

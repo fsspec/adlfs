@@ -7,8 +7,8 @@ Unreleased
 - Fix issue where ``AzureBlobFile`` did not respect ``location_mode`` parameter
   from parent ``AzureBlobFileSystem`` when using SAS credentials and connecting to
   new SDK clients.
-- The block size is now used for uploads. Previously, it was always 1 GiB irrespective of the block size  
-- Updated default block size to be 50 MiB 
+- The block size is now used for partitioned uploads. Previously, 1 GiB was used for each uploaded block irrespective of the block size  
+- Updated default block size to be 50 MiB. Set `blocksize` for `AzureBlobFileSystem` or `block_size` when opening `AzureBlobFile` to revert back to 5 MiB default. 
 - `AzureBlobFile` now inherits the block size from `AzureBlobFileSystem` when fs.open() is called and a block_size is not passed in.
 
 
