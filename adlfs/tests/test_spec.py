@@ -2077,9 +2077,9 @@ def test_uses_block_size_for_partitioned_uploads(storage, mocker):
 @pytest.mark.parametrize(
     "filesystem_blocksize, file_blocksize, expected_blocksize, expected_filesystem_blocksize",
     [
-        (None, None, 50 * 2**20, None),
+        (None, None, 50 * 2**20, 50 * 2**20),
         (7 * 2**20, None, 7 * 2**20, 7 * 2**20),
-        (None, 5 * 2**20, 5 * 2**20, None),
+        (None, 5 * 2**20, 5 * 2**20, 50 * 2**20),
         (40 * 2**20, 7 * 2**20, 7 * 2**20, 40 * 2**20),
     ],
 )
@@ -2090,13 +2090,22 @@ def test_block_size(
     expected_blocksize,
     expected_filesystem_blocksize,
 ):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
-        blocksize=filesystem_blocksize,
-    )
+    filesystem_kwargs = {
+        "account_name": storage.account_name,
+        "connection_string": CONN_STR,
+    }
+    if filesystem_blocksize is not None:
+        filesystem_kwargs["blocksize"] = filesystem_blocksize
 
-    with fs.open("data/root/a/file.txt", "wb", block_size=file_blocksize) as f:
+    file_kwargs = {
+        "path": "data/root/a/file.txt",
+        "mode": "wb",
+    }
+    if file_blocksize is not None:
+        file_kwargs["block_size"] = file_blocksize
+
+    fs = AzureBlobFileSystem(**filesystem_kwargs)
+    with fs.open(**file_kwargs) as f:
         assert f.blocksize == expected_blocksize
         assert fs.blocksize == expected_filesystem_blocksize
 
