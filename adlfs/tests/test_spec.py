@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import tempfile
 from unittest import mock
@@ -2045,3 +2046,97 @@ def test_open_file_x(storage: azure.storage.blob.BlobServiceClient, tmpdir):
         with fs.open("data/afile", "xb") as f:
             pass
     assert fs.cat_file("data/afile") == b"data"
+
+
+def test_uses_block_size_for_partitioned_uploads(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    blocksize = 5 * 2**20
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=blocksize,
+    )
+
+    content = b"1" * (blocksize * 4 + 1)
+    with fs.open("data/root/a/file.txt", "wb") as f:
+        mock_stage_block = mocker.patch.object(BlobClient, "stage_block")
+        mock_commit_block_list = mocker.patch.object(BlobClient, "commit_block_list")
+        f.write(content)
+        expected_blocks = math.ceil(len(content) / blocksize)
+        actual_blocks = mock_stage_block.call_count
+        assert actual_blocks == expected_blocks
+        block_lengths = [
+            call.kwargs["length"] for call in mock_stage_block.call_args_list
+        ]
+        assert sum(block_lengths) == len(content)
+
+    assert len(mock_commit_block_list.call_args.kwargs["block_list"]) == expected_blocks
+
+
+@pytest.mark.parametrize(
+    "filesystem_blocksize, file_blocksize, expected_blocksize, expected_filesystem_blocksize",
+    [
+        (None, None, 50 * 2**20, 50 * 2**20),
+        (7 * 2**20, None, 7 * 2**20, 7 * 2**20),
+        (None, 5 * 2**20, 5 * 2**20, 50 * 2**20),
+        (40 * 2**20, 7 * 2**20, 7 * 2**20, 40 * 2**20),
+    ],
+)
+def test_block_size(
+    storage,
+    filesystem_blocksize,
+    file_blocksize,
+    expected_blocksize,
+    expected_filesystem_blocksize,
+):
+    filesystem_kwargs = {
+        "account_name": storage.account_name,
+        "connection_string": CONN_STR,
+    }
+    if filesystem_blocksize is not None:
+        filesystem_kwargs["blocksize"] = filesystem_blocksize
+
+    file_kwargs = {
+        "path": "data/root/a/file.txt",
+        "mode": "wb",
+    }
+    if file_blocksize is not None:
+        file_kwargs["block_size"] = file_blocksize
+
+    fs = AzureBlobFileSystem(**filesystem_kwargs)
+    with fs.open(**file_kwargs) as f:
+        assert f.blocksize == expected_blocksize
+        assert fs.blocksize == expected_filesystem_blocksize
+
+
+@pytest.mark.parametrize(
+    "file_blocksize, expected_blocksize",
+    [
+        (None, 50 * 2**20),
+        (8 * 2**20, 8 * 2**20),
+    ],
+)
+def test_blocksize_from_blobfile(storage, file_blocksize, expected_blocksize):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    f = AzureBlobFile(
+        fs,
+        "data/root/a/file.txt",
+        block_size=file_blocksize,
+    )
+    assert f.blocksize == expected_blocksize
+
+
+def test_blobfile_default_blocksize(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=20 * 2**20,
+    )
+    f = AzureBlobFile(
+        fs,
+        "data/root/a/file.txt",
+    )
+    assert f.blocksize == 50 * 2**20

@@ -69,7 +69,7 @@ VERSIONED_BLOB_PROPERTIES = [
     "is_current_version",
 ]
 _ROOT_PATH = "/"
-_DEFAULT_BLOCK_SIZE = 4 * 1024 * 1024
+_DEFAULT_BLOCK_SIZE = 50 * 2**20
 
 _SOCKET_TIMEOUT_DEFAULT = object()
 
@@ -177,8 +177,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
     blocksize: int
-        The block size to use for download/upload operations. Defaults to hardcoded value of
-        ``BlockBlobService.MAX_BLOCK_SIZE``
+        The block size to use for download/upload operations. Defaults to 50 MiB
     client_id: str
         Client ID to use when authenticating using an AD Service Principal client/secret.
     client_secret: str
@@ -1863,7 +1862,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             What mode to open the file in - defaults to "rb"
 
         block_size: int
-            Size per block for multi-part downloads.
+            Size per block for multi-part uploads and downloads. This overrides the block_size parameter
+            and if not provided, defaults to the filesystem blocksize.
 
         autocommit: bool
             Whether or not to write to the destination directly
@@ -1879,6 +1879,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             is versioning aware and blob versioning is enabled on the releveant container.
         """
         logger.debug(f"_open:  {path}")
+        if block_size is None:
+            block_size = self.blocksize
         if not self.version_aware and version_id:
             raise ValueError(
                 "version_id cannot be specified if the filesystem "
@@ -1901,7 +1903,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 class AzureBlobFile(AbstractBufferedFile):
     """File-like operations on Azure Blobs"""
 
-    DEFAULT_BLOCK_SIZE = 5 * 2**20
+    DEFAULT_BLOCK_SIZE = _DEFAULT_BLOCK_SIZE
 
     def __init__(
         self,
@@ -2146,11 +2148,11 @@ class AzureBlobFile(AbstractBufferedFile):
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
-    def _get_chunks(self, data, chunk_size=1024**3):  # Keeping the chunk size as 1 GB
+    def _get_chunks(self, data):
         start = 0
         length = len(data)
         while start < length:
-            end = min(start + chunk_size, length)
+            end = min(start + self.blocksize, length)
             yield data[start:end]
             start = end
 
