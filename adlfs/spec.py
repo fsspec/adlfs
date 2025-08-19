@@ -2165,9 +2165,7 @@ class AzureBlobFile(AbstractBufferedFile):
                     length=len(chunk),
                 )
 
-    async def _async_upload_chunk(
-        self, final: bool = False, max_concurrency=None, **kwargs
-    ):
+    async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
         Write one part of a multi-block file upload
 
@@ -2186,7 +2184,7 @@ class AzureBlobFile(AbstractBufferedFile):
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
             try:
-                max_concurrency = max_concurrency or self.fs.max_concurrency or 1
+                max_concurrency = self.fs.max_concurrency
                 semaphore = asyncio.Semaphore(max_concurrency)
                 tasks = []
                 block_ids = self._block_list or []
