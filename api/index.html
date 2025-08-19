@@ -274,8 +274,7 @@ for the connection string format.</p>
 <dt><strong>credential: azure.core.credentials_async.AsyncTokenCredential or SAS token</strong></dt><dd><p>The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
 Can include an instance of TokenCredential class from azure.identity.aio.</p>
 </dd>
-<dt><strong>blocksize: int</strong></dt><dd><p>The block size to use for download/upload operations. Defaults to hardcoded value of
-<code class="docutils literal notranslate"><span class="pre">BlockBlobService.MAX_BLOCK_SIZE</span></code></p>
+<dt><strong>blocksize: int</strong></dt><dd><p>The block size to use for download/upload operations. Defaults to 50 MiB</p>
 </dd>
 <dt><strong>client_id: str</strong></dt><dd><p>Client ID to use when authenticating using an AD Service Principal client/secret.</p>
 </dd>
