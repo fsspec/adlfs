@@ -5,7 +5,7 @@ Unreleased
 
 * Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
   paths provided to `AzureBlobFileSystem` methods.
-
+* Added `AzureBlobFileSystem.rm_file()`
 
 2025.8.0
 --------
