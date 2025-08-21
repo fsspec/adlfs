@@ -2153,17 +2153,18 @@ class AzureBlobFile(AbstractBufferedFile):
         length = len(data)
         while start < length:
             end = min(start + self.blocksize, length)
-            yield data[start:end]
+            yield start, end
             start = end
 
-    async def _upload(self, chunk, block_id, semaphore):
+    async def _stage_block(self, data, start, end, block_id, semaphore):
         async with semaphore:
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
-                    data=chunk,
-                    length=len(chunk),
+                    data=data[start:end],
+                    length=end - start,
                 )
+                return block_id
 
     async def _async_upload_chunk(self, final: bool = False, **kwargs):
         """
@@ -2176,30 +2177,26 @@ class AzureBlobFile(AbstractBufferedFile):
             self.autocommit is True.
 
         """
-        data = self.buffer.getvalue()
-        length = len(data)
         block_id = self._get_block_id(self._block_list)
+        if len(self._block_list) == 0:
+            self._block_list.append(block_id)
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
+            data = memoryview(self.buffer.getvalue())
+            length = len(data)
             try:
-                max_concurrency = self.fs.max_concurrency
+                max_concurrency = self.fs.max_concurrency or 1
                 semaphore = asyncio.Semaphore(max_concurrency)
                 tasks = []
-                block_ids = self._block_list or []
-                start_idx = len(block_ids)
-                chunks = list(self._get_chunks(data))
-                for _ in range(len(chunks)):
-                    block_ids.append(block_id)
-                    block_id = self._get_block_id(block_ids)
-
-                if chunks:
-                    self._block_list = block_ids
-                for chunk, block_id in zip(chunks, block_ids[start_idx:]):
-                    tasks.append(self._upload(chunk, block_id, semaphore))
-
-                await asyncio.gather(*tasks)
+                for start, end in self._get_chunks(data):
+                    tasks.append(
+                        self._stage_block(data, start, end, block_id, semaphore)
+                    )
+                    block_id = self._get_block_id(self._block_list)
+                ids = await asyncio.gather(*tasks, return_exceptions=True)
+                self._block_list.extend(ids[1:])
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2242,6 +2239,8 @@ class AzureBlobFile(AbstractBufferedFile):
                 else:
                     raise RuntimeError(f"Failed to upload block: {e}!") from e
         elif self.mode == "ab":
+            data = self.buffer.getvalue()
+            length = len(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.upload_blob(
                     data=data,
