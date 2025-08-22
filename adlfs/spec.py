@@ -16,7 +16,7 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -2158,6 +2158,9 @@ class AzureBlobFile(AbstractBufferedFile):
             start = end
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
+        if self._sdk_supports_memoryview_for_writes():
+            # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+            data = memoryview(data)
         async with semaphore:
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
@@ -2178,14 +2181,9 @@ class AzureBlobFile(AbstractBufferedFile):
             self.autocommit is True.
 
         """
-        if self._sdk_supports_memoryview_for_writes() and self.mode in {"wb", "xb"}:
-            data = memoryview(self.buffer.getvalue())
-        else:
-            data = self.buffer.getvalue()
+        data = self.buffer.getvalue()
         length = len(data)
-        block_id = self._get_block_id(self._block_list)
-        if len(self._block_list) == 0:
-            self._block_list.append(block_id)
+        block_id = self._get_block_id()
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
@@ -2198,9 +2196,9 @@ class AzureBlobFile(AbstractBufferedFile):
                     tasks.append(
                         self._stage_block(data, start, end, block_id, semaphore)
                     )
-                    block_id = self._get_block_id(self._block_list)
+                    block_id = self._get_block_id()
                 ids = await asyncio.gather(*tasks)
-                self._block_list.extend(ids[1:])
+                self._block_list.extend(ids)
 
                 if final:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2217,7 +2215,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
-                if block_id == self._get_block_id([]) and length == 0 and final:
+                if len(self._block_list) == 0 and length == 0 and final:
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
@@ -2256,8 +2254,8 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
     @staticmethod
-    def _get_block_id(block_list: List[str]) -> str:
-        return uuid4().hex if block_list else "0" * 32
+    def _get_block_id() -> str:
+        return uuid4().hex
 
     _upload_chunk = sync_wrapper(_async_upload_chunk)
 
