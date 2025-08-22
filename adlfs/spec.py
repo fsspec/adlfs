@@ -2161,7 +2161,7 @@ class AzureBlobFile(AbstractBufferedFile):
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
-                    data=data[start:end],
+                    data=bytes(data[start:end]),
                     length=end - start,
                 )
                 return block_id
