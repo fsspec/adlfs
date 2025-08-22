@@ -9,9 +9,9 @@ import io
 import logging
 import os
 import re
+import sys
 import typing
 import warnings
-import sys
 import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -2189,7 +2189,7 @@ class AzureBlobFile(AbstractBufferedFile):
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
-        if self.mode in {"wb", "xb"}:  
+        if self.mode in {"wb", "xb"}:
             try:
                 max_concurrency = self.fs.max_concurrency or 1
                 semaphore = asyncio.Semaphore(max_concurrency)
@@ -2287,4 +2287,3 @@ class AzureBlobFile(AbstractBufferedFile):
         # We still want to leverage memorviews when we can to avoid unnecessary copies. So
         # we check the Python version to determine if we can use memoryviews for writes.
         return sys.version_info >= (3, 10)
-    
