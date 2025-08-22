@@ -2140,3 +2140,15 @@ def test_blobfile_default_blocksize(storage):
         "data/root/a/file.txt",
     )
     assert f.blocksize == 50 * 2**20
+
+
+def test_rm_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/top_file.txt"
+
+    fs.rm_file(path)
+    with pytest.raises(FileNotFoundError):
+        fs.ls(path)

@@ -1278,6 +1278,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     sync_wrapper(_rm_files)
 
+    async def _rm_file(self, path: str, **kwargs):
+        """Delete a file.
+
+        Parameters
+        ----------
+        path: str
+            File to delete.
+        """
+        container_name, p, _ = self.split_path(path)
+        try:
+            async with self.service_client.get_container_client(
+                container=container_name
+            ) as cc:
+                await cc.delete_blob(p)
+        except ResourceNotFoundError:
+            pass
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            raise RuntimeError("Failed to remove %s for %s", path, e) from e
+
+    rm_file = sync_wrapper(_rm_file)
+
     async def _separate_directory_markers_for_non_empty_directories(
         self, file_paths: typing.Iterable[str]
     ) -> typing.Tuple[typing.List[str], typing.List[str]]:
