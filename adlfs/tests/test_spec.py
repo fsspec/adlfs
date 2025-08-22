@@ -2222,13 +2222,3 @@ def test_rm_file(storage):
     fs.rm_file(path)
     with pytest.raises(FileNotFoundError):
         fs.ls(path)
-
-
-def test_rm_file_nonempty_directory(storage):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
-    )
-    path = "data/root/a/"
-    fs.rm_file(path)
-    assert fs.ls("data/root/a/") == ["data/root/a/file.txt"]

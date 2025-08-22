@@ -1287,9 +1287,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     sync_wrapper(_rm_files)
 
-    async def _rm_file(
-        self, path: typing.Union[str, typing.List[str]], delimiter: str = "/", **kwargs
-    ):
+    async def _rm_file(self, path: str, **kwargs):
         """Delete a file.
 
         Parameters
@@ -1297,12 +1295,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path: str
             File to delete.
         """
-        container_name, p, _ = self.split_path(path, delimiter=delimiter)
+        container_name, p, _ = self.split_path(path)
         try:
-            if p != "":
-                await self._rm_files(container_name, [p.rstrip(delimiter)])
-            else:
-                await self._rmdir(container_name)
+            async with self.service_client.get_container_client(
+                container=container_name
+            ) as cc:
+                await cc.delete_blob(p)
         except ResourceNotFoundError:
             pass
         except FileNotFoundError:
