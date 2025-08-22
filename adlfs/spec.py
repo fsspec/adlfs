@@ -11,6 +11,7 @@ import os
 import re
 import typing
 import warnings
+import sys
 import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -2161,7 +2162,7 @@ class AzureBlobFile(AbstractBufferedFile):
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
-                    data=bytes(data[start:end]),
+                    data=data[start:end],
                     length=end - start,
                 )
                 return block_id
@@ -2177,15 +2178,18 @@ class AzureBlobFile(AbstractBufferedFile):
             self.autocommit is True.
 
         """
+        if self._sdk_supports_memoryview_for_writes() and self.mode in {"wb", "xb"}:
+            data = memoryview(self.buffer.getvalue())
+        else:
+            data = self.buffer.getvalue()
+        length = len(data)
         block_id = self._get_block_id(self._block_list)
         if len(self._block_list) == 0:
             self._block_list.append(block_id)
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
-        if self.mode in {"wb", "xb"}:
-            data = memoryview(self.buffer.getvalue())
-            length = len(data)
+        if self.mode in {"wb", "xb"}:  
             try:
                 max_concurrency = self.fs.max_concurrency or 1
                 semaphore = asyncio.Semaphore(max_concurrency)
@@ -2239,8 +2243,6 @@ class AzureBlobFile(AbstractBufferedFile):
                 else:
                     raise RuntimeError(f"Failed to upload block: {e}!") from e
         elif self.mode == "ab":
-            data = self.buffer.getvalue()
-            length = len(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.upload_blob(
                     data=data,
@@ -2276,3 +2278,13 @@ class AzureBlobFile(AbstractBufferedFile):
         self.__dict__.update(state)
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
+
+    def _sdk_supports_memoryview_for_writes(self) -> bool:
+        # The SDK validates iterable bytes objects passed to its HTTP request layer
+        # expose an __iter__() method. However, memoryview objects did not expose an
+        # __iter__() method till Python 3.10.
+        #
+        # We still want to leverage memorviews when we can to avoid unnecessary copies. So
+        # we check the Python version to determine if we can use memoryviews for writes.
+        return sys.version_info >= (3, 10)
+    
