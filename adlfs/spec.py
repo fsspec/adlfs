@@ -2158,10 +2158,10 @@ class AzureBlobFile(AbstractBufferedFile):
             start = end
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
-        if self._sdk_supports_memoryview_for_writes():
-            # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
-            data = memoryview(data)
         async with semaphore:
+            if self._sdk_supports_memoryview_for_writes():
+                # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+                data = memoryview(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
@@ -2215,7 +2215,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 # which is throws an InvalidHeader error from Azure, so instead
                 # of staging a block, we directly upload the empty blob
                 # This isn't actually tested, since Azureite behaves differently.
-                if len(self._block_list) == 0 and length == 0 and final:
+                if not self._block_list and length == 0 and final:
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
