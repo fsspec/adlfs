@@ -1,6 +1,8 @@
 import datetime
 import math
 import os
+import random
+import string
 import tempfile
 from unittest import mock
 
@@ -2140,3 +2142,36 @@ def test_blobfile_default_blocksize(storage):
         "data/root/a/file.txt",
     )
     assert f.blocksize == 50 * 2**20
+
+
+@pytest.mark.parametrize(
+    "max_concurrency, blob_size, blocksize",
+    [
+        (None, 200 * 2**20, 5 * 2**20),
+        (1, 51 * 2**20, 50 * 2**20),
+        (4, 200 * 2**20, 50 * 2**20),
+        (4, 49 * 2**20, 50 * 2**20),
+        (4, 200 * 2**20, 5 * 2**20),
+    ],
+)
+def test_write_max_concurrency(storage, max_concurrency, blob_size, blocksize):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        blocksize=blocksize,
+        max_concurrency=max_concurrency,
+    )
+    data = os.urandom(blob_size)
+    container_name = "".join(random.choices(string.ascii_lowercase, k=10))
+    fs.mkdir(container_name)
+    path = f"{container_name}/blob.txt"
+
+    with fs.open(path, "wb") as f:
+        f.write(data)
+
+    assert fs.exists(path)
+    assert fs.size(path) == blob_size
+
+    with fs.open(path, "rb") as f:
+        assert f.read() == data
+    fs.rm(container_name, recursive=True)
