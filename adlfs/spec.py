@@ -2195,7 +2195,7 @@ class AzureBlobFile(AbstractBufferedFile):
                         self._stage_block(data, start, end, block_id, semaphore)
                     )
                     block_id = self._get_block_id(self._block_list)
-                ids = await asyncio.gather(*tasks, return_exceptions=True)
+                ids = await asyncio.gather(*tasks)
                 self._block_list.extend(ids[1:])
 
                 if final:
