@@ -1714,6 +1714,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             ),
                             max_concurrency=max_concurrency or self.max_concurrency,
                             **self._timeout_kwargs,
+                            **kwargs,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
