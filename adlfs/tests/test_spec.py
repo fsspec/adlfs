@@ -1776,7 +1776,7 @@ def test_find_with_prefix(storage):
     ]
 
 
-@pytest.mark.parametrize("proto", [None, "abfs://", "az://"])
+@pytest.mark.parametrize("proto", [None, "abfs://", "az://", "abfss://"])
 @pytest.mark.parametrize("path", ["container/file", "container/file?versionid=1234"])
 def test_strip_protocol(proto, path):
     assert (
@@ -1784,7 +1784,7 @@ def test_strip_protocol(proto, path):
     )
 
 
-@pytest.mark.parametrize("proto", ["", "abfs://", "az://"])
+@pytest.mark.parametrize("proto", ["", "abfs://", "az://", "abfss://"])
 @pytest.mark.parametrize("key", ["file", "dir/file"])
 @pytest.mark.parametrize("version_aware", [True, False])
 @pytest.mark.parametrize("version_id", [None, "1970-01-01T00:00:00.0000000Z"])
@@ -1803,6 +1803,41 @@ def test_split_path(storage, proto, key, version_aware, version_id):
         key,
         version_id if version_aware else None,
     )
+
+
+@pytest.mark.parametrize("unsupported_proto", ["unsupported", "wasb", "wasbs"])
+def test_can_update_default_supported_protocols(storage, mocker, unsupported_proto):
+    mocker.patch.object(
+        AzureBlobFileSystem,
+        "protocol",
+        AzureBlobFileSystem.protocol + (unsupported_proto,),
+    )
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+    assert unsupported_proto in fs.protocol
+    assert (
+        fs._strip_protocol(f"{unsupported_proto}://container/file") == "container/file"
+    )
+    assert fs.split_path(f"{unsupported_proto}://container/file") == (
+        "container",
+        "file",
+        None,
+    )
+
+
+def test_can_restrict_protocol_to_single_string(storage, mocker):
+    mocker.patch.object(AzureBlobFileSystem, "protocol", "abfs")
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+    assert fs.protocol == "abfs"
+    assert fs._strip_protocol("abfs://container/file") == "container/file"
+    assert fs.split_path("abfs://container/file") == ("container", "file", None)
 
 
 async def test_details_versioned(storage):
