@@ -3,6 +3,13 @@
 Unreleased
 ----------
 
+* Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
+  paths provided to `AzureBlobFileSystem` methods.
+
+
+2025.8.0
+--------
+
 - Added "adlfs" to library's default user agent
 - Fix issue where ``AzureBlobFile`` did not respect ``location_mode`` parameter
   from parent ``AzureBlobFileSystem`` when using SAS credentials and connecting to

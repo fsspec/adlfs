@@ -261,7 +261,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     ...                       'account_name': ACCOUNT_NAME, 'account_key': ACCOUNT_KEY,})
     """
 
-    protocol = "abfs"
+    protocol = ("abfs", "az", "abfss")
 
     def __init__(
         self,
@@ -398,7 +398,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
-        if not path.startswith(("abfs://", "az://", "abfss://")):
+        if isinstance(cls.protocol, str):
+            # The protocol can be either a string or a tuple of strings.
+            # While the default protocol is a tuple, a user can override the protocol to be a string.
+            # So, this handles the case where the user has overridden the protocol, restricting
+            # supported protocols to a single string.
+            protocol_startswith = (f"{cls.protocol}://",)
+        else:
+            protocol_startswith = tuple(f"{proto}://" for proto in cls.protocol)
+        if not path.startswith(protocol_startswith):
             path = path.lstrip("/")
             path = "abfs://" + path
         ops = infer_storage_options(path)
