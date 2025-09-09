@@ -2217,8 +2217,12 @@ def test_rm_file(storage):
         account_name=storage.account_name,
         connection_string=CONN_STR,
     )
-    path = "data/top_file.txt"
+    path = "data/test_file.txt"
+    with fs.open(path, "wb") as f:
+        f.write(b"test content")
 
+    assert fs.exists(path)
     fs.rm_file(path)
     with pytest.raises(FileNotFoundError):
         fs.ls(path)
+    assert not fs.exists(path)
