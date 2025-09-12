@@ -18,9 +18,8 @@ class OneLakeFileSystem(AsyncFileSystem):
     """
     Access Microsoft OneLake using Azure Data Lake Storage Gen2 API.
     
-    OneLake is the built-in, multi-cloud data lake for Microsoft Fabric that's automatically provisioned 
-    with every Microsoft Fabric tenant. It's built on top of Azure Data Lake Storage Gen2 and provides 
-    a unified data layer for analytics.
+    OneLake is the built-in, data lake for Microsoft Fabric that's automatically provisioned
+    with every Microsoft Fabric tenant.
     
     Parameters
     ----------
