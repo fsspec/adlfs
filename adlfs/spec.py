@@ -441,7 +441,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 # This is a OneLake URL, don't process it here
                 # The fsspec registry should route to OneLakeFileSystem
                 return out
-                
+
             match = re.match(
                 r"(?P<account_name>.+)\.(dfs|blob)\.core\.windows\.net", host
             )

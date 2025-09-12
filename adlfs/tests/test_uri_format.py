@@ -58,7 +58,7 @@ def test_account_name_from_url():
 
 def test_azure_storage_url_routing():
     """Test that AzureBlobFileSystem correctly handles Azure Storage URLs"""
-    
+
     # Test various Azure Storage URL formats
     azure_urls_and_expected = [
         ("abfss://container@account.dfs.core.windows.net/file", "account"),
@@ -66,7 +66,7 @@ def test_azure_storage_url_routing():
         ("abfss://container@account.blob.core.windows.net/file", "account"),
         ("az://container@account.blob.core.windows.net/file", "account"),
     ]
-    
+
     for url, expected_account in azure_urls_and_expected:
         kwargs = AzureBlobFileSystem._get_kwargs_from_urls(url)
         assert kwargs.get("account_name") == expected_account, f"Failed for URL: {url}"
@@ -74,13 +74,13 @@ def test_azure_storage_url_routing():
 
 def test_onelake_url_ignored_by_azure_blob_fs():
     """Test that AzureBlobFileSystem ignores OneLake URLs"""
-    
+
     # OneLake URLs should be ignored by AzureBlobFileSystem
     onelake_urls = [
         "abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/file",
         "abfs://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/file",
     ]
-    
+
     for url in onelake_urls:
         kwargs = AzureBlobFileSystem._get_kwargs_from_urls(url)
         # Should return empty dict (no account_name extracted)
@@ -89,22 +89,24 @@ def test_onelake_url_ignored_by_azure_blob_fs():
 
 def test_azure_vs_onelake_domain_routing():
     """Test that domain-based routing works correctly"""
-    
+
     # Azure Storage domains should be handled by AzureBlobFileSystem
     azure_domains = [
         "abfss://container@account.dfs.core.windows.net/file",
         "abfss://container@account.blob.core.windows.net/file",
     ]
-    
+
     for url in azure_domains:
         kwargs = AzureBlobFileSystem._get_kwargs_from_urls(url)
-        assert kwargs.get("account_name") == "account", f"Azure domain not handled correctly: {url}"
-    
+        assert (
+            kwargs.get("account_name") == "account"
+        ), f"Azure domain not handled correctly: {url}"
+
     # OneLake domains should be ignored by AzureBlobFileSystem
     onelake_domains = [
         "abfss://workspace@onelake.dfs.fabric.microsoft.com/lakehouse/file",
     ]
-    
+
     for url in onelake_domains:
         kwargs = AzureBlobFileSystem._get_kwargs_from_urls(url)
         assert kwargs == {}, f"OneLake domain should be ignored: {url}"
