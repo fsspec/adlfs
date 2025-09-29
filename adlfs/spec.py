@@ -1295,14 +1295,17 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path: str
             File to delete.
         """
-        container_name, p, _ = self.split_path(path)
+        container_name, p, version_id = self.split_path(path)
         try:
             async with self.service_client.get_container_client(
                 container=container_name
             ) as cc:
-                await cc.delete_blob(p)
-        except Exception as e:
-            raise RuntimeError("Failed to remove %s for %s", path, e) from e
+                await cc.delete_blob(p, version_id=version_id)
+        except ResourceNotFoundError as e:
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), path
+            ) from e
+        self.invalidate_cache(path)
         self.invalidate_cache(self._parent(path))
 
     async def _separate_directory_markers_for_non_empty_directories(

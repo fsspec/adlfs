@@ -2226,3 +2226,22 @@ def test_rm_file(storage):
     with pytest.raises(FileNotFoundError):
         fs.ls(path)
     assert not fs.exists(path)
+    assert path not in fs.dircache
+
+
+def test_rm_file_versioned_blob(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+    )
+    path = "data/test_file.txt?versionid=latest"
+    with fs.open(path, "wb") as f:
+        f.write(b"test content")
+
+    assert fs.exists(path)
+    fs.rm_file(path)
+    with pytest.raises(FileNotFoundError):
+        fs.ls(path)
+    assert not fs.exists(path)
+    assert path not in fs.dircache
