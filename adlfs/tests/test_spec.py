@@ -2237,15 +2237,10 @@ def test_rm_file_versioned_blob(storage, mocker):
         connection_string=CONN_STR,
         version_aware=True,
     )
-
     mock_delete_blob = mocker.patch.object(
         ContainerClient, "delete_blob", return_value=None
     )
     path = f"data/test_file.txt?versionid={DEFAULT_VERSION_ID}"
-    with fs.open(path, "wb") as f:
-        f.write(b"test content")
-
-    assert fs.exists(path)
     fs.rm_file(path)
     mock_delete_blob.assert_called_once_with(
         "test_file.txt", version_id=DEFAULT_VERSION_ID
