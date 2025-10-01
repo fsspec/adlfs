@@ -2229,19 +2229,34 @@ def test_rm_file(storage):
     assert path not in fs.dircache
 
 
-def test_rm_file_versioned_blob(storage):
+def test_rm_file_versioned_blob(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
         version_aware=True,
     )
-    path = "data/test_file.txt?versionid=latest"
+
+    mock_delete_blob = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
+    path = f"data/test_file.txt?versionid={DEFAULT_VERSION_ID}"
     with fs.open(path, "wb") as f:
         f.write(b"test content")
 
     assert fs.exists(path)
     fs.rm_file(path)
+    mock_delete_blob.assert_called_once_with(
+        "test_file.txt", version_id=DEFAULT_VERSION_ID
+    )
+
+
+def test_rm_file_does_not_exist(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/non_existent_file.txt"
     with pytest.raises(FileNotFoundError):
-        fs.ls(path)
-    assert not fs.exists(path)
-    assert path not in fs.dircache
+        fs.rm_file(path)
