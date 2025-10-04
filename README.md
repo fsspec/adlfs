@@ -1,4 +1,4 @@
-Filesystem interface to Azure-Datalake Gen1 and Gen2 Storage 
+Filesystem interface to Azure Blob and Data Lake Storage (Gen2) 
 ------------------------------------------------------------
 
 
@@ -16,20 +16,10 @@ or
 
 `conda install -c conda-forge adlfs`
 
-The `adl://` and `abfs://` protocols are included in fsspec's known_implementations registry 
+The `az://` and `abfs://` protocols are included in fsspec's known_implementations registry 
 in fsspec > 0.6.1, otherwise users must explicitly inform fsspec about the supported adlfs protocols.
 
-To use the Gen1 filesystem:
-
-```python
-import dask.dataframe as dd
-
-storage_options={'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
-
-dd.read_csv('adl://{STORE_NAME}/{FOLDER}/*.csv', storage_options=storage_options)
-```
-
-To use the Gen2 filesystem you can use the protocol `abfs` or `az`:
+To connect to Blobs or Azure Data Lake Storage (ADLS) Gen2 filesystem you can use the protocol `abfs` or `az`:
 
 ```python
 import dask.dataframe as dd
@@ -41,6 +31,7 @@ ddf = dd.read_parquet('az://{CONTAINER}/folder.parquet', storage_options=storage
 
 Accepted protocol / uri formats include:
 'PROTOCOL://container/path-part/file'
+'PROTOCOL://container@account.blob.core.windows.net/path-part/file'
 'PROTOCOL://container@account.dfs.core.windows.net/path-part/file'
 
 or optionally, if AZURE_STORAGE_ACCOUNT_NAME and an AZURE_STORAGE_<CREDENTIAL> is 
@@ -58,15 +49,9 @@ ddf = dd.read_parquet('az://nyctlc/green/puYear=2019/puMonth=*/*.parquet', stora
 
 Details
 -------
-The package includes pythonic filesystem implementations for both 
-Azure Datalake Gen1 and Azure Datalake Gen2, that facilitate 
-interactions between both Azure Datalake implementations and Dask.  This is done leveraging the 
-[intake/filesystem_spec](https://github.com/intake/filesystem_spec/tree/master/fsspec) base class and Azure Python SDKs.
+The package includes pythonic filesystem implementations for both [Azure Blobs](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-overview) and [Azure Datalake Gen2 (ADLS)](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction), that facilitate interactions between these implementations and Dask.  This is done leveraging the [intake/filesystem_spec](https://github.com/intake/filesystem_spec/tree/master/fsspec) base class and Azure Python SDKs.
 
-Operations against both Gen1 Datalake currently only work with an Azure ServicePrincipal
-with suitable credentials to perform operations on the resources of choice.
-
-Operations against the Gen2 Datalake are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
+Operations against Azure Blobs and ADLS Gen2 are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
 
 ### Setting credentials
 The `storage_options` can be instantiated with a variety of keyword arguments depending on the filesystem. The most commonly used arguments are:
@@ -81,7 +66,7 @@ The `storage_options` can be instantiated with a variety of keyword arguments de
    anonymous access will not be attempted. Otherwise the value for `anon` resolves to True.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
-For more argument details see all arguments for [`AzureBlobFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L328) and [`AzureDatalakeFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L69).
+For more argument details see all arguments for [`AzureBlobFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L328) 
 
 The following environmental variables can also be set and picked up for authentication:
 - "AZURE_STORAGE_CONNECTION_STRING"
@@ -102,3 +87,6 @@ The filesystem can be instantiated for different use cases based on a variety of
 The `AzureBlobFileSystem` accepts [all of the Async BlobServiceClient arguments](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python).
 
 By default, write operations create BlockBlobs in Azure, which, once written can not be appended. It is possible to create an AppendBlob using `mode="ab"` when creating and operating on blobs. Currently, AppendBlobs are not available if hierarchical namespaces are enabled.
+
+### Older versions
+ADLS Gen1 filesystem has officially been [retired](https://learn.microsoft.com/en-us/lifecycle/products/azure-data-lake-storage-gen1)). Hence the older versions of this package, which was designed to connect to ADLS Gen1 is obsolete.
