@@ -7,7 +7,7 @@ write_to = "adlfs/_version.py"
 
 [project]
 name = "adlfs"
-description = "Access Azure Datalake Gen1 with fsspec and dask"
+description = "Access Azure Blobs and Data Lake Storage (ADLS) Gen2 with fsspec and dask"
 readme = "README.md"
 license = {text = "BSD"}
 maintainers = [{ name = "Greg Hayes", email = "hayesgb@gmail.com"}]
