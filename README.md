@@ -66,7 +66,7 @@ The `storage_options` can be instantiated with a variety of keyword arguments de
    anonymous access will not be attempted. Otherwise the value for `anon` resolves to True.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
-For more argument details see all arguments for [`AzureBlobFileSystem` here](https://github.com/fsspec/adlfs/blob/f15c37a43afd87a04f01b61cd90294dd57181e1d/adlfs/spec.py#L328) 
+For more argument details see all arguments for [`AzureBlobFileSystem` here](https://fsspec.github.io/adlfs/api/#adlfs.AzureBlobFileSystem)
 
 The following environmental variables can also be set and picked up for authentication:
 - "AZURE_STORAGE_CONNECTION_STRING"
@@ -89,4 +89,4 @@ The `AzureBlobFileSystem` accepts [all of the Async BlobServiceClient arguments]
 By default, write operations create BlockBlobs in Azure, which, once written can not be appended. It is possible to create an AppendBlob using `mode="ab"` when creating and operating on blobs. Currently, AppendBlobs are not available if hierarchical namespaces are enabled.
 
 ### Older versions
-ADLS Gen1 filesystem has officially been [retired](https://learn.microsoft.com/en-us/lifecycle/products/azure-data-lake-storage-gen1)). Hence the older versions of this package, which was designed to connect to ADLS Gen1 is obsolete.
+ADLS Gen1 filesystem has officially been [retired](https://learn.microsoft.com/en-us/lifecycle/products/azure-data-lake-storage-gen1). Hence the adl:// method, which was designed to connect to ADLS Gen1 is obsolete.
