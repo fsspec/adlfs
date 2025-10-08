@@ -16,10 +16,9 @@ or
 
 `conda install -c conda-forge adlfs`
 
-The `az://` and `abfs://` protocols are included in fsspec's known_implementations registry 
-in fsspec > 0.6.1, otherwise users must explicitly inform fsspec about the supported adlfs protocols.
+The `az://` and `abfs://` protocols are included in fsspec's known_implementations registry.
 
-To connect to Blobs or Azure Data Lake Storage (ADLS) Gen2 filesystem you can use the protocol `abfs` or `az`:
+To connect to Azure Blob Storage or Azure Data Lake Storage (ADLS) Gen2 filesystem you can use the protocol `abfs` or `az`:
 
 ```python
 import dask.dataframe as dd
@@ -49,7 +48,7 @@ ddf = dd.read_parquet('az://nyctlc/green/puYear=2019/puMonth=*/*.parquet', stora
 
 Details
 -------
-The package includes pythonic filesystem implementations for both [Azure Blobs](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-overview) and [Azure Datalake Gen2 (ADLS)](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction), that facilitate interactions between these implementations and Dask.  This is done leveraging the [intake/filesystem_spec](https://github.com/intake/filesystem_spec/tree/master/fsspec) base class and Azure Python SDKs.
+The package includes pythonic filesystem implementations for both [Azure Blobs](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-overview) and [Azure Datalake Gen2 (ADLS)](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction), that facilitate interactions between these implementations and Dask.  This is done leveraging the [fsspec/filesystem_spec](https://github.com/fsspec/filesystem_spec) base class and Azure Python SDKs.
 
 Operations against Azure Blobs and ADLS Gen2 are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
 
