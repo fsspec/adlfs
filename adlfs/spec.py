@@ -2028,13 +2028,6 @@ class AzureBlobFile(AbstractBufferedFile):
                 size=self.size,
                 **cache_options,
             )
-            self.metadata = sync(
-                self.loop,
-                get_blob_metadata,
-                self.container_client,
-                self.blob,
-                version_id=self.version_id,
-            )
 
         else:
             self.metadata = metadata or {"is_directory": "false"}
@@ -2042,7 +2035,14 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
-
+    def get_metadata():
+            return self.metadata or sync(self.loop,
+                                         get_blob_metadata,
+                                         self.container_client,
+                                         self.blob,
+                                         version_id=self.version_id,
+                                        )
+            
     def _get_loop(self):
         try:
             # Need to confirm there is an event loop running in
