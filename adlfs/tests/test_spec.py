@@ -2210,3 +2210,48 @@ def test_write_max_concurrency(storage, max_concurrency, blob_size, blocksize):
     with fs.open(path, "rb") as f:
         assert f.read() == data
     fs.rm(container_name, recursive=True)
+
+
+def test_rm_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/test_file.txt"
+    with fs.open(path, "wb") as f:
+        f.write(b"test content")
+
+    assert fs.exists(path)
+    fs.rm_file(path)
+    with pytest.raises(FileNotFoundError):
+        fs.ls(path)
+    assert not fs.exists(path)
+    assert path not in fs.dircache
+
+
+def test_rm_file_versioned_blob(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+    )
+    mock_delete_blob = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
+    path = f"data/test_file.txt?versionid={DEFAULT_VERSION_ID}"
+    fs.rm_file(path)
+    mock_delete_blob.assert_called_once_with(
+        "test_file.txt", version_id=DEFAULT_VERSION_ID
+    )
+
+
+def test_rm_file_does_not_exist(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/non_existent_file.txt"
+    with pytest.raises(FileNotFoundError):
+        fs.rm_file(path)
