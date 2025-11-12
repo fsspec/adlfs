@@ -1440,6 +1440,38 @@ def test_put_file(storage, tmp_path):
     assert f3 == f4
 
 
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_with_content_settings(storage, put_method, tmp_path):
+    from azure.storage.blob import ContentSettings
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    src = tmp_path / "sample"
+    src.write_bytes(b"data")
+
+    content_settings = {"content_type": "application/json", "content_encoding": "UTF-8"}
+
+    container = "putdir-with-kwargs"
+    fs.mkdir(container)
+    getattr(fs, put_method)(
+        str(src),
+        f"{container}/sample.json",
+        content_settings=ContentSettings(**content_settings),
+    )
+
+    blob_info = fs.info(f"{container}/sample.json")
+    assert (
+        blob_info["content_settings"]["content_type"]
+        == content_settings["content_type"]
+    )
+    assert (
+        blob_info["content_settings"]["content_encoding"]
+        == content_settings["content_encoding"]
+    )
+
+
 def test_isdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
