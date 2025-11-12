@@ -6,6 +6,8 @@ Unreleased
 * Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
   paths provided to `AzureBlobFileSystem` methods.
 * Added `AzureBlobFileSystem.rm_file()`
+* Keyword arguments for `put` and `put_file` are now proxied to the Azure Blob SDK client to 
+  support specifying content settings, tags, and more.
 
 2025.8.0
 --------
