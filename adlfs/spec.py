@@ -2035,7 +2035,7 @@ class AzureBlobFile(AbstractBufferedFile):
             self.offset = None
             self.forced = False
             self.location = None
-    def get_metadata():
+    def get_metadata(self):
             return self.metadata or sync(self.loop,
                                          get_blob_metadata,
                                          self.container_client,
