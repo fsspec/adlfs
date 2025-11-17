@@ -5,12 +5,12 @@ repos:
     - id: isort
       language_version: python3
 -   repo: https://github.com/ambv/black
-    rev: 22.3.0
+    rev: 24.10.0
     hooks:
     - id: black
       language_version: python3
       args:
-        - --target-version=py38
+        - --target-version=py310
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
