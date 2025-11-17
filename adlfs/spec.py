@@ -9,7 +9,6 @@ import io
 import logging
 import os
 import re
-import sys
 import typing
 import warnings
 import weakref
@@ -2189,9 +2188,6 @@ class AzureBlobFile(AbstractBufferedFile):
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
         async with semaphore:
-            if self._sdk_supports_memoryview_for_writes():
-                # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
-                data = memoryview(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
@@ -2306,12 +2302,3 @@ class AzureBlobFile(AbstractBufferedFile):
         self.__dict__.update(state)
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
-
-    def _sdk_supports_memoryview_for_writes(self) -> bool:
-        # The SDK validates iterable bytes objects passed to its HTTP request layer
-        # expose an __iter__() method. However, memoryview objects did not expose an
-        # __iter__() method till Python 3.10.
-        #
-        # We still want to leverage memorviews when we can to avoid unnecessary copies. So
-        # we check the Python version to determine if we can use memoryviews for writes.
-        return sys.version_info >= (3, 10)

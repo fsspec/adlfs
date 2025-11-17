@@ -22,12 +22,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pyv: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        pyv: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         reqs: [ "latest" ]
         include:
-          - pyv: "3.9"
+          - pyv: "3.10"
             reqs: earliest
-          - pyv: "3.13"
+          - pyv: "3.14"
             reqs: dev
 
     steps:
