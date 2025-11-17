@@ -2188,6 +2188,8 @@ class AzureBlobFile(AbstractBufferedFile):
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
         async with semaphore:
+            # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+            data = memoryview(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
