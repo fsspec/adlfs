@@ -1440,6 +1440,38 @@ def test_put_file(storage, tmp_path):
     assert f3 == f4
 
 
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_with_content_settings(storage, put_method, tmp_path):
+    from azure.storage.blob import ContentSettings
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+
+    src = tmp_path / "sample"
+    src.write_bytes(b"data")
+
+    content_settings = {"content_type": "application/json", "content_encoding": "UTF-8"}
+
+    container = "putdir-with-kwargs"
+    fs.mkdir(container)
+    getattr(fs, put_method)(
+        str(src),
+        f"{container}/sample.json",
+        content_settings=ContentSettings(**content_settings),
+    )
+
+    blob_info = fs.info(f"{container}/sample.json")
+    assert (
+        blob_info["content_settings"]["content_type"]
+        == content_settings["content_type"]
+    )
+    assert (
+        blob_info["content_settings"]["content_encoding"]
+        == content_settings["content_encoding"]
+    )
+
+
 def test_isdir(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -2210,3 +2242,48 @@ def test_write_max_concurrency(storage, max_concurrency, blob_size, blocksize):
     with fs.open(path, "rb") as f:
         assert f.read() == data
     fs.rm(container_name, recursive=True)
+
+
+def test_rm_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/test_file.txt"
+    with fs.open(path, "wb") as f:
+        f.write(b"test content")
+
+    assert fs.exists(path)
+    fs.rm_file(path)
+    with pytest.raises(FileNotFoundError):
+        fs.ls(path)
+    assert not fs.exists(path)
+    assert path not in fs.dircache
+
+
+def test_rm_file_versioned_blob(storage, mocker):
+    from azure.storage.blob.aio import ContainerClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+    )
+    mock_delete_blob = mocker.patch.object(
+        ContainerClient, "delete_blob", return_value=None
+    )
+    path = f"data/test_file.txt?versionid={DEFAULT_VERSION_ID}"
+    fs.rm_file(path)
+    mock_delete_blob.assert_called_once_with(
+        "test_file.txt", version_id=DEFAULT_VERSION_ID
+    )
+
+
+def test_rm_file_does_not_exist(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/non_existent_file.txt"
+    with pytest.raises(FileNotFoundError):
+        fs.rm_file(path)

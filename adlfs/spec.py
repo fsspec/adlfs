@@ -9,7 +9,6 @@ import io
 import logging
 import os
 import re
-import sys
 import typing
 import warnings
 import weakref
@@ -1287,6 +1286,27 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     sync_wrapper(_rm_files)
 
+    async def _rm_file(self, path: str, **kwargs):
+        """Delete a file.
+
+        Parameters
+        ----------
+        path: str
+            File to delete.
+        """
+        container_name, p, version_id = self.split_path(path)
+        try:
+            async with self.service_client.get_container_client(
+                container=container_name
+            ) as cc:
+                await cc.delete_blob(p, version_id=version_id)
+        except ResourceNotFoundError as e:
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), path
+            ) from e
+        self.invalidate_cache(path)
+        self.invalidate_cache(self._parent(path))
+
     async def _separate_directory_markers_for_non_empty_directories(
         self, file_paths: typing.Iterable[str]
     ) -> typing.Tuple[typing.List[str], typing.List[str]]:
@@ -1723,6 +1743,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             ),
                             max_concurrency=max_concurrency or self.max_concurrency,
                             **self._timeout_kwargs,
+                            **kwargs,
                         )
                 self.invalidate_cache()
             except ResourceExistsError:
@@ -2167,9 +2188,8 @@ class AzureBlobFile(AbstractBufferedFile):
 
     async def _stage_block(self, data, start, end, block_id, semaphore):
         async with semaphore:
-            if self._sdk_supports_memoryview_for_writes():
-                # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
-                data = memoryview(data)
+            # Use memoryview to avoid making copies of the bytes when we splice for partitioned uploads
+            data = memoryview(data)
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
@@ -2284,12 +2304,3 @@ class AzureBlobFile(AbstractBufferedFile):
         self.__dict__.update(state)
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
-
-    def _sdk_supports_memoryview_for_writes(self) -> bool:
-        # The SDK validates iterable bytes objects passed to its HTTP request layer
-        # expose an __iter__() method. However, memoryview objects did not expose an
-        # __iter__() method till Python 3.10.
-        #
-        # We still want to leverage memorviews when we can to avoid unnecessary copies. So
-        # we check the Python version to determine if we can use memoryviews for writes.
-        return sys.version_info >= (3, 10)
