@@ -2233,9 +2233,11 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.commit_block_list(
+                        response = await bc.commit_block_list(
                             block_list=block_list, metadata=self.metadata, **commit_kw
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
             except ResourceExistsError as e:
                 raise FileExistsError(self.path) from e
             except Exception as e:
@@ -2247,11 +2249,13 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.upload_blob(
+                        response = await bc.upload_blob(
                             data=data,
                             metadata=self.metadata,
                             overwrite=(self.mode == "wb"),
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2259,23 +2263,27 @@ class AzureBlobFile(AbstractBufferedFile):
                         blob=self.blob
                     ) as bc:
                         try:
-                            await bc.commit_block_list(
+                            response = await bc.commit_block_list(
                                 block_list=block_list,
                                 metadata=self.metadata,
                                 **commit_kw,
                             )
+                            if self.fs.version_aware:
+                                self.version_id = response.get("version_id")
                         except ResourceExistsError:
                             raise FileExistsError(self.path)
                 else:
                     raise RuntimeError(f"Failed to upload block: {e}!") from e
         elif self.mode == "ab":
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                await bc.upload_blob(
+                response = await bc.upload_blob(
                     data=data,
                     length=length,
                     blob_type=BlobType.AppendBlob,
                     metadata=self.metadata,
                 )
+                if self.fs.version_aware:
+                    self.version_id = response.get("version_id")
         else:
             raise ValueError(
                 "File operation modes other than wb, xb or ab are not supported for upload_chunk"
