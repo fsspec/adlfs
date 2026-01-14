@@ -2287,3 +2287,66 @@ def test_rm_file_does_not_exist(storage):
     path = "data/non_existent_file.txt"
     with pytest.raises(FileNotFoundError):
         fs.rm_file(path)
+
+
+@pytest.mark.parametrize(
+    "input_metadata,expected_metadata",
+    [
+        (None, {"is_directory": "false"}),
+        ({"custom": "value"}, {"custom": "value"}),
+    ],
+    ids=["none-uses-default", "custom-metadata"],
+)
+def test_lazy_metadata_write_mode(storage, input_metadata, expected_metadata):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with fs.open("data/test_metadata_write.txt", mode="wb", metadata=input_metadata) as f:
+        assert f.metadata == expected_metadata
+
+
+def test_lazy_metadata_not_fetched_on_init(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
+        mock_get_metadata.return_value = {"test": "metadata"}
+
+        with fs.open("data/root/a/file.txt", mode="rb"):
+            mock_get_metadata.assert_not_called()
+
+
+def test_lazy_metadata_fetched_on_access(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
+            mock_get_metadata.return_value = {"fetched": "metadata"}
+
+            result = f.metadata
+
+            mock_get_metadata.assert_called_once()
+            assert result == {"fetched": "metadata"}
+
+
+def test_lazy_metadata_cached(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
+            mock_get_metadata.return_value = {"cached": "metadata"}
+
+            for _ in range(3):
+                assert f.metadata == {"cached": "metadata"}
+
+            assert mock_get_metadata.call_count == 1
