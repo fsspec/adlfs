@@ -2303,7 +2303,9 @@ def test_lazy_metadata_write_mode(storage, input_metadata, expected_metadata):
         connection_string=CONN_STR,
     )
 
-    with fs.open("data/test_metadata_write.txt", mode="wb", metadata=input_metadata) as f:
+    with fs.open(
+        "data/test_metadata_write.txt", mode="wb", metadata=input_metadata
+    ) as f:
         assert f.metadata == expected_metadata
 
 
