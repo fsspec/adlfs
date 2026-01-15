@@ -2309,46 +2309,49 @@ def test_lazy_metadata_write_mode(storage, input_metadata, expected_metadata):
         assert f.metadata == expected_metadata
 
 
-def test_lazy_metadata_not_fetched_on_init(storage):
+def test_lazy_metadata_not_fetched_on_init(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
     )
 
-    with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
-        mock_get_metadata.return_value = {"test": "metadata"}
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"test": "metadata"}
+    )
 
-        with fs.open("data/root/a/file.txt", mode="rb"):
-            mock_get_metadata.assert_not_called()
+    with fs.open("data/root/a/file.txt", mode="rb"):
+        mock_get_metadata.assert_not_called()
 
 
-def test_lazy_metadata_fetched_on_access(storage):
+def test_lazy_metadata_fetched_on_access(storage, mocker):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name,
         connection_string=CONN_STR,
     )
 
-    with fs.open("data/root/a/file.txt", mode="rb") as f:
-        with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
-            mock_get_metadata.return_value = {"fetched": "metadata"}
-
-            result = f.metadata
-
-            mock_get_metadata.assert_called_once()
-            assert result == {"fetched": "metadata"}
-
-
-def test_lazy_metadata_cached(storage):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name,
-        connection_string=CONN_STR,
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"fetched": "metadata"}
     )
 
     with fs.open("data/root/a/file.txt", mode="rb") as f:
-        with mock.patch("adlfs.spec.get_blob_metadata") as mock_get_metadata:
-            mock_get_metadata.return_value = {"cached": "metadata"}
+        result = f.metadata
 
-            for _ in range(3):
-                assert f.metadata == {"cached": "metadata"}
+        mock_get_metadata.assert_called_once()
+        assert result == {"fetched": "metadata"}
 
-            assert mock_get_metadata.call_count == 1
+
+def test_lazy_metadata_cached(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"cached": "metadata"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        for _ in range(3):
+            assert f.metadata == {"cached": "metadata"}
+
+        assert mock_get_metadata.call_count == 1
