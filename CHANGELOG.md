@@ -3,6 +3,8 @@
 Unreleased
 ----------
 
+* Lazy-load `metadata` property on `AzureBlobFile` to avoid fetching metadata on file open
+  when it is not accessed.
 * Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
   paths provided to `AzureBlobFileSystem` methods.
 * Added `AzureBlobFileSystem.rm_file()`
