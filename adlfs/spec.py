@@ -2061,6 +2061,9 @@ class AzureBlobFile(AbstractBufferedFile):
     def metadata(self):
         """Lazy-loaded metadata for the blob."""
         if self._metadata is None:
+            # NOTE: self.details["metadata"] contains the same data and is already
+            # fetched during __init__ for read mode. Once we build confidence that
+            # details always contains metadata, we can avoid this sync call entirely.
             self._metadata = sync(
                 self.loop,
                 get_blob_metadata,
@@ -2069,6 +2072,11 @@ class AzureBlobFile(AbstractBufferedFile):
                 version_id=self.version_id,
             )
         return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        """Set metadata for the blob."""
+        self._metadata = value
 
     def _get_loop(self):
         try:

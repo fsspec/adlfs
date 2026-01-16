@@ -2355,3 +2355,20 @@ def test_lazy_metadata_cached(storage, mocker):
             assert f.metadata == {"cached": "metadata"}
 
         assert mock_get_metadata.call_count == 1
+
+
+def test_metadata_setter(storage, mocker):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    mock_get_metadata = mocker.patch(
+        "adlfs.spec.get_blob_metadata", return_value={"should": "not be called"}
+    )
+
+    with fs.open("data/root/a/file.txt", mode="rb") as f:
+        f.metadata = {"custom": "value"}
+
+        assert f.metadata == {"custom": "value"}
+        mock_get_metadata.assert_not_called()
