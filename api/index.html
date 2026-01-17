@@ -5,10 +5,10 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex/"><link rel="search" title="Search" href="../search/"><link rel="prev" title="adlfs" href="../">
 
-    <!-- Generated with Sphinx 8.2.3 and Furo 2025.09.25 -->
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
         <title>API Reference - adlfs documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
-    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=580074bf" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
     
     
@@ -235,7 +235,7 @@
 <p><code class="docutils literal notranslate"><span class="pre">adlfs.AzureBlobFileSystem</span></code> provides an interface for Azure Blob Storage.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">adlfs.</span></span><span class="sig-name descname"><span class="pre">AzureBlobFileSystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">adlfs.</span></span><span class="sig-name descname"><span class="pre">AzureBlobFileSystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AsyncFileSystem</span></code></p>
 <p>Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access</p>
 <dl class="field-list simple">
@@ -515,7 +515,7 @@ Note that the account_name parameter is still required.</p>
 <td><p>Create empty file, or update timestamp</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">transaction_type</span></code></p></td>
-<td><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">Transaction</span></code></p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">tree</span></code>([path, recursion_limit, max_display, ...])</p></td>
 <td><p>Return a tree-like structure of the filesystem starting from the given path as a string.</p></td>
@@ -834,7 +834,7 @@ efficient when you don’t need the operation.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="adlfs.AzureBlobFile">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">adlfs.</span></span><span class="sig-name descname"><span class="pre">AzureBlobFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#adlfs.AzureBlobFileSystem" title="adlfs.spec.AzureBlobFileSystem"><span class="pre">AzureBlobFileSystem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autocommit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'bytes'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_options</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFile" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">adlfs.</span></span><span class="sig-name descname"><span class="pre">AzureBlobFile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#adlfs.AzureBlobFileSystem" title="adlfs.spec.AzureBlobFileSystem"><span class="pre">AzureBlobFileSystem</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autocommit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'bytes'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache_options</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFile" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractBufferedFile</span></code></p>
 <p>File-like operations on Azure Blobs</p>
 <dl class="field-list simple">
@@ -843,6 +843,8 @@ efficient when you don’t need the operation.</p>
 <dt><strong>closed</strong></dt><dd></dd>
 <dt><strong>details</strong></dt><dd></dd>
 <dt><strong>full_name</strong></dt><dd></dd>
+<dt><a class="reference internal" href="#adlfs.AzureBlobFile.metadata" title="adlfs.AzureBlobFile.metadata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">metadata</span></code></a></dt><dd><p>Lazy-loaded metadata for the blob.</p>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -945,6 +947,12 @@ Tries credentials first, then connection string and finally account key</p>
 </dl>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="adlfs.AzureBlobFile.metadata">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">metadata</span></span><a class="headerlink" href="#adlfs.AzureBlobFile.metadata" title="Link to this definition">¶</a></dt>
+<dd><p>Lazy-loaded metadata for the blob.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -1025,6 +1033,7 @@ Tries credentials first, then connection string and finally account key</p>
 <li><a class="reference internal" href="#adlfs.AzureBlobFile"><code class="docutils literal notranslate"><span class="pre">AzureBlobFile</span></code></a><ul>
 <li><a class="reference internal" href="#adlfs.AzureBlobFile.close"><code class="docutils literal notranslate"><span class="pre">AzureBlobFile.close()</span></code></a></li>
 <li><a class="reference internal" href="#adlfs.AzureBlobFile.connect_client"><code class="docutils literal notranslate"><span class="pre">AzureBlobFile.connect_client()</span></code></a></li>
+<li><a class="reference internal" href="#adlfs.AzureBlobFile.metadata"><code class="docutils literal notranslate"><span class="pre">AzureBlobFile.metadata</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -1039,8 +1048,8 @@ Tries credentials first, then connection string and finally account key</p>
     </aside>
   </div>
 </div><script src="../_static/documentation_options.js?v=187304be"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
     </body>
 </html>
