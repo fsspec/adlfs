@@ -2022,7 +2022,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 FutureWarning,
             )
             cache_options["trim"] = kwargs.pop("trim")
-        self.metadata = None
+        self._metadata = None
         self.kwargs = kwargs
 
         if self.mode not in {"ab", "rb", "wb", "xb"}:
@@ -2049,20 +2049,34 @@ class AzureBlobFile(AbstractBufferedFile):
                 size=self.size,
                 **cache_options,
             )
-            self.metadata = sync(
+
+        else:
+            self._metadata = metadata or {"is_directory": "false"}
+            self.buffer = io.BytesIO()
+            self.offset = None
+            self.forced = False
+            self.location = None
+
+    @property
+    def metadata(self):
+        """Lazy-loaded metadata for the blob."""
+        if self._metadata is None:
+            # NOTE: self.details["metadata"] contains the same data and is already
+            # fetched during __init__ for read mode. Once we build confidence that
+            # details always contains metadata, we can avoid this sync call entirely.
+            self._metadata = sync(
                 self.loop,
                 get_blob_metadata,
                 self.container_client,
                 self.blob,
                 version_id=self.version_id,
             )
+        return self._metadata
 
-        else:
-            self.metadata = metadata or {"is_directory": "false"}
-            self.buffer = io.BytesIO()
-            self.offset = None
-            self.forced = False
-            self.location = None
+    @metadata.setter
+    def metadata(self, value):
+        """Set metadata for the blob."""
+        self._metadata = value
 
     def _get_loop(self):
         try:
