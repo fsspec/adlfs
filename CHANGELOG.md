@@ -15,6 +15,8 @@ Unreleased
   support specifying content settings, tags, and more.
 * Removed support for Python 3.9 and added support for Python 3.14.
 * Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
+* Changed default value of `anon` to `False`. Explicitly pass in `True` to use anonymous
+  credentials.
 
 2025.8.0
 --------

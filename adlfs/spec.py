@@ -317,6 +317,18 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 "0",
                 "f",
             ]
+            if self.anon:
+                if (
+                    self.sas_token is None
+                    and self.account_key is None
+                    and credential is None
+                ):
+                    warnings.warn(
+                        "The default for anonymous access will be changing to False. To continue "
+                        "using anonymous credentials, please set anon=True. ",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
         self.location_mode = location_mode
         self.credential = credential
         if account_host:
