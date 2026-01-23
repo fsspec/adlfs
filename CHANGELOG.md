@@ -3,6 +3,9 @@
 Unreleased
 ----------
 
+* Update ADLS Gen 1 deprecation warning to inform of removal of all ADLS Gen 1 features in an upcoming release.
+  If using ADLS Gen 1 interfaces, it is recommended to migrate to the `az://` protocol and/or
+  `adlfs.AzureBlobFileSystem` class which support Azure Blob Storage and Azure Data Lake Storage Gen2.
 * Lazy-load `metadata` property on `AzureBlobFile` to avoid fetching metadata on file open
   when it is not accessed.
 * Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
