@@ -63,8 +63,10 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
         warn(
-            f"Microsoft has announced end of life for Azure Datalake Gen1.  {self.__class__.__name__}"
-            " will be moved to an optional install in a future release of adlfs",
+            "Azure Data Lake Storage (ADLS) Gen1 has been retired since February 29, 2024. "
+            "All ADLS Gen 1 features offered by adlfs will be removed in an upcoming release. "
+            "It is recommended to use the az:// protocol and/or adlfs.AzureBlobFileSystem class "
+            "which support Azure Blob Storage and Azure Data Lake Storage Gen2.",
             DeprecationWarning,
             stacklevel=2,
         )
