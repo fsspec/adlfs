@@ -14,6 +14,7 @@ Unreleased
 * Keyword arguments for `put` and `put_file` are now proxied to the Azure Blob SDK client to 
   support specifying content settings, tags, and more.
 * Removed support for Python 3.9 and added support for Python 3.14.
+* Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
 
 2025.8.0
 --------
