@@ -30,6 +30,7 @@ dependencies = [
     "azure-identity",
     "azure-storage-blob>=12.17.0",
     "fsspec>=2023.12.0",
+    # aiohttp is a required dependency for async operations when using azure-storage-blob
     "aiohttp>=3.7.0",
 ]
 
