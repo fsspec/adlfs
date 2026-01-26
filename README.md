@@ -4,6 +4,7 @@ Filesystem interface to Azure Blob and Data Lake Storage (Gen2)
 
 [![PyPI version shields.io](https://img.shields.io/pypi/v/adlfs.svg)](https://pypi.python.org/pypi/adlfs/)
 [![Latest conda-forge version](https://img.shields.io/conda/vn/conda-forge/adlfs?logo=conda-forge)](https://anaconda.org/conda-forge/aldfs)
+[![API Reference](https://img.shields.io/badge/API-Reference-blue)](https://fsspec.github.io/adlfs/api/)
 
 Quickstart
 ----------
