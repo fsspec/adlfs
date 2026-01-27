@@ -317,7 +317,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 "0",
                 "f",
             ]
-            if self.anon:
+            if self.anon and os.getenv("AZURE_STORAGE_ANON") is None:
                 if (
                     self.sas_token is None
                     and self.account_key is None
