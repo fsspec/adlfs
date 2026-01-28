@@ -4,6 +4,7 @@ import os
 import random
 import string
 import tempfile
+import warnings
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -2372,3 +2373,38 @@ def test_metadata_setter(storage, mocker):
 
         assert f.metadata == {"custom": "value"}
         mock_get_metadata.assert_not_called()
+
+
+def test_anon_default_warning(storage):
+    with pytest.warns(DeprecationWarning, match="The default for anonymous access"):
+        AzureBlobFileSystem(
+            account_name=storage.account_name,
+        )
+
+
+@pytest.mark.parametrize(
+    "anon,env_value,credential,sas_token,account_key",
+    [
+        (None, None, "credential", None, None),
+        (None, None, None, "sas_token", None),
+        (None, None, None, None, "account_key"),
+        (None, "true", None, None, None),
+        (None, "false", None, None, None),
+        (None, "true", "credential", None, None),
+        (True, None, None, None, None),
+        (False, None, None, None, None),
+        (True, None, "credential", None, None),
+    ],
+)
+def test_no_anon_warning(storage, anon, env_value, credential, sas_token, account_key):
+    env_var = {} if env_value is None else {"AZURE_STORAGE_ANON": env_value}
+    with mock.patch.dict(os.environ, env_var):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            AzureBlobFileSystem(
+                account_name=storage.account_name,
+                credential=credential,
+                sas_token=sas_token,
+                account_key=account_key,
+                anon=anon,
+            )

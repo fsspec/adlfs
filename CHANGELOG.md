@@ -15,6 +15,9 @@ Unreleased
   support specifying content settings, tags, and more.
 * Removed support for Python 3.9 and added support for Python 3.14.
 * Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
+* **Breaking:** Warning added for default anonymous use. By default, adlfs will require credentials starting
+  in a future release. Anyone requiring anonymous access should explicitly set `anon=True` when creating 
+  `AzureBlobFileSystem`.
 
 2025.8.0
 --------
