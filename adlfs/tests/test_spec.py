@@ -4,6 +4,7 @@ import os
 import random
 import string
 import tempfile
+import warnings
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -2372,3 +2373,48 @@ def test_metadata_setter(storage, mocker):
 
         assert f.metadata == {"custom": "value"}
         mock_get_metadata.assert_not_called()
+
+
+def test_anon_default_warning(storage):
+    with pytest.warns(
+        DeprecationWarning, match="AzureBlobFileSystem will no longer be defaulting"
+    ):
+        AzureBlobFileSystem(
+            account_name=storage.account_name,
+        )
+
+
+@pytest.mark.parametrize(
+    "env_vars,storage_options",
+    [
+        (None, {"credential": "credential"}),
+        (None, {"sas_token": "sas_token"}),
+        (None, {"account_key": "account_key"}),
+        ({"AZURE_STORAGE_ANON": "true"}, {}),
+        ({"AZURE_STORAGE_ANON": "false"}, {}),
+        ({"AZURE_STORAGE_ANON": "true", "credential": "credential"}, {}),
+        (None, {"anon": True}),
+        (None, {"anon": False}),
+        (None, {"anon": True, "credential": "credential"}),
+        (None, {"connection_string": CONN_STR}),
+        (None, {"client_id": "client_id"}),
+        ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
+        ({"AZURE_STORAGE_CLIENT_ID": "client_id"}, {}),
+        ({"AZURE_STORAGE_ACCOUNT_KEY": KEY}, {}),
+        ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
+    ],
+)
+def test_no_anon_warning(storage, env_vars, storage_options, mocker):
+    mocker.patch.object(
+        AzureBlobFileSystem,
+        "_get_credential_from_service_principal",
+        return_value=(None, None),
+    )
+    env_var = {} if env_vars is None else env_vars
+    with mock.patch.dict(os.environ, env_var):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            AzureBlobFileSystem(
+                account_name=storage.account_name,
+                **storage_options,
+            )
