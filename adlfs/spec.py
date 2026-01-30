@@ -323,10 +323,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     and self.account_key is None
                     and credential is None
                     and self.connection_string is None
+                    and self.client_id is None
                 ):
                     warnings.warn(
-                        "The default for anonymous access will be changing to False. To continue "
-                        "using anonymous credentials, please set anon=True. ",
+                        "AzureBlobFileSystem will no longer be defaulting to anonymous authentication in an "
+                        "upcoming release. To continue using anonymous credentials, please set anon=True. ",
                         DeprecationWarning,
                         stacklevel=2,
                     )

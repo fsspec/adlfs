@@ -2376,35 +2376,45 @@ def test_metadata_setter(storage, mocker):
 
 
 def test_anon_default_warning(storage):
-    with pytest.warns(DeprecationWarning, match="The default for anonymous access"):
+    with pytest.warns(
+        DeprecationWarning, match="AzureBlobFileSystem will no longer be defaulting"
+    ):
         AzureBlobFileSystem(
             account_name=storage.account_name,
         )
 
 
 @pytest.mark.parametrize(
-    "anon,env_value,credential,sas_token,account_key",
+    "env_vars,storage_options",
     [
-        (None, None, "credential", None, None),
-        (None, None, None, "sas_token", None),
-        (None, None, None, None, "account_key"),
-        (None, "true", None, None, None),
-        (None, "false", None, None, None),
-        (None, "true", "credential", None, None),
-        (True, None, None, None, None),
-        (False, None, None, None, None),
-        (True, None, "credential", None, None),
+        (None, {"credential": "credential"}),
+        (None, {"sas_token": "sas_token"}),
+        (None, {"account_key": "account_key"}),
+        ({"AZURE_STORAGE_ANON": "true"}, {}),
+        ({"AZURE_STORAGE_ANON": "false"}, {}),
+        ({"AZURE_STORAGE_ANON": "true", "credential": "credential"}, {}),
+        (None, {"anon": True}),
+        (None, {"anon": False}),
+        (None, {"anon": True, "credential": "credential"}),
+        (None, {"connection_string": CONN_STR}),
+        (None, {"client_id": "client_id"}),
+        ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
+        ({"AZURE_STORAGE_CLIENT_ID": "client_id"}, {}),
+        ({"AZURE_STORAGE_ACCOUNT_KEY": KEY}, {}),
+        ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
     ],
 )
-def test_no_anon_warning(storage, anon, env_value, credential, sas_token, account_key):
-    env_var = {} if env_value is None else {"AZURE_STORAGE_ANON": env_value}
+def test_no_anon_warning(storage, env_vars, storage_options, mocker):
+    mocker.patch.object(
+        AzureBlobFileSystem,
+        "_get_credential_from_service_principal",
+        return_value=(None, None),
+    )
+    env_var = {} if env_vars is None else env_vars
     with mock.patch.dict(os.environ, env_var):
         with warnings.catch_warnings():
             warnings.simplefilter("error", DeprecationWarning)
             AzureBlobFileSystem(
                 account_name=storage.account_name,
-                credential=credential,
-                sas_token=sas_token,
-                account_key=account_key,
-                anon=anon,
+                **storage_options,
             )
