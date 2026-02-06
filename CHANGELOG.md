@@ -13,6 +13,7 @@ Unreleased
 * Added `AzureBlobFileSystem.rm_file()`
 * Keyword arguments for `put` and `put_file` are now proxied to the Azure Blob SDK client to 
   support specifying content settings, tags, and more.
+* Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
 * Removed support for Python 3.9 and added support for Python 3.14.
 * Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
 * **Breaking:** Warning added for default anonymous use. By default, adlfs will require credentials starting
