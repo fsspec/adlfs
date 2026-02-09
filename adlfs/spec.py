@@ -15,7 +15,7 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, List
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -124,7 +124,7 @@ def _coalesce_version_id(*args) -> Optional[str]:
 def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
-    credential: Optional[str] = None,
+    credential: Optional[Union[str, "AsyncTokenCredential"]] = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
@@ -267,7 +267,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: str = None,
+        credential: Optional[Union[str, "AsyncTokenCredential"]] = None, # from azure.identity.aio
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
@@ -1195,7 +1195,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _rm(
         self,
-        path: typing.Union[str, typing.List[str]],
+        path: Union[str, List[str]],
         recursive: bool = False,
         maxdepth: typing.Optional[int] = None,
         delimiter: str = "/",
