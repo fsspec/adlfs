@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, annotations, division, print_function
 
 import asyncio
 import errno
@@ -15,7 +15,7 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import Optional, Tuple, Union, List
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -36,6 +36,9 @@ from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_wrapper
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
+
+if TYPE_CHECKING:
+    from azure.core.credentials_async import AsyncTokenCredential
 
 from .utils import (
     __version__,
@@ -267,7 +270,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: Optional[Union[str, "AsyncTokenCredential"]] = None, # from azure.identity.aio
+        credential: Optional[Union[str, "AsyncTokenCredential"]] = None,
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
