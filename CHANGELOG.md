@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- Added `**kwargs` to `AzureBlobFileSystem.exists()`
 
 2026.2.0
 --------
