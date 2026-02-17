@@ -37,20 +37,28 @@ For anonymous authentication, simply provide the storage account name:
 
 For operations to succeed, the storage container must allow anonymous access.
 
-For authenticated access, you have several options:
+For authenticated access, the preferred approach is to set `anon=False` and let adlfs resolve
+credentials automatically using Azure's `DefaultAzureCredential`:
 
-1. Using a `SAS_TOKEN`
-2. Using an account key
-3. Using a managed identity
+```{code-block} python
+>>> fs = adlfs.AzureBlobFileSystem(account_name="ai4edataeuwest", anon=False)
+```
 
-Regardless of the method your using, you provide the values using the `credential` argument.
+You can also authenticate with a SAS token or account key via the `credential` argument:
 
 ```{code-block} python
 >>> fs = adlfs.AzureBlobFileSystem(account_name="ai4edataeuwest", credential=SAS_TOKEN)
 >>> fs = adlfs.AzureBlobFileSystem(account_name="ai4edataeuwest", credential=ACCOUNT_KEY)
+```
+
+If you need to pass a credential object directly, use an **async** credential from
+`azure.identity.aio`:
+
+```{code-block} python
+>>> from azure.identity.aio import DefaultAzureCredential
 >>> fs = adlfs.AzureBlobFileSystem(
 ...     account_name="ai4edataeuwest",
-...     credential=azure.identity.DefaultAzureCredential()
+...     credential=DefaultAzureCredential()
 ... )
 ```
 

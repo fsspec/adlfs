@@ -18,6 +18,12 @@ from glob import has_magic
 from typing import Optional, Tuple
 from uuid import uuid4
 
+from azure.core.credentials import (
+    AzureNamedKeyCredential,
+    AzureSasCredential,
+    TokenCredential,
+)
+from azure.core.credentials_async import AsyncTokenCredential
 from azure.core.exceptions import (
     HttpResponseError,
     ResourceExistsError,
@@ -48,6 +54,14 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+CredentialType = (
+    str
+    | dict[str, str]
+    | AzureNamedKeyCredential
+    | AzureSasCredential
+    | AsyncTokenCredential
+)
 
 FORWARDED_BLOB_PROPERTIES = [
     "metadata",
@@ -124,7 +138,7 @@ def _coalesce_version_id(*args) -> Optional[str]:
 def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
-    credential: Optional[str] = None,
+    credential: CredentialType | None = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
@@ -176,6 +190,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     credential: azure.core.credentials_async.AsyncTokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
+        In most cases, prefer ``anon=False`` to let adlfs resolve credentials automatically.
     blocksize: int
         The block size to use for download/upload operations. Defaults to 50 MiB
     client_id: str
@@ -267,7 +282,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: str = None,
+        credential: CredentialType | None = None,
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
@@ -333,6 +348,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
         self.location_mode = location_mode
         self.credential = credential
+        self._warn_sync_credential()
         if account_host:
             self.account_host = account_host
         self.request_session = request_session
@@ -390,6 +406,29 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if batch_size > 0:
                 max_concurrency = batch_size
         self.max_concurrency = max_concurrency
+
+    def _warn_sync_credential(self):
+        """Emit a warning if the user passes a synchronous Azure credential.
+
+        adlfs uses the Azure SDK's async clients internally. If a user passes
+        a synchronous credential (e.g. ``azure.identity.DefaultAzureCredential``
+        instead of ``azure.identity.aio.DefaultAzureCredential``), we emit a
+        warning.
+        """
+        if self.credential is None or isinstance(self.credential, (str, dict)):
+            return
+
+        if isinstance(self.credential, TokenCredential) and not isinstance(
+            self.credential, AsyncTokenCredential
+        ):
+            warnings.warn(
+                "Passing synchronous credentials (e.g. from azure.identity) is "
+                "not supported. Use async credentials from azure.identity.aio "
+                "instead. Synchronous credentials may experience unexpected failures "
+                "in future versions of adlfs.",
+                FutureWarning,
+                stacklevel=4,
+            )
 
     @classmethod
     def _strip_protocol(cls, path: str):
