@@ -13,6 +13,7 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from azure.identity import DefaultAzureCredential
 from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
@@ -2436,3 +2437,37 @@ def test_exists_kwargs(storage):
     )
 
     assert fs.exists("data/top_file.txt", test_kwarg="test")
+
+
+def test_sync_credential_warning():
+    sync_cred = DefaultAzureCredential()
+    with pytest.warns(FutureWarning, match="synchronous credentials"):
+        fs = AzureBlobFileSystem(
+            account_name="fakeaccount",
+            credential=sync_cred,
+            anon=True,
+            skip_instance_cache=True,
+        )
+    assert fs.credential is sync_cred
+
+
+@pytest.mark.parametrize(
+    "credential",
+    (
+        pytest.param(
+            "sv=2021-06-08&ss=b&srt=sco&sp=rl",
+            id="sas_token",
+        ),
+        pytest.param(None, id="none"),
+    ),
+)
+def test_no_sync_credential_warning(credential):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        fs = AzureBlobFileSystem(
+            account_name="fakeaccount",
+            credential=credential,
+            anon=True,
+            skip_instance_cache=True,
+        )
+    assert fs.credential is credential
