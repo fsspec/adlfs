@@ -60,3 +60,27 @@ jobs:
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
+
+  type-check:
+    runs-on: "ubuntu-22.04"
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+        cache-dependency-path: setup.cfg
+
+    - name: install
+      run: |
+        pip install --upgrade pip wheel
+        pip install -r "requirements/latest.txt"
+        pip install pyright
+
+    - name: pyright
+      run: pyright adlfs

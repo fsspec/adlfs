@@ -9,13 +9,13 @@ import io
 import logging
 import os
 import re
-import typing
 import warnings
 import weakref
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import Optional, Tuple
+from typing import Any, Literal
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -105,7 +105,7 @@ def get_running_loop():
             return loop
 
 
-def _coalesce_version_id(*args) -> Optional[str]:
+def _coalesce_version_id(*args) -> str | None:
     """Helper to coalesce a list of version_ids down to one"""
     version_ids = set(args)
     if None in version_ids:
@@ -123,10 +123,10 @@ def _coalesce_version_id(*args) -> Optional[str]:
 
 def _create_aio_blob_service_client(
     account_url: str,
-    location_mode: Optional[str] = None,
-    credential: Optional[str] = None,
+    location_mode: str | None = None,
+    credential: str | None = None,
 ) -> AIOBlobServiceClient:
-    service_client_kwargs = {
+    service_client_kwargs: dict[str, Any] = {
         "account_url": account_url,
         "user_agent": _USER_AGENT,
     }
@@ -264,30 +264,30 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def __init__(
         self,
-        account_name: str = None,
-        account_key: str = None,
-        connection_string: str = None,
-        credential: str = None,
-        sas_token: str = None,
+        account_name: str | None = None,
+        account_key: str | None = None,
+        connection_string: str | None = None,
+        credential: str | None = None,
+        sas_token: str | None = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
         blocksize: int = _DEFAULT_BLOCK_SIZE,
-        client_id: str = None,
-        client_secret: str = None,
-        tenant_id: str = None,
-        anon: bool = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        tenant_id: str | None = None,
+        anon: bool | None = None,
         location_mode: str = "primary",
         loop=None,
         asynchronous: bool = False,
         default_fill_cache: bool = True,
         default_cache_type: str = "bytes",
         version_aware: bool = False,
-        assume_container_exists: Optional[bool] = None,
-        max_concurrency: Optional[int] = None,
-        timeout: Optional[int] = None,
-        connection_timeout: Optional[int] = None,
-        read_timeout: Optional[int] = None,
-        account_host: str = None,
+        assume_container_exists: bool | None = None,
+        max_concurrency: int | None = None,
+        timeout: int | None = None,
+        connection_timeout: int | None = None,
+        read_timeout: int | None = None,
+        account_host: str | None = None,
         **kwargs,
     ):
         self.kwargs = kwargs.copy()
@@ -386,13 +386,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
             weakref.finalize(self, sync, self.loop, close_credential, self)
 
         if max_concurrency is None:
-            batch_size = _get_batch_size()
+            batch_size: int = _get_batch_size()  # type: ignore[assignment]
             if batch_size > 0:
                 max_concurrency = batch_size
+            else:
+                max_concurrency = 1
         self.max_concurrency = max_concurrency
 
     @classmethod
-    def _strip_protocol(cls, path: str):
+    def _strip_protocol(cls, path: str) -> str:
         """
         Remove the protocol from the input path
 
@@ -407,7 +409,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Returns a path without the protocol
         """
         if isinstance(path, list):
-            return [cls._strip_protocol(p) for p in path]
+            return [cls._strip_protocol(p) for p in path]  # type: ignore[return-value]
 
         STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
@@ -473,6 +475,16 @@ class AzureBlobFileSystem(AsyncFileSystem):
         -------
         Tuple of (Async Credential, Sync Credential).
         """
+        if (
+            self.tenant_id is None
+            or self.client_id is None
+            or self.client_secret is None
+        ):
+            raise ValueError(
+                "tenant_id, client_id, and client_secret must all be provided "
+                "when authenticating with a service principal."
+            )
+
         from azure.identity import ClientSecretCredential
         from azure.identity.aio import (
             ClientSecretCredential as AIOClientSecretCredential,
@@ -573,7 +585,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def split_path(
         self, path, delimiter="/", return_container: bool = False, **kwargs
-    ) -> Tuple[str, str, Optional[str]]:
+    ) -> tuple[str, str, str | None]:
         """
         Normalize ABFS path string into bucket and key.
 
@@ -708,7 +720,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path: str,
         delimiter: str = "/",
         return_glob: bool = False,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -799,7 +811,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -867,7 +879,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter="/",
         return_glob: bool = False,
         target_path="",
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -1195,9 +1207,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _rm(
         self,
-        path: typing.Union[str, typing.List[str]],
+        path: str | list[str],
         recursive: bool = False,
-        maxdepth: typing.Optional[int] = None,
+        maxdepth: int | None = None,
         delimiter: str = "/",
         expand_path: bool = True,
         **kwargs,
@@ -1256,9 +1268,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     rm = sync_wrapper(_rm)
 
-    async def _rm_files(
-        self, container_name: str, file_paths: typing.Iterable[str], **kwargs
-    ):
+    async def _rm_files(self, container_name: str, file_paths: Iterable[str], **kwargs):
         """
         Delete the given file(s)
 
@@ -1322,8 +1332,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.invalidate_cache(self._parent(path))
 
     async def _separate_directory_markers_for_non_empty_directories(
-        self, file_paths: typing.Iterable[str]
-    ) -> typing.Tuple[typing.List[str], typing.List[str]]:
+        self, file_paths: Iterable[str]
+    ) -> tuple[list[str], list[str]]:
         """
         Distinguish directory markers of non-empty directories from files and directory markers for empty directories.
         A directory marker is an empty blob who's name is the path of the directory.
@@ -1635,6 +1645,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
             account_name = self.account_name
             account_key = self.account_key
 
+        if account_name is None:
+            raise ValueError(
+                "account_name is required to generate a SAS URL. "
+                "Provide account_name or include AccountName in the connection string."
+            )
+
         sas_token = generate_blob_sas(
             account_name=account_name,
             container_name=container_name,
@@ -1653,8 +1669,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             url = f"{bc.url}?{sas_token}"
         return url
 
-    def expand_path(self, path, recursive=False, maxdepth=None, skip_noexist=True):
-        return sync(
+    def expand_path(
+        self, path, recursive=False, maxdepth=None, skip_noexist=True
+    ) -> list[str]:
+        return sync(  # type: ignore[return-value]
             self.loop, self._expand_path, path, recursive, maxdepth, skip_noexist
         )
 
@@ -1887,12 +1905,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self,
         path: str,
         mode: str = "rb",
-        block_size: int = None,
+        block_size: int | None = None,
         autocommit: bool = True,
         cache_options: dict = {},
         cache_type="readahead",
         metadata=None,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1954,12 +1972,12 @@ class AzureBlobFile(AbstractBufferedFile):
         fs: AzureBlobFileSystem,
         path: str,
         mode: str = "rb",
-        block_size="default",
+        block_size: int | Literal["default"] | None = "default",
         autocommit: bool = True,
         cache_type: str = "bytes",
         cache_options: dict = {},
         metadata=None,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         **kwargs,
     ):
         """
@@ -2017,9 +2035,10 @@ class AzureBlobFile(AbstractBufferedFile):
 
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
-        self.blocksize = (
-            self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
-        )
+        if block_size == "default" or block_size is None:
+            self.blocksize: int = self.DEFAULT_BLOCK_SIZE
+        else:
+            self.blocksize = block_size
         self.loc = 0
         self.autocommit = autocommit
         self.end = None
@@ -2127,9 +2146,9 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         try:
             if hasattr(self.fs, "account_host"):
-                self.fs.account_url: str = f"https://{self.fs.account_host}"
+                self.fs.account_url = f"https://{self.fs.account_host}"
             else:
-                self.fs.account_url: str = (
+                self.fs.account_url = (
                     f"https://{self.fs.account_name}.blob.core.windows.net"
                 )
 
@@ -2164,7 +2183,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 f"Unable to fetch container_client with provided params for {e}!!"
             ) from e
 
-    async def _async_fetch_range(self, start: int, end: int = None, **kwargs):
+    async def _async_fetch_range(self, start: int, end: int | None = None, **kwargs):
         """
         Download a chunk of data specified by start and end
 
@@ -2221,7 +2240,7 @@ class AzureBlobFile(AbstractBufferedFile):
             async with self.container_client.get_blob_client(blob=self.blob) as bc:
                 await bc.stage_block(
                     block_id=block_id,
-                    data=data[start:end],
+                    data=data[start:end],  # type: ignore[arg-type]
                     length=end - start,
                 )
                 return block_id
@@ -2301,7 +2320,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 await bc.upload_blob(
                     data=data,
                     length=length,
-                    blob_type=BlobType.AppendBlob,
+                    blob_type=BlobType.APPENDBLOB,
                     metadata=self.metadata,
                 )
         else:
@@ -2329,6 +2348,6 @@ class AzureBlobFile(AbstractBufferedFile):
         return state
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
+        self.__dict__.update(state)  # type: ignore[reportAttributeAccessIssue]
         self.loop = self._get_loop()
         self.container_client = self._get_container_client()
