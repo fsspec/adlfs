@@ -49,5 +49,11 @@ include = ["adlfs*"]
 exclude = ["tests"]
 namespaces = false
 
+[tool.pyright]
+include = ["adlfs"]
+exclude = ["adlfs/tests", "build"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+
 [tool.isort]
 profile = "black"
