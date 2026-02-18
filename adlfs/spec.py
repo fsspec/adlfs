@@ -1446,10 +1446,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except IOError:
             return False
 
-    def exists(self, path):
-        return sync(self.loop, self._exists, path)
+    def exists(self, path, **kwargs):
+        return sync(self.loop, self._exists, path, **kwargs)
 
-    async def _exists(self, path):
+    async def _exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
             if self._ls_from_cache(path):

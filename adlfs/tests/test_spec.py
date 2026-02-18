@@ -2427,3 +2427,12 @@ def test_no_anon_warning(storage, env_vars, storage_options):
                 account_name=storage.account_name,
                 **storage_options,
             )
+
+
+def test_exists_kwargs(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    assert fs.exists("data/top_file.txt", test_kwarg="test")
