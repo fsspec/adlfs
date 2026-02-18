@@ -1,5 +1,3 @@
-from typing import Optional
-
 try:
     from ._version import version as __version__  # type: ignore[import]
     from ._version import version_tuple  # type: ignore[import]
@@ -8,7 +6,7 @@ except ImportError:
     version_tuple = (0, 0, __version__)  # type: ignore[assignment]
 
 
-def match_blob_version(blob, version_id: Optional[str]):
+def match_blob_version(blob, version_id: str | None):
     blob_version_id = blob.get("version_id")
     return (
         version_id is None
@@ -20,7 +18,7 @@ async def filter_blobs(
     blobs,
     target_path,
     delimiter="/",
-    version_id: Optional[str] = None,
+    version_id: str | None = None,
     versions: bool = False,
 ):
     """
@@ -50,7 +48,7 @@ async def filter_blobs(
     return finalblobs
 
 
-async def get_blob_metadata(container_client, path, version_id: Optional[str] = None):
+async def get_blob_metadata(container_client, path, version_id: str | None = None):
     async with container_client.get_blob_client(path) as bc:
         properties = await bc.get_blob_properties(version_id=version_id)
         if "metadata" in properties.keys():

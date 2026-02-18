@@ -9,13 +9,13 @@ import io
 import logging
 import os
 import re
-import typing
 import warnings
 import weakref
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import Any, Literal, Optional, Tuple
+from typing import Any, Literal
 from uuid import uuid4
 
 from azure.core.exceptions import (
@@ -105,7 +105,7 @@ def get_running_loop():
             return loop
 
 
-def _coalesce_version_id(*args) -> Optional[str]:
+def _coalesce_version_id(*args) -> str | None:
     """Helper to coalesce a list of version_ids down to one"""
     version_ids = set(args)
     if None in version_ids:
@@ -123,8 +123,8 @@ def _coalesce_version_id(*args) -> Optional[str]:
 
 def _create_aio_blob_service_client(
     account_url: str,
-    location_mode: Optional[str] = None,
-    credential: Optional[str] = None,
+    location_mode: str | None = None,
+    credential: str | None = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs: dict[str, Any] = {
         "account_url": account_url,
@@ -585,7 +585,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def split_path(
         self, path, delimiter="/", return_container: bool = False, **kwargs
-    ) -> Tuple[str, str, Optional[str]]:
+    ) -> tuple[str, str, str | None]:
         """
         Normalize ABFS path string into bucket and key.
 
@@ -720,7 +720,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         path: str,
         delimiter: str = "/",
         return_glob: bool = False,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -811,7 +811,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         invalidate_cache: bool = False,
         delimiter: str = "/",
         return_glob: bool = False,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -879,7 +879,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         delimiter="/",
         return_glob: bool = False,
         target_path="",
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         versions: bool = False,
         **kwargs,
     ):
@@ -1207,9 +1207,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _rm(
         self,
-        path: typing.Union[str, typing.List[str]],
+        path: str | list[str],
         recursive: bool = False,
-        maxdepth: typing.Optional[int] = None,
+        maxdepth: int | None = None,
         delimiter: str = "/",
         expand_path: bool = True,
         **kwargs,
@@ -1269,7 +1269,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     rm = sync_wrapper(_rm)
 
     async def _rm_files(
-        self, container_name: str, file_paths: typing.Iterable[str], **kwargs
+        self, container_name: str, file_paths: Iterable[str], **kwargs
     ):
         """
         Delete the given file(s)
@@ -1334,8 +1334,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.invalidate_cache(self._parent(path))
 
     async def _separate_directory_markers_for_non_empty_directories(
-        self, file_paths: typing.Iterable[str]
-    ) -> typing.Tuple[typing.List[str], typing.List[str]]:
+        self, file_paths: Iterable[str]
+    ) -> tuple[list[str], list[str]]:
         """
         Distinguish directory markers of non-empty directories from files and directory markers for empty directories.
         A directory marker is an empty blob who's name is the path of the directory.
@@ -1910,7 +1910,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cache_options: dict = {},
         cache_type="readahead",
         metadata=None,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1977,7 +1977,7 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_type: str = "bytes",
         cache_options: dict = {},
         metadata=None,
-        version_id: Optional[str] = None,
+        version_id: str | None = None,
         **kwargs,
     ):
         """
