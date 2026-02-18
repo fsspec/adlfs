@@ -376,7 +376,7 @@ Note that the account_name parameter is still required.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">end_transaction</span></code>()</p></td>
 <td><p>Finish write transaction, non-context version</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.exists" title="adlfs.AzureBlobFileSystem.exists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">exists</span></code></a>(path)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.exists" title="adlfs.AzureBlobFileSystem.exists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">exists</span></code></a>(path, **kwargs)</p></td>
 <td><p>Is there a file at the given path</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#adlfs.AzureBlobFileSystem.expand_path" title="adlfs.AzureBlobFileSystem.expand_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">expand_path</span></code></a>(path[, recursive, maxdepth, ...])</p></td>
@@ -640,7 +640,7 @@ Tries credentials first, then connection string and finally account key</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="adlfs.AzureBlobFileSystem.exists">
-<span class="sig-name descname"><span class="pre">exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.exists" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#adlfs.AzureBlobFileSystem.exists" title="Link to this definition">¶</a></dt>
 <dd><p>Is there a file at the given path</p>
 </dd></dl>
 
