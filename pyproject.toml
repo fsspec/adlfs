@@ -51,7 +51,7 @@ namespaces = false
 
 [tool.pyright]
 include = ["adlfs"]
-exclude = ["adlfs/tests", "build"]
+exclude = ["adlfs/tests", "adlfs/gen1.py", "build"]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
 

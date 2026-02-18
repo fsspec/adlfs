@@ -186,7 +186,7 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
 
     def __setstate__(self, state):
         logger.debug("De-serialize with state: %s", state)
-        self.__dict__.update(state)  # type: ignore[reportAttributeAccessIssue]
+        self.__dict__.update(state)
         self.do_connect()
 
 
