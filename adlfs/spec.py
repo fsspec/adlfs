@@ -1268,9 +1268,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     rm = sync_wrapper(_rm)
 
-    async def _rm_files(
-        self, container_name: str, file_paths: Iterable[str], **kwargs
-    ):
+    async def _rm_files(self, container_name: str, file_paths: Iterable[str], **kwargs):
         """
         Delete the given file(s)
 
@@ -1671,7 +1669,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             url = f"{bc.url}?{sas_token}"
         return url
 
-    def expand_path(self, path, recursive=False, maxdepth=None, skip_noexist=True) -> list[str]:
+    def expand_path(
+        self, path, recursive=False, maxdepth=None, skip_noexist=True
+    ) -> list[str]:
         return sync(  # type: ignore[return-value]
             self.loop, self._expand_path, path, recursive, maxdepth, skip_noexist
         )
