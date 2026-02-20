@@ -37,9 +37,6 @@ from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_w
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
-if TYPE_CHECKING:
-    from azure.core.credentials_async import AsyncTokenCredential
-
 from .utils import (
     __version__,
     close_container_client,
@@ -127,7 +124,7 @@ def _coalesce_version_id(*args) -> Optional[str]:
 def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
-    credential: Optional[Union[str, "AsyncTokenCredential"]] = None,
+    credential: Optional[Union[str, AsyncTokenCredential]] = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
@@ -270,7 +267,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: Optional[Union[str, "AsyncTokenCredential"]] = None,
+        credential: Optional[Union[str, AsyncTokenCredential]] = None, # from azure.identity.aio
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
