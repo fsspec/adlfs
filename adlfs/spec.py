@@ -37,6 +37,9 @@ from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_w
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
+if TYPE_CHECKING:
+    from azure.core.credentials_async import AsyncTokenCredential
+
 from .utils import (
     __version__,
     close_container_client,
