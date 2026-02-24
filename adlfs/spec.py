@@ -270,9 +270,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: Optional[
-            Union[str, AsyncTokenCredential]
-        ] = None,
+        credential: Optional[Union[str, AsyncTokenCredential]] = None,
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
