@@ -81,7 +81,7 @@ async def close_credential(file_obj):
     Implements asynchronous closure of credentials for
     AzureBlobFile objects
     """
-    if not isinstance(file_obj.credential, (type(None), str)):
+    if not isinstance(file_obj.credential, (type(None), str, dict)):
         result = file_obj.credential.close()
         if result is not None:
             await result
