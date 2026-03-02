@@ -198,9 +198,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     anon: boolean, optional
         The value to use for whether to attempt anonymous access if no other credential is
         passed. By default (``None``), the ``AZURE_STORAGE_ANON`` environment variable is
-        checked. False values (``false``, ``0``, ``f``) will resolve to `False` and
-        anonymous access will not be attempted. Otherwise the value for ``anon`` resolves
-        to ``True``.
+        checked. If the environment variable is set, values of (``false``, ``0``, ``f``) are
+        ``False`` and everything else resolves to True. Anon will default to ``False`` if nothing
+        is provided and ``DefaultAzureCredential`` will be used for authentication.
     default_fill_cache: bool = True
         Whether to use cache filling with open by default
     default_cache_type: string ('bytes')
@@ -323,25 +323,11 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if anon is not None:
             self.anon = anon
         else:
-            self.anon = os.getenv("AZURE_STORAGE_ANON", "true").lower() not in [
-                "false",
-                "0",
-                "f",
-            ]
-            if os.getenv("AZURE_STORAGE_ANON") is None:
-                if (
-                    self.sas_token is None
-                    and self.account_key is None
-                    and credential is None
-                    and self.connection_string is None
-                    and self.client_id is None
-                ):
-                    warnings.warn(
-                        "AzureBlobFileSystem will no longer be defaulting to anonymous authentication in an "
-                        "upcoming release. To continue using anonymous credentials, please set anon=True. ",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
+            anon_env = os.getenv("AZURE_STORAGE_ANON")
+            if anon_env is None:
+                self.anon = False
+            else:
+                self.anon = anon_env.lower() not in ["false", "0", "f"]
         self.location_mode = location_mode
         self.credential = credential
         if account_host:

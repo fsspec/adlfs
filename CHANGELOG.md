@@ -5,6 +5,8 @@ Unreleased
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
 - Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
 - Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
+- **Breaking:** Adlfs now requires credentials as the default value for `anon` has changed to
+  `False`. To continue using anonymous authentication please set `anon=True` when creating `AzureBlobFileSystem`.
 
 2026.2.0
 --------
