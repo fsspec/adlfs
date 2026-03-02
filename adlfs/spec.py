@@ -345,6 +345,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.account_key is None
             and self.sas_token is None
             and self.client_id is not None
+            and self.connection_string is None
         ):
             (
                 self.credential,
@@ -359,6 +360,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.anon is False
             and self.sas_token is None
             and self.account_key is None
+            and self.connection_string is None
         ):
             (
                 self.credential,
