@@ -2460,7 +2460,11 @@ def test_metadata_setter(storage, mocker):
 def test_anon_default(storage, env_vars, storage_options):
     env_var = {} if env_vars is None else env_vars
     with mock.patch.dict(os.environ, env_var):
-        fs = AzureBlobFileSystem(account_name=storage.account_name, skip_instance_cache=True, **storage_options)
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
         assert fs.anon is False
 
 
