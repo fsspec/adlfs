@@ -3,6 +3,8 @@
 Unreleased
 ----------
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
+- **Breaking:** Adlfs now requires credentials as the default value for `anon` has changed to
+  `False`. To continue using anonymous authentication please set `anon=True` when creating `AzureBlobFileSystem`.
 
 2026.2.0
 --------
