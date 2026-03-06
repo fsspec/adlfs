@@ -3,6 +3,7 @@
 Unreleased
 ----------
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
+- Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
 
 2026.2.0
 --------
