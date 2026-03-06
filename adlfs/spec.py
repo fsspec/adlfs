@@ -348,7 +348,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     )
         self.location_mode = location_mode
         self.credential = credential
-        self._warn_sync_credential()
         if account_host:
             self.account_host = account_host
         self.request_session = request_session
@@ -407,28 +406,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 max_concurrency = batch_size
         self.max_concurrency = max_concurrency
 
-    def _warn_sync_credential(self):
-        """Emit a warning if the user passes a synchronous Azure credential.
-
-        adlfs uses the Azure SDK's async clients internally. If a user passes
-        a synchronous credential (e.g. ``azure.identity.DefaultAzureCredential``
-        instead of ``azure.identity.aio.DefaultAzureCredential``), we emit a
-        warning.
-        """
-        if self.credential is None or isinstance(self.credential, (str, dict)):
-            return
-
-        if isinstance(self.credential, TokenCredential) and not isinstance(
-            self.credential, AsyncTokenCredential
-        ):
-            warnings.warn(
-                "Passing synchronous credentials (e.g. from azure.identity) is "
-                "not supported. Use async credentials from azure.identity.aio "
-                "instead. Synchronous credentials may experience unexpected failures "
-                "in future versions of adlfs.",
-                FutureWarning,
-                stacklevel=4,
-            )
 
     @classmethod
     def _strip_protocol(cls, path: str):
