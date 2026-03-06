@@ -18,11 +18,7 @@ from glob import has_magic
 from typing import List, Optional, Tuple, Union
 from uuid import uuid4
 
-from azure.core.credentials import (
-    AzureNamedKeyCredential,
-    AzureSasCredential,
-    TokenCredential,
-)
+from azure.core.credentials import AzureNamedKeyCredential, AzureSasCredential
 from azure.core.credentials_async import AsyncTokenCredential
 from azure.core.exceptions import (
     HttpResponseError,
@@ -405,7 +401,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             if batch_size > 0:
                 max_concurrency = batch_size
         self.max_concurrency = max_concurrency
-
 
     @classmethod
     def _strip_protocol(cls, path: str):
