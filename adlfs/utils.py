@@ -1,3 +1,4 @@
+import inspect
 from typing import Optional
 
 try:
@@ -81,5 +82,14 @@ async def close_credential(file_obj):
     Implements asynchronous closure of credentials for
     AzureBlobFile objects
     """
-    if not isinstance(file_obj.credential, (type(None), str)):
-        await file_obj.credential.close()
+    credential = getattr(file_obj, "credential", None)
+    if credential is None or isinstance(credential, str):
+        return
+
+    close_method = getattr(credential, "close", None)
+    if not callable(close_method):
+        return
+
+    close_result = close_method()
+    if inspect.isawaitable(close_result):
+        await close_result
