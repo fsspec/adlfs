@@ -4,6 +4,7 @@ Unreleased
 ----------
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
 - Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
+- Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
 
 2026.2.0
 --------

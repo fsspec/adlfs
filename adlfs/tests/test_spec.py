@@ -5,6 +5,7 @@ import random
 import string
 import tempfile
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -13,6 +14,9 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from azure.core.credentials import AzureNamedKeyCredential, AzureSasCredential
+from azure.identity import DefaultAzureCredential
+from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
 from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
@@ -24,6 +28,7 @@ from adlfs.tests.constants import (
     KEY,
     LATEST_VERSION_ID,
 )
+from adlfs.utils import close_credential
 
 
 def assert_almost_equal(x, y, threshold, prop_name=None):
@@ -2482,3 +2487,27 @@ def test_exists_kwargs(storage):
     )
 
     assert fs.exists("data/top_file.txt", test_kwarg="test")
+
+
+class TestCloseCredential:
+    """Tests for close_credential handling across all credential types."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "credential",
+        [
+            pytest.param(None, id="none"),
+            pytest.param("account-key-string", id="str"),
+            pytest.param({"account_name": "x", "account_key": "y"}, id="dict"),
+            pytest.param(
+                AzureNamedKeyCredential(name="account", key="key123"),
+                id="named_key",
+            ),
+            pytest.param(AzureSasCredential(signature="sig=test"), id="sas"),
+            pytest.param(DefaultAzureCredential(), id="sync_token"),
+            pytest.param(AIODefaultAzureCredential(), id="async_token"),
+        ],
+    )
+    async def test_close_credential(self, credential):
+        file_obj = SimpleNamespace(credential=credential)
+        await close_credential(file_obj)

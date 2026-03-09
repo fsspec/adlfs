@@ -15,9 +15,11 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 from uuid import uuid4
 
+from azure.core.credentials import AzureNamedKeyCredential, AzureSasCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from azure.core.exceptions import (
     HttpResponseError,
     ResourceExistsError,
@@ -37,9 +39,6 @@ from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_w
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
-if TYPE_CHECKING:
-    from azure.core.credentials_async import AsyncTokenCredential
-
 from .utils import (
     __version__,
     close_container_client,
@@ -51,6 +50,14 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+CredentialType = (
+    str
+    | dict[str, str]
+    | AzureNamedKeyCredential
+    | AzureSasCredential
+    | AsyncTokenCredential
+)
 
 FORWARDED_BLOB_PROPERTIES = [
     "metadata",
@@ -127,7 +134,7 @@ def _coalesce_version_id(*args) -> Optional[str]:
 def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
-    credential: Optional[Union[str, AsyncTokenCredential]] = None,
+    credential: CredentialType | None = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
@@ -179,6 +186,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     credential: azure.core.credentials_async.AsyncTokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
+        In most cases, prefer ``anon=False`` to let adlfs resolve credentials automatically.
     blocksize: int
         The block size to use for download/upload operations. Defaults to 50 MiB
     client_id: str
@@ -270,7 +278,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: Optional[Union[str, AsyncTokenCredential]] = None,
+        credential: CredentialType | None = None,
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
