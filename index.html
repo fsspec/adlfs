@@ -277,18 +277,22 @@ part, you can authenticate with Azure using any of the methods it supports.</p>
 </pre></div>
 </div>
 <p>For operations to succeed, the storage container must allow anonymous access.</p>
-<p>For authenticated access, you have several options:</p>
-<ol class="arabic simple">
-<li><p>Using a <code class="docutils literal notranslate"><span class="pre">SAS_TOKEN</span></code></p></li>
-<li><p>Using an account key</p></li>
-<li><p>Using a managed identity</p></li>
-</ol>
-<p>Regardless of the method your using, you provide the values using the <code class="docutils literal notranslate"><span class="pre">credential</span></code> argument.</p>
+<p>For authenticated access, the preferred approach is to set <code class="docutils literal notranslate"><span class="pre">anon=False</span></code> and let adlfs resolve
+credentials automatically using Azure’s <code class="docutils literal notranslate"><span class="pre">DefaultAzureCredential</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fs</span> <span class="o">=</span> <span class="n">adlfs</span><span class="o">.</span><span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;ai4edataeuwest&quot;</span><span class="p">,</span> <span class="n">anon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can also authenticate with a SAS token or account key via the <code class="docutils literal notranslate"><span class="pre">credential</span></code> argument:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fs</span> <span class="o">=</span> <span class="n">adlfs</span><span class="o">.</span><span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;ai4edataeuwest&quot;</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="n">SAS_TOKEN</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">fs</span> <span class="o">=</span> <span class="n">adlfs</span><span class="o">.</span><span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;ai4edataeuwest&quot;</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="n">ACCOUNT_KEY</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>If you need to pass a credential object directly, use an <strong>async</strong> credential from
+<code class="docutils literal notranslate"><span class="pre">azure.identity.aio</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">azure.identity.aio</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultAzureCredential</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">fs</span> <span class="o">=</span> <span class="n">adlfs</span><span class="o">.</span><span class="n">AzureBlobFileSystem</span><span class="p">(</span>
 <span class="gp">... </span>    <span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;ai4edataeuwest&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">credential</span><span class="o">=</span><span class="n">azure</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">DefaultAzureCredential</span><span class="p">()</span>
+<span class="gp">... </span>    <span class="n">credential</span><span class="o">=</span><span class="n">DefaultAzureCredential</span><span class="p">()</span>
 <span class="gp">... </span><span class="p">)</span>
 </pre></div>
 </div>

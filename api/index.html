@@ -263,7 +263,8 @@ request session. See
 for the connection string format.</p>
 </dd>
 <dt><strong>credential: azure.core.credentials_async.AsyncTokenCredential or SAS token</strong></dt><dd><p>The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
-Can include an instance of TokenCredential class from azure.identity.aio.</p>
+Can include an instance of TokenCredential class from azure.identity.aio.
+In most cases, prefer <code class="docutils literal notranslate"><span class="pre">anon=False</span></code> to let adlfs resolve credentials automatically.</p>
 </dd>
 <dt><strong>blocksize: int</strong></dt><dd><p>The block size to use for download/upload operations. Defaults to 50 MiB</p>
 </dd>
