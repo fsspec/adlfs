@@ -21,7 +21,6 @@ from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
-from adlfs.utils import close_credential
 from adlfs.tests.constants import (
     ACCOUNT_NAME,
     CONN_STR,
@@ -29,6 +28,7 @@ from adlfs.tests.constants import (
     KEY,
     LATEST_VERSION_ID,
 )
+from adlfs.utils import close_credential
 
 
 def assert_almost_equal(x, y, threshold, prop_name=None):
