@@ -3,6 +3,7 @@
 Unreleased
 ----------
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
+- Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
 
 2026.2.0
 --------
