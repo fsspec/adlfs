@@ -2405,15 +2405,28 @@ def test_metadata_setter(storage, mocker):
         ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
     ],
 )
-def test_anon_default(storage, env_vars, storage_options):
+def test_anon_off(storage, env_vars, storage_options, mocker):
     env_var = {} if env_vars is None else env_vars
     with mock.patch.dict(os.environ, env_var):
+        from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+
+        mock_service_client_init = mocker.patch.object(
+            AIOBlobServiceClient,
+            "__init__",
+            autospec=True,
+            side_effect=AIOBlobServiceClient.__init__,
+        )
         fs = AzureBlobFileSystem(
             account_name=storage.account_name,
             skip_instance_cache=True,
             **storage_options,
         )
         assert fs.anon is False
+        assert mock_service_client_init.call_args.kwargs.get(
+            "credential"
+        ) is not None or "?" in mock_service_client_init.call_args.kwargs.get(
+            "account_url"
+        )
 
 
 @pytest.mark.parametrize(
