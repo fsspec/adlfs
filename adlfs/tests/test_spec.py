@@ -4,7 +4,6 @@ import os
 import random
 import string
 import tempfile
-import warnings
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -2421,18 +2420,10 @@ def test_metadata_setter(storage, mocker):
         mock_get_metadata.assert_not_called()
 
 
-def test_anon_default_warning(storage):
-    with pytest.warns(
-        DeprecationWarning, match="AzureBlobFileSystem will no longer be defaulting"
-    ):
-        AzureBlobFileSystem(
-            account_name=storage.account_name,
-        )
-
-
 @pytest.mark.parametrize(
     "env_vars,storage_options",
     [
+        (None, {}),
         (None, {"credential": "credential"}),
         (None, {"sas_token": "sas_token"}),
         (None, {"account_key": KEY}),
@@ -2445,12 +2436,8 @@ def test_anon_default_warning(storage):
                 "client_secret": "client_secret",
             },
         ),
-        (None, {"anon": True}),
         (None, {"anon": False}),
-        (None, {"anon": True, "credential": "credential"}),
-        ({"AZURE_STORAGE_ANON": "true"}, {}),
         ({"AZURE_STORAGE_ANON": "false"}, {}),
-        ({"AZURE_STORAGE_ANON": "true"}, {"credential": "credential"}),
         ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
         (
             {
@@ -2464,15 +2451,47 @@ def test_anon_default_warning(storage):
         ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
     ],
 )
-def test_no_anon_warning(storage, env_vars, storage_options):
+def test_anon_off(storage, env_vars, storage_options, mocker):
     env_var = {} if env_vars is None else env_vars
     with mock.patch.dict(os.environ, env_var):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            AzureBlobFileSystem(
-                account_name=storage.account_name,
-                **storage_options,
-            )
+        from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+
+        mock_service_client_init = mocker.patch.object(
+            AIOBlobServiceClient,
+            "__init__",
+            autospec=True,
+            side_effect=AIOBlobServiceClient.__init__,
+        )
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
+        assert fs.anon is False
+        assert mock_service_client_init.call_args.kwargs.get(
+            "credential"
+        ) is not None or "?" in mock_service_client_init.call_args.kwargs.get(
+            "account_url"
+        )
+
+
+@pytest.mark.parametrize(
+    "env_vars,storage_options",
+    [
+        (None, {"anon": True}),
+        ({"AZURE_STORAGE_ANON": "true"}, {}),
+        ({"AZURE_STORAGE_ANON": "true"}, {"credential": "credential"}),
+    ],
+)
+def test_anon_true(storage, env_vars, storage_options):
+    env_var = {} if env_vars is None else env_vars
+    with mock.patch.dict(os.environ, env_var):
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
+        assert fs.anon is True
 
 
 def test_exists_kwargs(storage):
