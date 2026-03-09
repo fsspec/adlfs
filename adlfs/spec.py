@@ -1340,21 +1340,19 @@ class AzureBlobFileSystem(AsyncFileSystem):
         A directory marker is an empty blob who's name is the path of the directory.
         """
         unique_sorted_file_paths = sorted(set(file_paths))  # Remove duplicates and sort
-        directory_markers = []
-        files = [
-            unique_sorted_file_paths[-1]
-        ]  # The last file lexographically cannot be a directory marker for a non-empty directory.
+        prefix_set = set()
+        for fp in unique_sorted_file_paths:
+            parts = fp.split("/")
+            for i in range(1, len(parts)):
+                prefix_set.add("/".join(parts[:i]))
 
-        for file, next_file in zip(
-            unique_sorted_file_paths, unique_sorted_file_paths[1:]
-        ):
-            # /path/to/directory -- directory marker
-            # /path/to/directory/file  -- file in directory
-            # /path/to/directory2/file -- file in different directory
-            if next_file.startswith(file + "/"):
-                directory_markers.append(file)
+        directory_markers = []
+        files = []
+        for fp in unique_sorted_file_paths:
+            if fp in prefix_set:
+                directory_markers.append(fp)
             else:
-                files.append(file)
+                files.append(fp)
 
         return files, directory_markers
 
@@ -1380,6 +1378,23 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if container_exists and not path:
             await self.service_client.delete_container(container_name)
             self.invalidate_cache(_ROOT_PATH)
+
+    async def _mv(self, path1, path2, recursive=False, maxdepth=None, **kwargs):
+        """Move file(s) from one location to another."""
+        if path1 == path2:
+            logger.debug("%s mv: The paths are the same, so no files were moved.", self)
+            return
+
+        is_dir = await self._isdir(path1)
+        if is_dir and not recursive:
+            recursive = True
+
+        await self._copy(
+            path1, path2, recursive=recursive, maxdepth=maxdepth, on_error="raise"
+        )
+        await self._rm(path1, recursive=recursive)
+
+    mv = sync_wrapper(_mv)
 
     def size(self, path):
         return sync(self.loop, self._size, path)
@@ -1793,6 +1808,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Copy the file at path1 to path2"""
         container1, blob1, version_id = self.split_path(path1, delimiter="/")
         container2, blob2, _ = self.split_path(path2, delimiter="/")
+
+        if await self._isdir(path1):
+            return
 
         cc1 = self.service_client.get_container_client(container1)
         blobclient1 = cc1.get_blob_client(blob=blob1)

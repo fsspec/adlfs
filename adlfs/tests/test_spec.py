@@ -2511,3 +2511,72 @@ class TestCloseCredential:
     async def test_close_credential(self, credential):
         file_obj = SimpleNamespace(credential=credential)
         await close_credential(file_obj)
+
+
+def test_mv_single_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    with fs.open("mvcontainer/srcdir/file.txt", "wb") as f:
+        f.write(b"hello")
+
+    fs.mv("mvcontainer/srcdir/file.txt", "mvcontainer/dstdir/")
+
+    assert fs.exists("mvcontainer/dstdir/file.txt")
+    assert not fs.exists("mvcontainer/srcdir/file.txt")
+    assert fs.cat_file("mvcontainer/dstdir/file.txt") == b"hello"
+
+    fs.rm("mvcontainer", recursive=True)
+
+
+def test_mv_directory(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    with fs.open("mvcontainer/srcdir/file.txt", "wb") as f:
+        f.write(b"hello")
+
+    fs.mv("mvcontainer/srcdir", "mvcontainer/dstdir/")
+
+    assert fs.exists("mvcontainer/dstdir/srcdir/file.txt")
+    assert not fs.exists("mvcontainer/srcdir/")
+    assert fs.cat_file("mvcontainer/dstdir/srcdir/file.txt") == b"hello"
+
+    fs.rm("mvcontainer", recursive=True)
+
+
+@pytest.mark.parametrize(
+    "src_files,expected_dst_files",
+    [
+        pytest.param(
+            {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
+            {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
+        ),
+        pytest.param(
+            {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
+            {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
+        ),
+    ],
+)
+def test_mv_directory_structures(storage, src_files, expected_dst_files):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    for path, content in src_files.items():
+        with fs.open(f"mvcontainer/src/{path}", "wb") as f:
+            f.write(content)
+
+    fs.mv("mvcontainer/src/", "mvcontainer/dst/", recursive=True)
+
+    for path, content in expected_dst_files.items():
+        assert fs.exists(f"mvcontainer/dst/{path}")
+        assert fs.cat_file(f"mvcontainer/dst/{path}") == content
+        assert not fs.exists(f"mvcontainer/src/{path}")
+
+    fs.rm("mvcontainer", recursive=True)
