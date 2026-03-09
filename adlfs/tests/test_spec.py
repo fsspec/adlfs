@@ -2149,6 +2149,52 @@ def test_uses_block_size_for_partitioned_uploads(storage, mocker):
     assert len(mock_commit_block_list.call_args.kwargs["block_list"]) == expected_blocks
 
 
+def test_write_populates_version_id_when_version_aware(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+
+    mock_commit_block_list = mocker.patch.object(
+        BlobClient,
+        "commit_block_list",
+        return_value={"version_id": "test-version-id"},
+    )
+
+    with fs.open("data/version-aware-write.bin", "wb") as f:
+        f.write(b"hello world")
+
+    assert mock_commit_block_list.called
+    assert f.version_id == "test-version-id"
+
+
+def test_write_does_not_populate_version_id_when_not_version_aware(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=False,
+        skip_instance_cache=True,
+    )
+
+    mock_commit_block_list = mocker.patch.object(
+        BlobClient,
+        "commit_block_list",
+        return_value={"version_id": "test-version-id"},
+    )
+
+    with fs.open("data/not-version-aware-wb.bin", "wb") as f:
+        f.write(b"hello world")
+
+    assert mock_commit_block_list.called
+    assert f.version_id is None
+
+
 @pytest.mark.parametrize(
     "filesystem_blocksize, file_blocksize, expected_blocksize, expected_filesystem_blocksize",
     [

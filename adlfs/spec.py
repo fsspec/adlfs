@@ -2003,9 +2003,10 @@ class AzureBlobFile(AbstractBufferedFile):
             by `cache_type`.
 
         version_id : str
-            Optional version to read the file at.  If not specified this will
-            default to the current version of the object.  This is only used for
-            reading.
+            Optional version of the blob.  For reads, specifies which version to
+            read; if not given, defaults to the current version.  On write, this
+            attribute is populated with the version created by the upload when the
+            filesystem has ``version_aware=True``.
 
         kwargs: dict
             Passed to AbstractBufferedFile
@@ -2272,9 +2273,11 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.commit_block_list(
+                        response = await bc.commit_block_list(
                             block_list=block_list, metadata=self.metadata, **commit_kw
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
             except ResourceExistsError as e:
                 raise FileExistsError(self.path) from e
             except Exception as e:
@@ -2286,11 +2289,13 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.upload_blob(
+                        response = await bc.upload_blob(
                             data=data,
                             metadata=self.metadata,
                             overwrite=(self.mode == "wb"),
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2298,11 +2303,13 @@ class AzureBlobFile(AbstractBufferedFile):
                         blob=self.blob
                     ) as bc:
                         try:
-                            await bc.commit_block_list(
+                            response = await bc.commit_block_list(
                                 block_list=block_list,
                                 metadata=self.metadata,
                                 **commit_kw,
                             )
+                            if self.fs.version_aware:
+                                self.version_id = response.get("version_id")
                         except ResourceExistsError:
                             raise FileExistsError(self.path)
                 else:
