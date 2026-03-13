@@ -5,6 +5,7 @@ Unreleased
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
 - Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
 - Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
+- Added `AzureBlobFileSystem.mv()` to address issue of files not being deleted when they are moved.
 
 2026.2.0
 --------

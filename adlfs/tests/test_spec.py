@@ -2552,11 +2552,11 @@ def test_mv_directory(storage):
 @pytest.mark.parametrize(
     "src_files,expected_dst_files",
     [
-        pytest.param(
+        (
             {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
             {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
         ),
-        pytest.param(
+        (
             {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
             {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
         ),
