@@ -1809,7 +1809,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container1, blob1, version_id = self.split_path(path1, delimiter="/")
         container2, blob2, _ = self.split_path(path2, delimiter="/")
 
-        if await self._isdir(path1):
+        if version_id is None and await self._isdir(path1):
             return
 
         cc1 = self.service_client.get_container_client(container1)

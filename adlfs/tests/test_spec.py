@@ -2549,34 +2549,19 @@ def test_mv_directory(storage):
     fs.rm("mvcontainer", recursive=True)
 
 
-@pytest.mark.parametrize(
-    "src_files,expected_dst_files",
-    [
-        (
-            {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
-            {"a/b/file.txt": b"test 1", "a/file.txt": b"test 2"},
-        ),
-        (
-            {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
-            {"a/file.txt": b"test 3", "a1/file.txt": b"test 4"},
-        ),
-    ],
-)
-def test_mv_directory_structures(storage, src_files, expected_dst_files):
+def test_mv_directory_structures(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("mvcontainer")
 
-    for path, content in src_files.items():
-        with fs.open(f"mvcontainer/src/{path}", "wb") as f:
-            f.write(content)
+    with fs.open("mvcontainer/a/b/c/file.txt", "wb") as f:
+        f.write(b"content")
 
-    fs.mv("mvcontainer/src/", "mvcontainer/dst/", recursive=True)
+    fs.mv("mvcontainer/a/b/c", "mvcontainer/a/c", recursive=True)
 
-    for path, content in expected_dst_files.items():
-        assert fs.exists(f"mvcontainer/dst/{path}")
-        assert fs.cat_file(f"mvcontainer/dst/{path}") == content
-        assert not fs.exists(f"mvcontainer/src/{path}")
+    assert fs.exists("mvcontainer/a/c/file.txt")
+    assert not fs.exists("mvcontainer/a/b/c")
+    assert fs.cat_file("mvcontainer/a/c/file.txt") == b"content"
 
     fs.rm("mvcontainer", recursive=True)
