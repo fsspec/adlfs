@@ -2540,7 +2540,7 @@ def test_mv_directory(storage):
     with fs.open("mvcontainer/srcdir/file.txt", "wb") as f:
         f.write(b"hello")
 
-    fs.mv("mvcontainer/srcdir", "mvcontainer/dstdir/")
+    fs.mv("mvcontainer/srcdir", "mvcontainer/dstdir/", recursive=True)
 
     assert fs.exists("mvcontainer/dstdir/srcdir/file.txt")
     assert not fs.exists("mvcontainer/srcdir/")
@@ -2549,7 +2549,7 @@ def test_mv_directory(storage):
     fs.rm("mvcontainer", recursive=True)
 
 
-def test_mv_directory_structures(storage):
+def test_mv_nested_directories(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )

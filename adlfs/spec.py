@@ -1379,23 +1379,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
             await self.service_client.delete_container(container_name)
             self.invalidate_cache(_ROOT_PATH)
 
-    async def _mv(self, path1, path2, recursive=False, maxdepth=None, **kwargs):
-        """Move file(s) from one location to another."""
-        if path1 == path2:
-            logger.debug("%s mv: The paths are the same, so no files were moved.", self)
-            return
-
-        is_dir = await self._isdir(path1)
-        if is_dir and not recursive:
-            recursive = True
-
-        await self._copy(
-            path1, path2, recursive=recursive, maxdepth=maxdepth, on_error="raise"
-        )
-        await self._rm(path1, recursive=recursive)
-
-    mv = sync_wrapper(_mv)
-
     def size(self, path):
         return sync(self.loop, self._size, path)
 
