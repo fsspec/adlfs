@@ -2485,6 +2485,7 @@ def test_anon_off(storage, env_vars, storage_options, mocker):
     "env_vars,storage_options",
     [
         (None, {"anon": True}),
+        (None, {"anon": True, "credential": "credential"}),
         ({"AZURE_STORAGE_ANON": "true"}, {}),
         ({"AZURE_STORAGE_ANON": "true"}, {"credential": "credential"}),
     ],

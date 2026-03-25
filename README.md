@@ -54,13 +54,13 @@ The package includes pythonic filesystem implementations for both [Azure Blobs](
 Operations against Azure Blobs and ADLS Gen2 are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
 
 ### Setting credentials
-If no credentials/configuration is provided, `DefaultAzureCredentials` will be used for authentication. Otherwise, the `storage_options` can be instantiated with a variety of keyword arguments depending on the filesystem. The most commonly used arguments are:
+If no credentials/configuration is provided, `DefaultAzureCredential` will be used for authentication which is the recommended approach. Otherwise, the `storage_options` can be instantiated with a variety of keyword arguments depending on the filesystem. The most commonly used arguments are:
 - `connection_string`
 - `account_name`
 - `account_key`
 - `sas_token`
 - `tenant_id`, `client_id`, and `client_secret` are combined for an Azure ServicePrincipal e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`
-- `anon`: bool, optional. Set to `True` to use anonymous authentication. If not set, the `AZURE_STORAGE_ANON` environment variable will be checked. 
+- `anon`: bool, optional. Set to `True` to use anonymous authentication. If not set, the `AZURE_STORAGE_ANON` environment variable will be checked before defaulting to `False` where credentials are discovered on the system.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
 For more argument details see all arguments for [`AzureBlobFileSystem` here](https://fsspec.github.io/adlfs/api/#adlfs.AzureBlobFileSystem)

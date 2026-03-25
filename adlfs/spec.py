@@ -324,7 +324,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             self.anon = anon
         else:
             anon_env = os.getenv("AZURE_STORAGE_ANON", "false")
-            self.anon = anon_env.lower() not in ["false", "0", "f"]
+            self.anon = anon_env.lower() not in ("false", "0", "f", "")
         self.location_mode = location_mode
         self.credential = credential
         if account_host:
