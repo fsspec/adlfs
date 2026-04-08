@@ -54,7 +54,7 @@ The package includes pythonic filesystem implementations for both [Azure Blobs](
 Operations against Azure Blobs and ADLS Gen2 are implemented by leveraging [Azure Blob Storage Python SDK](https://github.com/Azure/azure-sdk-for-python).
 
 ### Setting credentials
-If no credentials/configuration is provided, `DefaultAzureCredential` will be used for authentication. If you want to use alternative credentials, `storage_options` can be instantiated with a variety of keyword arguments depending on the filesystem. The most commonly used arguments are:
+If no credentials/configuration is provided, `DefaultAzureCredential` will be used for authentication. If you want to use alternative credentials, `storage_options` can be instantiated with a variety of keyword arguments:
 - `connection_string`
 - `account_name`
 - `account_key`
