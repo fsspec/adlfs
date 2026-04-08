@@ -276,9 +276,9 @@ In most cases, prefer <code class="docutils literal notranslate"><span class="pr
 </dd>
 <dt><strong>anon: boolean, optional</strong></dt><dd><p>The value to use for whether to attempt anonymous access if no other credential is
 passed. By default (<code class="docutils literal notranslate"><span class="pre">None</span></code>), the <code class="docutils literal notranslate"><span class="pre">AZURE_STORAGE_ANON</span></code> environment variable is
-checked. False values (<code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>) will resolve to <cite>False</cite> and
-anonymous access will not be attempted. Otherwise the value for <code class="docutils literal notranslate"><span class="pre">anon</span></code> resolves
-to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+checked. If the environment variable is set, values of (<code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">f</span></code>) are
+<code class="docutils literal notranslate"><span class="pre">False</span></code> and everything else resolves to True. Anon will default to <code class="docutils literal notranslate"><span class="pre">False</span></code> if nothing
+is provided and <code class="docutils literal notranslate"><span class="pre">DefaultAzureCredential</span></code> will be used for authentication.</p>
 </dd>
 <dt><strong>default_fill_cache: bool = True</strong></dt><dd><p>Whether to use cache filling with open by default</p>
 </dd>
