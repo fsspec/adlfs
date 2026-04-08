@@ -99,7 +99,7 @@ def ensure_no_api_calls_on_close(file_obj):
         ),
         # Anonymous connection
         (
-            {"account_name": ACCOUNT_NAME},
+            {"account_name": ACCOUNT_NAME, "anon": True},
             get_expected_client_init_call(
                 account_url=f"https://{ACCOUNT_NAME}.blob.core.windows.net",
                 location_mode=None,
