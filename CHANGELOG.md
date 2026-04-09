@@ -2,6 +2,10 @@
 
 Unreleased
 ----------
+- .
+
+2026.4.0
+--------
 - **Breaking:** adlfs no longer uses anonymous authentication by default. It now defaults to using default Azure credentials for authentication.
   To continue using anonymous authentication please set `anon=True` when creating `AzureBlobFileSystem` or set the `AZURE_STORAGE_ANON` environment variable to `True`.
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
