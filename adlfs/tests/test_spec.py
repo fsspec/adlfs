@@ -2427,3 +2427,28 @@ def test_no_anon_warning(storage, env_vars, storage_options):
                 account_name=storage.account_name,
                 **storage_options,
             )
+
+
+def test_etag_normalized_form(storage):
+    """
+    Tests a consistent quoted etag format with ls() and info() calls.
+    """
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/root/a/file.txt"
+    # Get etag info from ls(detail = True) and info()
+    ls_results = fs.ls(path, detail=True, refresh=True)
+    ls_etag = [f["etag"] for f in ls_results if f["name"] == path][0]
+
+    info_etag = fs.info(path, refresh=True)["etag"]
+
+    assert info_etag == ls_etag
+
+    # Validate both etags are quoted
+    assert ls_etag.startswith('"') and info_etag.startswith('"')
+    assert ls_etag.endswith('"') and info_etag.endswith('"')
+
+    # Validate etag from info() is not double quoted
+    assert not info_etag.startswith('""') and not info_etag.endswith('""')

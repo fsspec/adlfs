@@ -901,6 +901,12 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 for key in FORWARDED_BLOB_PROPERTIES
                 if content.has_key(key)  # NOQA
             }
+
+            # Normalize etag to always return a string with quotes for consistency
+            if data.get("etag") and data["etag"] is not None:
+                etagVal = data["etag"]
+                if not etagVal.startswith('"') and not etagVal.endswith('"'):
+                    data["etag"] = f'"{etagVal}"'
             if self.version_aware:
                 data.update(
                     (key, content[key])
