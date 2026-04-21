@@ -11,6 +11,7 @@ Unreleased
 - Added `**kwargs` to `AzureBlobFileSystem.exists()`
 - Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
 - Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
+- Fixed bug where `fs.ls(detail=True)` returned Etag formatted without double quotes.[#544](https://github.com/fsspec/adlfs/pull/544)
 
 2026.2.0
 --------
