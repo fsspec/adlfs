@@ -4,7 +4,7 @@ import os
 import random
 import string
 import tempfile
-import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import azure.storage.blob.aio
@@ -13,6 +13,9 @@ import fsspec
 import numpy as np
 import pandas as pd
 import pytest
+from azure.core.credentials import AzureNamedKeyCredential, AzureSasCredential
+from azure.identity import DefaultAzureCredential
+from azure.identity.aio import DefaultAzureCredential as AIODefaultAzureCredential
 from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
@@ -24,6 +27,7 @@ from adlfs.tests.constants import (
     KEY,
     LATEST_VERSION_ID,
 )
+from adlfs.utils import close_credential
 
 
 def assert_almost_equal(x, y, threshold, prop_name=None):
@@ -2144,6 +2148,52 @@ def test_uses_block_size_for_partitioned_uploads(storage, mocker):
     assert len(mock_commit_block_list.call_args.kwargs["block_list"]) == expected_blocks
 
 
+def test_write_populates_version_id_when_version_aware(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+
+    mock_commit_block_list = mocker.patch.object(
+        BlobClient,
+        "commit_block_list",
+        return_value={"version_id": "test-version-id"},
+    )
+
+    with fs.open("data/version-aware-write.bin", "wb") as f:
+        f.write(b"hello world")
+
+    assert mock_commit_block_list.called
+    assert f.version_id == "test-version-id"
+
+
+def test_write_does_not_populate_version_id_when_not_version_aware(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=False,
+        skip_instance_cache=True,
+    )
+
+    mock_commit_block_list = mocker.patch.object(
+        BlobClient,
+        "commit_block_list",
+        return_value={"version_id": "test-version-id"},
+    )
+
+    with fs.open("data/not-version-aware-wb.bin", "wb") as f:
+        f.write(b"hello world")
+
+    assert mock_commit_block_list.called
+    assert f.version_id is None
+
+
 @pytest.mark.parametrize(
     "filesystem_blocksize, file_blocksize, expected_blocksize, expected_filesystem_blocksize",
     [
@@ -2375,22 +2425,13 @@ def test_metadata_setter(storage, mocker):
         mock_get_metadata.assert_not_called()
 
 
-def test_anon_default_warning(storage):
-    with pytest.warns(
-        DeprecationWarning, match="AzureBlobFileSystem will no longer be defaulting"
-    ):
-        AzureBlobFileSystem(
-            account_name=storage.account_name,
-        )
-
-
 @pytest.mark.parametrize(
     "env_vars,storage_options",
     [
+        (None, {}),
         (None, {"credential": "credential"}),
         (None, {"sas_token": "sas_token"}),
         (None, {"account_key": KEY}),
-        (None, {"connection_string": CONN_STR}),
         (
             None,
             {
@@ -2399,13 +2440,8 @@ def test_anon_default_warning(storage):
                 "client_secret": "client_secret",
             },
         ),
-        (None, {"anon": True}),
         (None, {"anon": False}),
-        (None, {"anon": True, "credential": "credential"}),
-        ({"AZURE_STORAGE_ANON": "true"}, {}),
         ({"AZURE_STORAGE_ANON": "false"}, {}),
-        ({"AZURE_STORAGE_ANON": "true"}, {"credential": "credential"}),
-        ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
         (
             {
                 "AZURE_STORAGE_CLIENT_ID": "client_id",
@@ -2418,15 +2454,123 @@ def test_anon_default_warning(storage):
         ({"AZURE_STORAGE_SAS_TOKEN": "sas_token"}, {}),
     ],
 )
-def test_no_anon_warning(storage, env_vars, storage_options):
+def test_anon_off(storage, env_vars, storage_options, mocker):
     env_var = {} if env_vars is None else env_vars
     with mock.patch.dict(os.environ, env_var):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            AzureBlobFileSystem(
-                account_name=storage.account_name,
-                **storage_options,
-            )
+        from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+
+        mock_service_client_init = mocker.patch.object(
+            AIOBlobServiceClient,
+            "__init__",
+            autospec=True,
+            side_effect=AIOBlobServiceClient.__init__,
+        )
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
+        assert fs.anon is False
+        credential_in_constructor = (
+            mock_service_client_init.call_args.kwargs.get("credential") is not None
+        )
+        sas_token_in_url = "?" in mock_service_client_init.call_args.kwargs.get(
+            "account_url"
+        )
+        assert any([credential_in_constructor, sas_token_in_url])
+
+
+@pytest.mark.parametrize(
+    "env_vars,storage_options",
+    [
+        (None, {"connection_string": CONN_STR}),
+        ({"AZURE_STORAGE_CONNECTION_STRING": CONN_STR}, {}),
+    ],
+)
+def test_anon_off_conn_str(storage, env_vars, storage_options, mocker):
+    env_var = {} if env_vars is None else env_vars
+    with mock.patch.dict(os.environ, env_var):
+        from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+
+        mock_from_conn_str = mocker.patch.object(
+            AIOBlobServiceClient,
+            "from_connection_string",
+            autospec=True,
+            side_effect=AIOBlobServiceClient.from_connection_string,
+        )
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
+        assert fs.anon is False
+        mock_from_conn_str.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "env_vars,storage_options",
+    [
+        (None, {"anon": True}),
+        ({"AZURE_STORAGE_ANON": "true"}, {}),
+    ],
+)
+def test_anon_true(storage, env_vars, storage_options, mocker):
+    env_var = {} if env_vars is None else env_vars
+    with mock.patch.dict(os.environ, env_var):
+        from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
+
+        mock_service_client_init = mocker.patch.object(
+            AIOBlobServiceClient,
+            "__init__",
+            autospec=True,
+            side_effect=AIOBlobServiceClient.__init__,
+        )
+        fs = AzureBlobFileSystem(
+            account_name=storage.account_name,
+            skip_instance_cache=True,
+            **storage_options,
+        )
+        assert fs.anon is True
+        credential_in_constructor = (
+            mock_service_client_init.call_args.kwargs.get("credential") is not None
+        )
+        sas_token_in_url = "?" in mock_service_client_init.call_args.kwargs.get(
+            "account_url"
+        )
+        assert not any([credential_in_constructor, sas_token_in_url])
+
+
+def test_exists_kwargs(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    assert fs.exists("data/top_file.txt", test_kwarg="test")
+
+
+class TestCloseCredential:
+    """Tests for close_credential handling across all credential types."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "credential",
+        [
+            pytest.param(None, id="none"),
+            pytest.param("account-key-string", id="str"),
+            pytest.param({"account_name": "x", "account_key": "y"}, id="dict"),
+            pytest.param(
+                AzureNamedKeyCredential(name="account", key="key123"),
+                id="named_key",
+            ),
+            pytest.param(AzureSasCredential(signature="sig=test"), id="sas"),
+            pytest.param(DefaultAzureCredential(), id="sync_token"),
+            pytest.param(AIODefaultAzureCredential(), id="async_token"),
+        ],
+    )
+    async def test_close_credential(self, credential):
+        file_obj = SimpleNamespace(credential=credential)
+        await close_credential(file_obj)
 
 
 def test_etag_normalized_form(storage):

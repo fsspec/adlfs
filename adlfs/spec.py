@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, annotations, division, print_function
 
 import asyncio
 import errno
@@ -15,9 +15,11 @@ import weakref
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from glob import has_magic
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from uuid import uuid4
 
+from azure.core.credentials import AzureNamedKeyCredential, AzureSasCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from azure.core.exceptions import (
     HttpResponseError,
     ResourceExistsError,
@@ -48,6 +50,14 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+CredentialType = (
+    str
+    | dict[str, str]
+    | AzureNamedKeyCredential
+    | AzureSasCredential
+    | AsyncTokenCredential
+)
 
 FORWARDED_BLOB_PROPERTIES = [
     "metadata",
@@ -124,7 +134,7 @@ def _coalesce_version_id(*args) -> Optional[str]:
 def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
-    credential: Optional[str] = None,
+    credential: CredentialType | None = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
@@ -176,6 +186,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     credential: azure.core.credentials_async.AsyncTokenCredential or SAS token
         The credentials with which to authenticate.  Optional if the account URL already has a SAS token.
         Can include an instance of TokenCredential class from azure.identity.aio.
+        In most cases, prefer ``anon=False`` to let adlfs resolve credentials automatically.
     blocksize: int
         The block size to use for download/upload operations. Defaults to 50 MiB
     client_id: str
@@ -187,9 +198,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
     anon: boolean, optional
         The value to use for whether to attempt anonymous access if no other credential is
         passed. By default (``None``), the ``AZURE_STORAGE_ANON`` environment variable is
-        checked. False values (``false``, ``0``, ``f``) will resolve to `False` and
-        anonymous access will not be attempted. Otherwise the value for ``anon`` resolves
-        to ``True``.
+        checked. If the environment variable is set, values of (``false``, ``0``, ``f``) are
+        ``False`` and everything else resolves to True. Anon will default to ``False`` if nothing
+        is provided and ``DefaultAzureCredential`` will be used for authentication.
     default_fill_cache: bool = True
         Whether to use cache filling with open by default
     default_cache_type: string ('bytes')
@@ -267,7 +278,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         account_name: str = None,
         account_key: str = None,
         connection_string: str = None,
-        credential: str = None,
+        credential: CredentialType | None = None,
         sas_token: str = None,
         request_session=None,
         socket_timeout=_SOCKET_TIMEOUT_DEFAULT,
@@ -312,25 +323,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if anon is not None:
             self.anon = anon
         else:
-            self.anon = os.getenv("AZURE_STORAGE_ANON", "true").lower() not in [
-                "false",
-                "0",
-                "f",
-            ]
-            if os.getenv("AZURE_STORAGE_ANON") is None:
-                if (
-                    self.sas_token is None
-                    and self.account_key is None
-                    and credential is None
-                    and self.connection_string is None
-                    and self.client_id is None
-                ):
-                    warnings.warn(
-                        "AzureBlobFileSystem will no longer be defaulting to anonymous authentication in an "
-                        "upcoming release. To continue using anonymous credentials, please set anon=True. ",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
+            anon_env = os.getenv("AZURE_STORAGE_ANON", "false")
+            self.anon = anon_env.lower() not in ("false", "0", "f", "")
         self.location_mode = location_mode
         self.credential = credential
         if account_host:
@@ -359,6 +353,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.account_key is None
             and self.sas_token is None
             and self.client_id is not None
+            and self.connection_string is None
         ):
             (
                 self.credential,
@@ -373,6 +368,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.anon is False
             and self.sas_token is None
             and self.account_key is None
+            and self.connection_string is None
         ):
             (
                 self.credential,
@@ -1201,7 +1197,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     async def _rm(
         self,
-        path: typing.Union[str, typing.List[str]],
+        path: Union[str, List[str]],
         recursive: bool = False,
         maxdepth: typing.Optional[int] = None,
         delimiter: str = "/",
@@ -1452,10 +1448,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         except IOError:
             return False
 
-    def exists(self, path):
-        return sync(self.loop, self._exists, path)
+    def exists(self, path, **kwargs):
+        return sync(self.loop, self._exists, path, **kwargs)
 
-    async def _exists(self, path):
+    async def _exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
             if self._ls_from_cache(path):
@@ -1998,9 +1994,10 @@ class AzureBlobFile(AbstractBufferedFile):
             by `cache_type`.
 
         version_id : str
-            Optional version to read the file at.  If not specified this will
-            default to the current version of the object.  This is only used for
-            reading.
+            Optional version of the blob.  For reads, specifies which version to
+            read; if not given, defaults to the current version.  On write, this
+            attribute is populated with the version created by the upload when the
+            filesystem has ``version_aware=True``.
 
         kwargs: dict
             Passed to AbstractBufferedFile
@@ -2267,9 +2264,11 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.commit_block_list(
+                        response = await bc.commit_block_list(
                             block_list=block_list, metadata=self.metadata, **commit_kw
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
             except ResourceExistsError as e:
                 raise FileExistsError(self.path) from e
             except Exception as e:
@@ -2281,11 +2280,13 @@ class AzureBlobFile(AbstractBufferedFile):
                     async with self.container_client.get_blob_client(
                         blob=self.blob
                     ) as bc:
-                        await bc.upload_blob(
+                        response = await bc.upload_blob(
                             data=data,
                             metadata=self.metadata,
                             overwrite=(self.mode == "wb"),
                         )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
                 elif length == 0 and final:
                     # just finalize
                     block_list = [BlobBlock(_id) for _id in self._block_list]
@@ -2293,11 +2294,13 @@ class AzureBlobFile(AbstractBufferedFile):
                         blob=self.blob
                     ) as bc:
                         try:
-                            await bc.commit_block_list(
+                            response = await bc.commit_block_list(
                                 block_list=block_list,
                                 metadata=self.metadata,
                                 **commit_kw,
                             )
+                            if self.fs.version_aware:
+                                self.version_id = response.get("version_id")
                         except ResourceExistsError:
                             raise FileExistsError(self.path)
                 else:

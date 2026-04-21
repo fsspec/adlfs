@@ -2,20 +2,32 @@
 
 Unreleased
 ----------
+- .
 
-* Update ADLS Gen 1 deprecation warning to inform of removal of all ADLS Gen 1 features in an upcoming release.
+2026.4.0
+--------
+- **Breaking:** adlfs no longer uses anonymous authentication by default. It now defaults to using default Azure credentials for authentication.
+  To continue using anonymous authentication please set `anon=True` when creating `AzureBlobFileSystem` or set the `AZURE_STORAGE_ANON` environment variable to `True`.
+- Added `**kwargs` to `AzureBlobFileSystem.exists()`
+- Populate `AzureBlobFile.version_id` on write when `version_aware` is enabled.
+- Fixed issue where unawaitable Credential types were incorrectly awaited (#431)
+
+2026.2.0
+--------
+
+- Update ADLS Gen 1 deprecation warning to inform of removal of all ADLS Gen 1 features in an upcoming release.
   If using ADLS Gen 1 interfaces, it is recommended to migrate to the `az://` protocol and/or
   `adlfs.AzureBlobFileSystem` class which support Azure Blob Storage and Azure Data Lake Storage Gen2.
-* Lazy-load `metadata` property on `AzureBlobFile` to avoid fetching metadata on file open
+- Lazy-load `metadata` property on `AzureBlobFile` to avoid fetching metadata on file open
   when it is not accessed.
-* Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
+- Respect `AzureBlobFileSystem.protocol` tuple when removing protocols from fully-qualified
   paths provided to `AzureBlobFileSystem` methods.
-* Added `AzureBlobFileSystem.rm_file()`
-* Keyword arguments for `put` and `put_file` are now proxied to the Azure Blob SDK client to 
+- Added `AzureBlobFileSystem.rm_file()`
+- Keyword arguments for `put` and `put_file` are now proxied to the Azure Blob SDK client to 
   support specifying content settings, tags, and more.
-* Removed support for Python 3.9 and added support for Python 3.14.
-* Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
-* **Breaking:** Warning added for default anonymous use. By default, adlfs will require credentials starting
+- Removed support for Python 3.9 and added support for Python 3.14.
+- Updated the azure-storage-blob dependency to include `aio` and removed the `aiohttp` dependency.
+- **Breaking:** Warning added for default anonymous use. By default, adlfs will require credentials starting
   in a future release. Anyone requiring anonymous access should explicitly set `anon=True` when creating 
   `AzureBlobFileSystem`.
 
