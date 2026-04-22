@@ -4,7 +4,6 @@
 from __future__ import absolute_import, division, print_function
 
 import logging
-from warnings import warn
 
 from azure.datalake.store import AzureDLFileSystem, lib
 from azure.datalake.store.core import AzureDLFile, AzureDLPath
@@ -62,13 +61,11 @@ class AzureDatalakeFileSystem(AbstractFileSystem):
     protocol = "adl"
 
     def __init__(self, tenant_id, client_id, client_secret, store_name):
-        warn(
-            "Azure Data Lake Storage (ADLS) Gen1 has been retired since February 29, 2024. "
-            "All ADLS Gen 1 features offered by adlfs will be removed in an upcoming release. "
-            "It is recommended to use the az:// protocol and/or adlfs.AzureBlobFileSystem class "
-            "which support Azure Blob Storage and Azure Data Lake Storage Gen2.",
-            DeprecationWarning,
-            stacklevel=2,
+        raise NotImplementedError(
+            "Azure Data Lake Storage (ADLS) Gen1 has been retired since February 29, 2024 and "
+            "is no longer supported by adlfs. It is recommended to use the az:// protocol "
+            "and/or adlfs.AzureBlobFileSystem class which support Azure Blob Storage and Azure "
+            "Data Lake Storage Gen2."
         )
         super().__init__()
         self.tenant_id = tenant_id
