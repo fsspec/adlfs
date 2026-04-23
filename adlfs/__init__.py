@@ -3,6 +3,7 @@ from .utils import __version__, version_tuple  # noqa: F401
 
 __all__ = ["AzureBlobFileSystem", "AzureBlobFile"]
 
+
 def __getattr__(name):
     if name == "AzureDatalakeFileSystem":
         raise RuntimeError(
