@@ -899,10 +899,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
             }
 
             # Normalize etag to always return a string with quotes for consistency
-            if data.get("etag") and data["etag"] is not None:
+            if data.get("etag") is not None:
                 etagVal = data["etag"]
-                if not etagVal.startswith('"') and not etagVal.endswith('"'):
-                    data["etag"] = f'"{etagVal}"'
+                data["etag"] = f'"{data["etag"].strip("\"")}"'
             if self.version_aware:
                 data.update(
                     (key, content[key])

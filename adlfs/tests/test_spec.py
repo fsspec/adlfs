@@ -2595,4 +2595,9 @@ def test_etag_normalized_form(storage):
     assert ls_etag.endswith('"') and info_etag.endswith('"')
 
     # Validate etag from info() is not double quoted
-    assert not info_etag.startswith('""') and not info_etag.endswith('""')
+    # Validate etag is quoted but only once.
+    assert ls_etag.startswith('"') and ls_etag.endswith('"')
+    assert not ls_etag.startswith('""') and not ls_etag.endswith('""')
+    
+    # Validate etags are identical
+    assert info_etag == ls_etag
