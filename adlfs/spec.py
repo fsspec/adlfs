@@ -918,9 +918,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 if content.has_key(key)  # NOQA
             }
 
-            # Normalize etag to always return a string with quotes for consistency
+            # Return a string with double quotes for consistency
             if data.get("etag") is not None:
-                data["etag"] = self._strip_quotes_from_etag(data["etag"])
+                data["etag"] = _strip_quotes_from_etag(data["etag"])
 
             if self.version_aware:
                 data.update(
