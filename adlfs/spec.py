@@ -156,7 +156,7 @@ def _create_aio_blob_service_client_from_connection_string(
     )
 
 
-def _strip_quotes_from_etag(etag: str) -> str:
+def _strip_quotes_from_etag(etag: str) -> Optional[str]:
     """
     Normalizes blob etag values to always be returned wrapped with double quotes regardless
     of the format gotten from the SDK.
@@ -173,7 +173,8 @@ def _strip_quotes_from_etag(etag: str) -> str:
     """
     if etag is None:
         return None
-    return f'"{etag.strip("\"")}"'
+    double_quote = '"'
+    return f'"{etag.strip(double_quote)}"'
 
 
 class AzureBlobFileSystem(AsyncFileSystem):
