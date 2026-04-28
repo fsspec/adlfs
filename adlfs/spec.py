@@ -156,6 +156,26 @@ def _create_aio_blob_service_client_from_connection_string(
     )
 
 
+def _strip_quotes_from_etag(etag: str) -> str:
+    """
+    Normalizes blob etag values to always be returned wrapped with double quotes regardless
+    of the format gotten from the SDK.
+
+    Parameters
+    ----------
+    etag: str
+        Raw etag value from Azure
+
+    Returns
+    -------
+    str
+        Returns the normalized etag
+    """
+    if etag is None:
+        return None
+    return f'"{etag.strip("\"")}"'
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -900,8 +920,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
             # Normalize etag to always return a string with quotes for consistency
             if data.get("etag") is not None:
-                etagVal = data["etag"]
-                data["etag"] = f'"{data["etag"].strip("\"")}"'
+                data["etag"] = self._strip_quotes_from_etag(data["etag"])
+
             if self.version_aware:
                 data.update(
                     (key, content[key])
