@@ -2571,3 +2571,57 @@ class TestCloseCredential:
     async def test_close_credential(self, credential):
         file_obj = SimpleNamespace(credential=credential)
         await close_credential(file_obj)
+
+
+def test_mv_single_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    with fs.open("mvcontainer/srcdir/file.txt", "wb") as f:
+        f.write(b"hello")
+
+    fs.mv("mvcontainer/srcdir/file.txt", "mvcontainer/dstdir/")
+
+    assert fs.exists("mvcontainer/dstdir/file.txt")
+    assert not fs.exists("mvcontainer/srcdir/file.txt")
+    assert fs.cat_file("mvcontainer/dstdir/file.txt") == b"hello"
+
+    fs.rm("mvcontainer", recursive=True)
+
+
+def test_mv_directory(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    with fs.open("mvcontainer/srcdir/file.txt", "wb") as f:
+        f.write(b"hello")
+
+    fs.mv("mvcontainer/srcdir", "mvcontainer/dstdir/", recursive=True)
+
+    assert fs.exists("mvcontainer/dstdir/srcdir/file.txt")
+    assert not fs.exists("mvcontainer/srcdir/")
+    assert fs.cat_file("mvcontainer/dstdir/srcdir/file.txt") == b"hello"
+
+    fs.rm("mvcontainer", recursive=True)
+
+
+def test_mv_nested_directories(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("mvcontainer")
+
+    with fs.open("mvcontainer/a/b/c/file.txt", "wb") as f:
+        f.write(b"content")
+
+    fs.mv("mvcontainer/a/b/c", "mvcontainer/a/c", recursive=True)
+
+    assert fs.exists("mvcontainer/a/c/file.txt")
+    assert not fs.exists("mvcontainer/a/b/c")
+    assert fs.cat_file("mvcontainer/a/c/file.txt") == b"content"
+
+    fs.rm("mvcontainer", recursive=True)
