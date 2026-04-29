@@ -2,15 +2,31 @@ import fsspec
 import pytest
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
+from adlfs.tests.constants import ADL_GEN1_ERROR_MSG
 
 
 def test_adl_protocol_attribute_error():
     with pytest.raises(
         AttributeError,
-        match="Gen1 has been retired since February 29, 2024 and "
-        "is no longer supported by adlfs",
+        match=ADL_GEN1_ERROR_MSG,
     ):
         fsspec.filesystem("adl")
+
+
+def test_adl_get_filesystem_class_attribute_error():
+    with pytest.raises(
+        AttributeError,
+        match=ADL_GEN1_ERROR_MSG,
+    ):
+        fsspec.get_filesystem_class("adl")
+
+
+def test_adl_open_attribute_error():
+    with pytest.raises(
+        AttributeError,
+        match=ADL_GEN1_ERROR_MSG,
+    ):
+        fsspec.open("adl://container/path/file.txt")
 
 
 def test_gen1_class_attribute_error():
@@ -18,8 +34,7 @@ def test_gen1_class_attribute_error():
 
     with pytest.raises(
         AttributeError,
-        match="Gen1 has been retired since February 29, 2024 and "
-        "is no longer supported by adlfs",
+        match=ADL_GEN1_ERROR_MSG,
     ):
         adlfs.AzureDatalakeFileSystem
 
