@@ -6,3 +6,6 @@ CONN_STR = f"DefaultEndpointsProtocol=http;AccountName={ACCOUNT_NAME};AccountKey
 SAS_TOKEN = "not-a-real-sas-token"
 DEFAULT_VERSION_ID = "1970-01-01T00:00:00.0000000Z"
 LATEST_VERSION_ID = "2022-01-01T00:00:00.0000000Z"
+ADL_GEN1_ERROR_MSG = (
+    "Gen1 has been retired since February 29, 2024 and is no longer supported by adlfs"
+)
