@@ -20,6 +20,7 @@ from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
+from adlfs.spec import _strip_quotes_from_etag
 from adlfs.tests.constants import (
     ACCOUNT_NAME,
     CONN_STR,
@@ -2571,3 +2572,41 @@ class TestCloseCredential:
     async def test_close_credential(self, credential):
         file_obj = SimpleNamespace(credential=credential)
         await close_credential(file_obj)
+
+
+def test_etag_normalized_form(storage):
+    """
+    Tests a consistent quoted etag format with ls() and info() calls.
+    """
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path = "data/root/a/file.txt"
+    # Get etag info from ls(detail = True) and info()
+    ls_results = fs.ls(path, detail=True, refresh=True)
+    ls_etag = [f["etag"] for f in ls_results if f["name"] == path][0]
+
+    info_etag = fs.info(path, refresh=True)["etag"]
+
+    assert info_etag == ls_etag
+    # Validate both etags are quoted
+    assert ls_etag.startswith('"') and info_etag.startswith('"')
+    assert ls_etag.endswith('"') and info_etag.endswith('"')
+    # Validate etag is not double quoted
+    assert not ls_etag.startswith('""') and not ls_etag.endswith('""')
+
+
+@pytest.mark.parametrize(
+    "input_etag,expected_etag",
+    [
+        pytest.param("0xA123456", '"0xA123456"', id="bug"),
+        pytest.param('"0xA123456"', '"0xA123456"', id="normal"),
+        pytest.param('""0xA123456""', '"0xA123456"', id="double-double-quotes"),
+        pytest.param('"0xA123456', '"0xA123456"', id="leading-double-quote"),
+        pytest.param('0xA123456"', '"0xA123456"', id="trailing-double-quote"),
+        pytest.param(None, None),
+    ],
+)
+def test_striping_etag(input_etag, expected_etag):
+    assert _strip_quotes_from_etag(input_etag) == expected_etag
