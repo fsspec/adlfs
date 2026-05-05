@@ -3,6 +3,7 @@
 Unreleased
 ----------
 - **Breaking:** Removed ADLS Gen1 support. The `adl://` protocol and AzureDatalakeFileSystem class are no longer available. It is recommended to use the `az://` protocol and/or `AzureBlobFileSystem`, which support Azure Blob Storage and Azure Data Lake Storage Gen2.
+- Fixed bug where `fs.ls(detail=True)` returned Etag formatted without double quotes.[#544](https://github.com/fsspec/adlfs/pull/544)
 
 2026.4.0
 --------
