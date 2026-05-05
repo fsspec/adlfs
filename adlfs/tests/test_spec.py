@@ -20,7 +20,7 @@ from packaging.version import parse as parse_version
 from pandas.testing import assert_frame_equal
 
 from adlfs import AzureBlobFile, AzureBlobFileSystem
-from adlfs.spec import _strip_quotes_from_etag
+from adlfs.spec import _normalize_etag_quotes
 from adlfs.tests.constants import (
     ACCOUNT_NAME,
     CONN_STR,
@@ -2596,17 +2596,9 @@ def test_etag_normalized_form(storage):
     # Validate etag is not double quoted
     assert not ls_etag.startswith('""') and not ls_etag.endswith('""')
 
-
-@pytest.mark.parametrize(
-    "input_etag,expected_etag",
-    [
-        pytest.param("0xA123456", '"0xA123456"', id="bug"),
-        pytest.param('"0xA123456"', '"0xA123456"', id="normal"),
-        pytest.param('""0xA123456""', '"0xA123456"', id="double-double-quotes"),
-        pytest.param('"0xA123456', '"0xA123456"', id="leading-double-quote"),
-        pytest.param('0xA123456"', '"0xA123456"', id="trailing-double-quote"),
-        pytest.param(None, None),
-    ],
-)
-def test_striping_etag(input_etag, expected_etag):
-    assert _strip_quotes_from_etag(input_etag) == expected_etag
+    assert _normalize_etag_quotes("0xA123456") == '"0xA123456"'
+    assert _normalize_etag_quotes('"0xA123456"') == '"0xA123456"'
+    assert _normalize_etag_quotes('""0xA123456""') == '"0xA123456"'
+    assert _normalize_etag_quotes('"0xA123456') == '"0xA123456"'
+    assert _normalize_etag_quotes('0xA123456"') == '"0xA123456"'
+    assert _normalize_etag_quotes(None) is None
