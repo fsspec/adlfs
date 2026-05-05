@@ -2596,9 +2596,17 @@ def test_etag_normalized_form(storage):
     # Validate etag is not double quoted
     assert not ls_etag.startswith('""') and not ls_etag.endswith('""')
 
-    assert _normalize_etag_quotes("0xA123456") == '"0xA123456"'
-    assert _normalize_etag_quotes('"0xA123456"') == '"0xA123456"'
-    assert _normalize_etag_quotes('""0xA123456""') == '"0xA123456"'
-    assert _normalize_etag_quotes('"0xA123456') == '"0xA123456"'
-    assert _normalize_etag_quotes('0xA123456"') == '"0xA123456"'
-    assert _normalize_etag_quotes(None) is None
+
+@pytest.mark.parametrize(
+    "input_etag,expected_etag",
+    [
+        ("0xA123456", '"0xA123456"'),
+        ('"0xA123456"', '"0xA123456"'),
+        ('""0xA123456""', '"0xA123456"'),
+        ('"0xA123456', '"0xA123456"'),
+        ('0xA123456"', '"0xA123456"'),
+        (None, None),
+    ],
+)
+def test_striping_etag(input_etag, expected_etag):
+    assert _normalize_etag_quotes(input_etag) == expected_etag
