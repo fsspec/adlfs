@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- **Breaking:** Removed ADLS Gen1 support. The `adl://` protocol and AzureDatalakeFileSystem class are no longer available. It is recommended to use the `az://` protocol and/or `AzureBlobFileSystem`, which support Azure Blob Storage and Azure Data Lake Storage Gen2.
 
 2026.4.0
 --------
