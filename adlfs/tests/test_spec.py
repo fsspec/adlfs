@@ -2707,3 +2707,20 @@ def test_etag_normalized_form(storage):
 )
 def test_striping_etag(input_etag, expected_etag):
     assert _normalize_etag_quotes(input_etag) == expected_etag
+
+
+def test_ls_files_with_same_prefix(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+    path1 = "data/test/file.txt"
+    path2 = "data/test/file.txt.1"
+    fs.touch(path1)
+    fs.touch(path2)
+
+    assert fs.ls("data/test/") == [path1, path2]
+    assert fs.ls("data/test/file.txt") == [path1]
+    assert fs.ls("data/test/file.txt.1") == [path2]
+
+    fs.rm("data/test", recursive=True)
