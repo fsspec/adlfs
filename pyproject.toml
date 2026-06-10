@@ -31,6 +31,13 @@ dependencies = [
     "fsspec>=2023.12.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/fsspec/adlfs"
+Documentation = "https://fsspec.github.io/adlfs/"
+Repository = "https://github.com/fsspec/adlfs"
+Issues = "https://github.com/fsspec/adlfs/issues"
+Changelog = "https://github.com/fsspec/adlfs/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 docs = [
     "sphinx",
