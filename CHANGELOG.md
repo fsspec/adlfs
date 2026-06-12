@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- Added the `maxdepth` parameter to `find()` (#435)
 
 2026.5.0
 --------

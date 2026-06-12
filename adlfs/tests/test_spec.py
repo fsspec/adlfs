@@ -2610,3 +2610,26 @@ def test_etag_normalized_form(storage):
 )
 def test_striping_etag(input_etag, expected_etag):
     assert _normalize_etag_quotes(input_etag) == expected_etag
+
+
+def test_find_maxdepth(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+    )
+
+    assert fs.find("data/root", maxdepth=1) == ["data/root/rfile.txt"]
+
+    assert fs.find("data/root", maxdepth=1, withdirs=True) == [
+        "data/root/a",
+        "data/root/a1",
+        "data/root/b",
+        "data/root/c",
+        "data/root/d",
+        "data/root/e+f",
+        "data/root/rfile.txt",
+    ]
+
+    assert fs.find("data/root", maxdepth=2) == fs.find("data/root")
+
+    assert fs.find("data/root", maxdepth=None) == fs.find("data/root")

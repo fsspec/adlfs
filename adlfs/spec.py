@@ -963,7 +963,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return output
 
-    async def _find(self, path, withdirs=False, prefix="", **kwargs):
+    async def _find(self, path, withdirs=False, prefix="", maxdepth=None, **kwargs):
         """List all files below path.
         Like posix ``find`` command without conditions.
 
@@ -976,6 +976,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
             when used by glob, but users usually only want files.
         prefix: str
             Only return files that match `^{path}/{prefix}`
+        maxdepth: int or None
+            Maximum depth to recurse.
         kwargs are passed to ``ls``.
         """
         full_path = self._strip_protocol(path)
@@ -1037,6 +1039,15 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if withdirs:
             files.update(dirs)
         files = {k: v for k, v in files.items() if k.startswith(target_path)}
+
+        if maxdepth is not None:
+            base_depth = full_path.rstrip("/").count("/")
+            files = {
+                k: v
+                for k, v in files.items()
+                if k.rstrip("/").count("/") <= base_depth + maxdepth
+            }
+
         names = sorted([n for n in files.keys()])
         if not detail:
             return names
