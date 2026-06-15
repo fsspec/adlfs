@@ -462,7 +462,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
     def _get_credential_from_service_principal(self):
         """
         Create a Credential for authentication.
-        
+
         This can include a TokenCredential client_id, client_secret and tenant_id.
 
         Returns
