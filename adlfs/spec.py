@@ -31,6 +31,7 @@ from azure.storage.blob import (
     BlobProperties,
     BlobSasPermissions,
     BlobType,
+    ContentSettings,
     generate_blob_sas,
 )
 from azure.storage.blob.aio import BlobPrefix
@@ -1505,6 +1506,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Set the bytes of given file"""
         if kwargs.pop("mode", "") == "create":
             overwrite = False
+        metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
@@ -1513,7 +1515,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 result = await bc.upload_blob(
                     data=value,
                     overwrite=overwrite,
-                    metadata={"is_directory": "false"},
+                    metadata=metadata,
                     max_concurrency=max_concurrency or self.max_concurrency,
                     **self._timeout_kwargs,
                     **kwargs,
@@ -1744,6 +1746,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if kwargs.pop("mode", "") == "create":
             overwrite = False
+        metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
@@ -1757,7 +1760,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         await bc.upload_blob(
                             f1,
                             overwrite=overwrite,
-                            metadata={"is_directory": "false"},
+                            metadata=metadata,
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback
                             ),
@@ -1899,6 +1902,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cache_type="readahead",
         metadata=None,
         version_id: Optional[str] = None,
+        content_settings: Optional[ContentSettings] = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1927,6 +1931,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
         version_id: str
             Explicit version of the blob to open.  This requires that the abfs filesystem
             is versioning aware and blob versioning is enabled on the releveant container.
+
+        content_settings: ContentSettings
+            Optional content settings (content type, content disposition, cache
+            control, ...) applied to the blob when writing.
         """
         logger.debug(f"_open:  {path}")
         if block_size is None:
@@ -1946,6 +1954,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             cache_type=cache_type,
             metadata=metadata,
             version_id=version_id,
+            content_settings=content_settings,
             **kwargs,
         )
 
@@ -1966,6 +1975,7 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_options: dict = {},
         metadata=None,
         version_id: Optional[str] = None,
+        content_settings: Optional[ContentSettings] = None,
         **kwargs,
     ):
         """
@@ -2002,6 +2012,10 @@ class AzureBlobFile(AbstractBufferedFile):
             read; if not given, defaults to the current version.  On write, this
             attribute is populated with the version created by the upload when the
             filesystem has ``version_aware=True``.
+
+        content_settings: ContentSettings
+            Optional content settings (content type, content disposition, cache
+            control, ...) applied to the blob when writing.
 
         kwargs: dict
             Passed to AbstractBufferedFile
@@ -2073,6 +2087,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
         else:
             self._metadata = metadata or {"is_directory": "false"}
+            self.content_settings = content_settings
             self.buffer = io.BytesIO()
             self.offset = None
             self.forced = False
@@ -2209,7 +2224,10 @@ class AzureBlobFile(AbstractBufferedFile):
         if self.mode == "ab":
             if not await self.fs._exists(self.path):
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
-                    await bc.create_append_blob(metadata=self.metadata)
+                    await bc.create_append_blob(
+                        metadata=self.metadata,
+                        content_settings=self.content_settings,
+                    )
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
 
@@ -2269,7 +2287,10 @@ class AzureBlobFile(AbstractBufferedFile):
                         blob=self.blob
                     ) as bc:
                         response = await bc.commit_block_list(
-                            block_list=block_list, metadata=self.metadata, **commit_kw
+                            block_list=block_list,
+                            metadata=self.metadata,
+                            content_settings=self.content_settings,
+                            **commit_kw,
                         )
                         if self.fs.version_aware:
                             self.version_id = response.get("version_id")
@@ -2287,6 +2308,7 @@ class AzureBlobFile(AbstractBufferedFile):
                         response = await bc.upload_blob(
                             data=data,
                             metadata=self.metadata,
+                            content_settings=self.content_settings,
                             overwrite=(self.mode == "wb"),
                         )
                         if self.fs.version_aware:
@@ -2301,6 +2323,7 @@ class AzureBlobFile(AbstractBufferedFile):
                             response = await bc.commit_block_list(
                                 block_list=block_list,
                                 metadata=self.metadata,
+                                content_settings=self.content_settings,
                                 **commit_kw,
                             )
                             if self.fs.version_aware:
