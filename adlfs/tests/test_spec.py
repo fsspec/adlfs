@@ -1413,55 +1413,111 @@ def test_metadata_write(storage):
     fs.rmdir("test-metadata-write")
 
 
-def test_content_settings_write(storage):
-    from azure.storage.blob import ContentSettings
+CONTENT_SETTINGS = {
+    "content_type": "application/pdf",
+    "content_disposition": 'attachment; filename="f.pdf"',
+    "cache_control": "max-age=3600",
+}
 
+
+def test_content_settings_open(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    fs.mkdir("test-content-settings")
-    data = b"0123456789"
-    settings = ContentSettings(
-        content_type="application/pdf",
-        content_disposition='attachment; filename="f.pdf"',
-        cache_control="max-age=3600",
-    )
-
-    # streaming write (block blob)
-    with fs.open(
-        "test-content-settings/file.pdf", "wb", content_settings=settings
-    ) as f:
-        f.write(data)
-    cs = fs.info("test-content-settings/file.pdf")["content_settings"]
+    fs.mkdir("test-cs-open")
+    with fs.open("test-cs-open/file.pdf", "wb", content_settings=CONTENT_SETTINGS) as f:
+        f.write(b"0123456789")
+    cs = fs.info("test-cs-open/file.pdf")["content_settings"]
     assert cs["content_type"] == "application/pdf"
     assert cs["content_disposition"] == 'attachment; filename="f.pdf"'
     assert cs["cache_control"] == "max-age=3600"
 
     # empty streaming write still applies content settings
     with fs.open(
-        "test-content-settings/empty.pdf", "wb", content_settings=settings
+        "test-cs-open/empty.pdf", "wb", content_settings=CONTENT_SETTINGS
     ) as f:
         f.write(b"")
     assert (
-        fs.info("test-content-settings/empty.pdf")["content_settings"]["content_type"]
+        fs.info("test-cs-open/empty.pdf")["content_settings"]["content_type"]
         == "application/pdf"
     )
+    fs.rmdir("test-cs-open")
 
-    # pipe_file carries content settings and custom metadata together
+
+def test_content_settings_append(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-cs-append")
+    with fs.open(
+        "test-cs-append/file.pdf", "ab", content_settings=CONTENT_SETTINGS
+    ) as f:
+        f.write(b"0123456789")
+    cs = fs.info("test-cs-append/file.pdf")["content_settings"]
+    assert cs["content_type"] == "application/pdf"
+    assert cs["content_disposition"] == 'attachment; filename="f.pdf"'
+    fs.rmdir("test-cs-append")
+
+
+def test_content_settings_pipe_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-cs-pipe")
+    # content settings and custom metadata together
     fs.pipe_file(
-        "test-content-settings/piped.pdf",
-        data,
-        content_settings=settings,
+        "test-cs-pipe/piped.pdf",
+        b"0123456789",
+        content_settings=CONTENT_SETTINGS,
         metadata={"origin": "adlfs-test"},
     )
-    info = fs.info("test-content-settings/piped.pdf")
+    info = fs.info("test-cs-pipe/piped.pdf")
     assert info["content_settings"]["content_disposition"] == (
         'attachment; filename="f.pdf"'
     )
     assert info["metadata"] == {"origin": "adlfs-test"}
-    assert fs.cat_file("test-content-settings/piped.pdf") == data
+    assert fs.cat_file("test-cs-pipe/piped.pdf") == b"0123456789"
+    fs.rmdir("test-cs-pipe")
 
-    fs.rmdir("test-content-settings")
+
+def test_content_settings_put_file(storage, tmp_path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-cs-put")
+    local = tmp_path / "f.pdf"
+    local.write_bytes(b"0123456789")
+    # content settings and custom metadata (override the is_directory default)
+    fs.put_file(
+        str(local),
+        "test-cs-put/put.pdf",
+        content_settings=CONTENT_SETTINGS,
+        metadata={"origin": "adlfs-test"},
+    )
+    info = fs.info("test-cs-put/put.pdf")
+    assert info["content_settings"]["content_type"] == "application/pdf"
+    assert info["metadata"] == {"origin": "adlfs-test"}
+    assert fs.cat_file("test-cs-put/put.pdf") == b"0123456789"
+    fs.rmdir("test-cs-put")
+
+
+def test_content_settings_accepts_object(storage):
+    # A ContentSettings instance is accepted for compatibility (dict is the
+    # documented form).
+    from azure.storage.blob import ContentSettings
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-cs-object")
+    settings = ContentSettings(content_type="application/pdf")
+    with fs.open("test-cs-object/obj.pdf", "wb", content_settings=settings) as f:
+        f.write(b"x")
+    assert (
+        fs.info("test-cs-object/obj.pdf")["content_settings"]["content_type"]
+        == "application/pdf"
+    )
+    fs.rmdir("test-cs-object")
 
 
 def test_put_file(storage, tmp_path):

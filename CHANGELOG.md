@@ -2,7 +2,8 @@
 
 Unreleased
 ----------
-- .
+- Added a `content_settings` parameter to `open()` (write modes), `pipe_file()` and `put_file()` to set blob content settings (content type, content disposition, cache control, ...) on write. Accepts a `dict` (recommended) or an `azure.storage.blob.ContentSettings` instance. [#554](https://github.com/fsspec/adlfs/pull/554)
+- Allow overriding blob `metadata` in `pipe_file()` and `put_file()` instead of always writing `{"is_directory": "false"}`. [#554](https://github.com/fsspec/adlfs/pull/554)
 
 2026.5.0
 --------

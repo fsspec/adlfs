@@ -164,6 +164,19 @@ def _normalize_etag_quotes(etag: str) -> Optional[str]:
     return f'"{etag.strip(double_quote)}"'
 
 
+def _as_content_settings(
+    content_settings: Optional[Union[ContentSettings, dict]],
+) -> Optional[ContentSettings]:
+    """Coerce ``content_settings`` given as a dict into a ``ContentSettings``.
+
+    Accepts either a plain ``dict`` (recommended — keeps the Azure SDK out of the
+    caller's imports) or a ``ContentSettings`` instance.
+    """
+    if content_settings is None or isinstance(content_settings, ContentSettings):
+        return content_settings
+    return ContentSettings(**content_settings)
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -1507,6 +1520,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if kwargs.pop("mode", "") == "create":
             overwrite = False
         metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
+        content_settings = _as_content_settings(kwargs.pop("content_settings", None))
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
@@ -1516,6 +1530,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     data=value,
                     overwrite=overwrite,
                     metadata=metadata,
+                    content_settings=content_settings,
                     max_concurrency=max_concurrency or self.max_concurrency,
                     **self._timeout_kwargs,
                     **kwargs,
@@ -1747,6 +1762,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if kwargs.pop("mode", "") == "create":
             overwrite = False
         metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
+        content_settings = _as_content_settings(kwargs.pop("content_settings", None))
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
@@ -1761,6 +1777,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             f1,
                             overwrite=overwrite,
                             metadata=metadata,
+                            content_settings=content_settings,
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback
                             ),
@@ -1902,7 +1919,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         cache_type="readahead",
         metadata=None,
         version_id: Optional[str] = None,
-        content_settings: Optional[ContentSettings] = None,
+        content_settings: Optional[Union[ContentSettings, dict]] = None,
         **kwargs,
     ):
         """Open a file on the datalake, or a block blob
@@ -1932,9 +1949,10 @@ class AzureBlobFileSystem(AsyncFileSystem):
             Explicit version of the blob to open.  This requires that the abfs filesystem
             is versioning aware and blob versioning is enabled on the releveant container.
 
-        content_settings: ContentSettings
-            Optional content settings (content type, content disposition, cache
-            control, ...) applied to the blob when writing.
+        content_settings: dict
+            Optional content settings applied to the blob when writing, e.g.
+            ``{"content_type": "application/pdf", "content_disposition": "..."}``.
+            A ``ContentSettings`` instance is also accepted.
         """
         logger.debug(f"_open:  {path}")
         if block_size is None:
@@ -1975,7 +1993,7 @@ class AzureBlobFile(AbstractBufferedFile):
         cache_options: dict = {},
         metadata=None,
         version_id: Optional[str] = None,
-        content_settings: Optional[ContentSettings] = None,
+        content_settings: Optional[Union[ContentSettings, dict]] = None,
         **kwargs,
     ):
         """
@@ -2013,9 +2031,10 @@ class AzureBlobFile(AbstractBufferedFile):
             attribute is populated with the version created by the upload when the
             filesystem has ``version_aware=True``.
 
-        content_settings: ContentSettings
-            Optional content settings (content type, content disposition, cache
-            control, ...) applied to the blob when writing.
+        content_settings: dict
+            Optional content settings applied to the blob when writing, e.g.
+            ``{"content_type": "application/pdf", "content_disposition": "..."}``.
+            A ``ContentSettings`` instance is also accepted.
 
         kwargs: dict
             Passed to AbstractBufferedFile
@@ -2087,7 +2106,7 @@ class AzureBlobFile(AbstractBufferedFile):
 
         else:
             self._metadata = metadata or {"is_directory": "false"}
-            self.content_settings = content_settings
+            self._content_settings = _as_content_settings(content_settings)
             self.buffer = io.BytesIO()
             self.offset = None
             self.forced = False
@@ -2226,7 +2245,7 @@ class AzureBlobFile(AbstractBufferedFile):
                 async with self.container_client.get_blob_client(blob=self.blob) as bc:
                     await bc.create_append_blob(
                         metadata=self.metadata,
-                        content_settings=self.content_settings,
+                        content_settings=self._content_settings,
                     )
 
     _initiate_upload = sync_wrapper(_async_initiate_upload)
@@ -2289,7 +2308,7 @@ class AzureBlobFile(AbstractBufferedFile):
                         response = await bc.commit_block_list(
                             block_list=block_list,
                             metadata=self.metadata,
-                            content_settings=self.content_settings,
+                            content_settings=self._content_settings,
                             **commit_kw,
                         )
                         if self.fs.version_aware:
@@ -2308,7 +2327,7 @@ class AzureBlobFile(AbstractBufferedFile):
                         response = await bc.upload_blob(
                             data=data,
                             metadata=self.metadata,
-                            content_settings=self.content_settings,
+                            content_settings=self._content_settings,
                             overwrite=(self.mode == "wb"),
                         )
                         if self.fs.version_aware:
@@ -2323,7 +2342,7 @@ class AzureBlobFile(AbstractBufferedFile):
                             response = await bc.commit_block_list(
                                 block_list=block_list,
                                 metadata=self.metadata,
-                                content_settings=self.content_settings,
+                                content_settings=self._content_settings,
                                 **commit_kw,
                             )
                             if self.fs.version_aware:
