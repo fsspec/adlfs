@@ -2119,6 +2119,7 @@ async def test_pipe_file_timeout(storage, mocker):
     upload_blob.assert_called_once_with(
         data=b"data",
         metadata={"is_directory": "false"},
+        content_settings=None,
         overwrite=True,
         max_concurrency=fs.max_concurrency,
         timeout=11,
@@ -2147,6 +2148,7 @@ async def test_put_file_timeout(storage, mocker, tmp_path):
     upload_blob.assert_called_once_with(
         mocker.ANY,
         metadata={"is_directory": "false"},
+        content_settings=None,
         overwrite=True,
         raw_response_hook=None,
         max_concurrency=fs.max_concurrency,
