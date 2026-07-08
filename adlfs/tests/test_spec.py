@@ -1464,18 +1464,13 @@ def test_content_settings_pipe_file(storage):
         account_name=storage.account_name, connection_string=CONN_STR
     )
     fs.mkdir("test-cs-pipe")
-    # content settings and custom metadata together
     fs.pipe_file(
-        "test-cs-pipe/piped.pdf",
-        b"0123456789",
-        content_settings=CONTENT_SETTINGS,
-        metadata={"origin": "adlfs-test"},
+        "test-cs-pipe/piped.pdf", b"0123456789", content_settings=CONTENT_SETTINGS
     )
     info = fs.info("test-cs-pipe/piped.pdf")
     assert info["content_settings"]["content_disposition"] == (
         'attachment; filename="f.pdf"'
     )
-    assert info["metadata"] == {"origin": "adlfs-test"}
     assert fs.cat_file("test-cs-pipe/piped.pdf") == b"0123456789"
     fs.rmdir("test-cs-pipe")
 
@@ -1487,16 +1482,9 @@ def test_content_settings_put_file(storage, tmp_path):
     fs.mkdir("test-cs-put")
     local = tmp_path / "f.pdf"
     local.write_bytes(b"0123456789")
-    # content settings and custom metadata (override the is_directory default)
-    fs.put_file(
-        str(local),
-        "test-cs-put/put.pdf",
-        content_settings=CONTENT_SETTINGS,
-        metadata={"origin": "adlfs-test"},
-    )
+    fs.put_file(str(local), "test-cs-put/put.pdf", content_settings=CONTENT_SETTINGS)
     info = fs.info("test-cs-put/put.pdf")
     assert info["content_settings"]["content_type"] == "application/pdf"
-    assert info["metadata"] == {"origin": "adlfs-test"}
     assert fs.cat_file("test-cs-put/put.pdf") == b"0123456789"
     fs.rmdir("test-cs-put")
 

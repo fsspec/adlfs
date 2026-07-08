@@ -1519,7 +1519,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         """Set the bytes of given file"""
         if kwargs.pop("mode", "") == "create":
             overwrite = False
-        metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
         content_settings = _as_content_settings(kwargs.pop("content_settings", None))
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
@@ -1529,7 +1528,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 result = await bc.upload_blob(
                     data=value,
                     overwrite=overwrite,
-                    metadata=metadata,
+                    metadata={"is_directory": "false"},
                     content_settings=content_settings,
                     max_concurrency=max_concurrency or self.max_concurrency,
                     **self._timeout_kwargs,
@@ -1761,7 +1760,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         if kwargs.pop("mode", "") == "create":
             overwrite = False
-        metadata = kwargs.pop("metadata", None) or {"is_directory": "false"}
         content_settings = _as_content_settings(kwargs.pop("content_settings", None))
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
@@ -1776,7 +1774,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         await bc.upload_blob(
                             f1,
                             overwrite=overwrite,
-                            metadata=metadata,
+                            metadata={"is_directory": "false"},
                             content_settings=content_settings,
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback
