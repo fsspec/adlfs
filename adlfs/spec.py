@@ -136,9 +136,11 @@ def _create_aio_blob_service_client(
     account_url: str,
     location_mode: Optional[str] = None,
     credential: CredentialType | None = None,
+    api_version: Optional[str] = None,
 ) -> AIOBlobServiceClient:
     service_client_kwargs = {
         "account_url": account_url,
+        "api_version": api_version,
         "user_agent": _USER_AGENT,
     }
     if credential is not None:
@@ -150,9 +152,11 @@ def _create_aio_blob_service_client(
 
 def _create_aio_blob_service_client_from_connection_string(
     connection_string: str,
+    api_version: Optional[str] = None,
 ) -> AIOBlobServiceClient:
     return AIOBlobServiceClient.from_connection_string(
         conn_str=connection_string,
+        api_version=api_version,
         user_agent=_USER_AGENT,
     )
 
@@ -320,6 +324,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         connection_timeout: Optional[int] = None,
         read_timeout: Optional[int] = None,
         account_host: str = None,
+        api_version: Optional[str] = None,
         **kwargs,
     ):
         self.kwargs = kwargs.copy()
@@ -350,6 +355,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.credential = credential
         if account_host:
             self.account_host = account_host
+        self.api_version = api_version
         self.request_session = request_session
         self.assume_container_exists = assume_container_exists
         if socket_timeout is not _SOCKET_TIMEOUT_DEFAULT:
@@ -542,6 +548,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 self.service_client = (
                     _create_aio_blob_service_client_from_connection_string(
                         connection_string=self.connection_string,
+                        api_version=self.api_version,
                     )
                 )
             elif self.account_name is not None:
@@ -559,6 +566,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                             account_url=self.account_url,
                             location_mode=self.location_mode,
                             credential=cred,
+                            api_version=self.api_version,
                         )
                         for cred in creds
                         if cred is not None
@@ -569,11 +577,13 @@ class AzureBlobFileSystem(AsyncFileSystem):
                     self.service_client = _create_aio_blob_service_client(
                         account_url=self.account_url + self.sas_token,
                         location_mode=self.location_mode,
+                        api_version=self.api_version,
                     )
                 else:
                     # Fall back to anonymous login, and assume public container
                     self.service_client = _create_aio_blob_service_client(
                         account_url=self.account_url,
+                        api_version=self.api_version,
                     )
             else:
                 raise ValueError(
@@ -2179,6 +2189,7 @@ class AzureBlobFile(AbstractBufferedFile):
                         account_url=self.fs.account_url,
                         credential=cred,
                         location_mode=self.fs.location_mode,
+                        api_version=self.fs.api_version,
                     ).get_container_client(self.container_name)
                     for cred in creds
                     if cred is not None
@@ -2187,16 +2198,19 @@ class AzureBlobFile(AbstractBufferedFile):
                 self.container_client = (
                     _create_aio_blob_service_client_from_connection_string(
                         connection_string=self.fs.connection_string,
+                        api_version=self.fs.api_version,
                     ).get_container_client(self.container_name)
                 )
             elif self.fs.sas_token is not None:
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url + self.fs.sas_token,
                     location_mode=self.fs.location_mode,
+                    api_version=self.fs.api_version,
                 ).get_container_client(self.container_name)
             else:
                 self.container_client = _create_aio_blob_service_client(
                     account_url=self.fs.account_url,
+                    api_version=self.fs.api_version,
                 ).get_container_client(self.container_name)
         except Exception as e:
             raise ValueError(
