@@ -2281,12 +2281,27 @@ class AzureBlobFile(AbstractBufferedFile):
         """
         data = self.buffer.getvalue()
         length = len(data)
-        block_id = self._get_block_id()
         commit_kw = {}
         if self.mode == "xb":
             commit_kw["headers"] = {"If-None-Match": "*"}
         if self.mode in {"wb", "xb"}:
             try:
+                if final and not self._block_list:
+                    async with self.container_client.get_blob_client(
+                        blob=self.blob
+                    ) as bc:
+                        response = await bc.upload_blob(
+                            data=data,
+                            overwrite=(self.mode == "wb"),
+                            metadata=self.metadata,
+                            content_settings=self._content_settings,
+                            max_concurrency=self.fs.max_concurrency or 1,
+                        )
+                        if self.fs.version_aware:
+                            self.version_id = response.get("version_id")
+                    return
+
+                block_id = self._get_block_id()
                 max_concurrency = self.fs.max_concurrency or 1
                 semaphore = asyncio.Semaphore(max_concurrency)
                 tasks = []
@@ -2314,24 +2329,8 @@ class AzureBlobFile(AbstractBufferedFile):
             except ResourceExistsError as e:
                 raise FileExistsError(self.path) from e
             except Exception as e:
-                # This step handles the situation where data="" and length=0
-                # which is throws an InvalidHeader error from Azure, so instead
-                # of staging a block, we directly upload the empty blob
-                # This isn't actually tested, since Azureite behaves differently.
-                if not self._block_list and length == 0 and final:
-                    async with self.container_client.get_blob_client(
-                        blob=self.blob
-                    ) as bc:
-                        response = await bc.upload_blob(
-                            data=data,
-                            metadata=self.metadata,
-                            content_settings=self._content_settings,
-                            overwrite=(self.mode == "wb"),
-                        )
-                        if self.fs.version_aware:
-                            self.version_id = response.get("version_id")
-                elif length == 0 and final:
-                    # just finalize
+                # Finalize a multi-block upload whose last chunk is empty
+                if length == 0 and final and self._block_list:
                     block_list = [BlobBlock(_id) for _id in self._block_list]
                     async with self.container_client.get_blob_client(
                         blob=self.blob

@@ -2256,16 +2256,16 @@ def test_write_populates_version_id_when_version_aware(storage, mocker):
         skip_instance_cache=True,
     )
 
-    mock_commit_block_list = mocker.patch.object(
+    mock_upload_blob = mocker.patch.object(
         BlobClient,
-        "commit_block_list",
+        "upload_blob",
         return_value={"version_id": "test-version-id"},
     )
 
     with fs.open("data/version-aware-write.bin", "wb") as f:
         f.write(b"hello world")
 
-    assert mock_commit_block_list.called
+    mock_upload_blob.assert_called_once()
     assert f.version_id == "test-version-id"
 
 
@@ -2279,16 +2279,16 @@ def test_write_does_not_populate_version_id_when_not_version_aware(storage, mock
         skip_instance_cache=True,
     )
 
-    mock_commit_block_list = mocker.patch.object(
+    mock_upload_blob = mocker.patch.object(
         BlobClient,
-        "commit_block_list",
+        "upload_blob",
         return_value={"version_id": "test-version-id"},
     )
 
     with fs.open("data/not-version-aware-wb.bin", "wb") as f:
         f.write(b"hello world")
 
-    assert mock_commit_block_list.called
+    mock_upload_blob.assert_called_once()
     assert f.version_id is None
 
 
@@ -2707,3 +2707,72 @@ def test_etag_normalized_form(storage):
 )
 def test_striping_etag(input_etag, expected_etag):
     assert _normalize_etag_quotes(input_etag) == expected_etag
+
+
+def test_small_write_uses_single_upload_blob(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+
+    mock_stage_block = mocker.patch.object(BlobClient, "stage_block")
+    mock_commit_block_list = mocker.patch.object(BlobClient, "commit_block_list")
+    mock_upload_blob = mocker.patch.object(BlobClient, "upload_blob", return_value={})
+
+    with fs.open("data/small-file.txt", "wb") as f:
+        f.write(b"test content")
+
+    mock_upload_blob.assert_called_once()
+    mock_stage_block.assert_not_called()
+    mock_commit_block_list.assert_not_called()
+
+    call_kwargs = mock_upload_blob.call_args.kwargs
+    assert call_kwargs["data"] == b"test content"
+
+
+def test_small_write_uses_single_upload_blob_x(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+
+    mock_stage_block = mocker.patch.object(BlobClient, "stage_block")
+    mock_commit_block_list = mocker.patch.object(BlobClient, "commit_block_list")
+    mock_upload_blob = mocker.patch.object(BlobClient, "upload_blob", return_value={})
+
+    with fs.open("data/small-file-xb.txt", "xb") as f:
+        f.write(b"test content")
+
+    mock_upload_blob.assert_called_once()
+    mock_stage_block.assert_not_called()
+    mock_commit_block_list.assert_not_called()
+
+    call_kwargs = mock_upload_blob.call_args.kwargs
+    assert call_kwargs["data"] == b"test content"
+    assert call_kwargs["overwrite"] is False
+
+
+def test_small_write_upload_failure_raises_runtime_error(storage, mocker):
+    from azure.core.exceptions import HttpResponseError
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        skip_instance_cache=True,
+    )
+
+    mocker.patch.object(BlobClient, "upload_blob", side_effect=HttpResponseError)
+    mock_commit_block_list = mocker.patch.object(BlobClient, "commit_block_list")
+
+    with pytest.raises(RuntimeError):
+        with fs.open("data/small-file.txt", "wb") as f:
+            f.write(b"test content")
+
+    mock_commit_block_list.assert_not_called()
