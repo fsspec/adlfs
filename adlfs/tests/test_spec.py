@@ -2733,6 +2733,10 @@ def test_small_write_uses_single_upload_blob(storage, mocker):
     assert call_kwargs["data"] == b"test content"
 
 
+@pytest.mark.xfail(
+    parse_version(fsspec.__version__) <= parse_version("2024.10.0"),
+    reason="not supported upstream yet",
+)
 def test_small_write_uses_single_upload_blob_x(storage, mocker):
     from azure.storage.blob.aio import BlobClient
 
