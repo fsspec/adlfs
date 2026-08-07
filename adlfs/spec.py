@@ -960,16 +960,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data["name"] = data["name"].rstrip("/")
             output.append(data)
         if target_path:
-            if not self.version_aware:
-                # This handles the case where a file path is passed to ls and there are
-                # multiple files with the same prefix.
-                file = [
-                    o
-                    for o in output
-                    if o["name"] == target_path and o["type"] == "file"
-                ]
-                if file:
-                    return file
             output = await filter_blobs(
                 output,
                 target_path,

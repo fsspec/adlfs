@@ -2723,4 +2723,43 @@ def test_ls_files_with_same_prefix(storage):
     assert fs.ls("data/test/file.txt") == [path1]
     assert fs.ls("data/test/file.txt.1") == [path2]
 
+    with pytest.raises(FileNotFoundError):
+        fs.ls("data/test/file.txt.")
+
     fs.rm("data/test", recursive=True)
+
+
+async def test_filter_blobs_exact_file_versioned():
+    from adlfs.utils import filter_blobs
+
+    blobs = [
+        {
+            "name": "data/test/file.txt",
+            "type": "file",
+            "version_id": DEFAULT_VERSION_ID,
+            "is_current_version": None,
+        },
+        {
+            "name": "data/test/file.txt",
+            "type": "file",
+            "version_id": LATEST_VERSION_ID,
+            "is_current_version": True,
+        },
+        {
+            "name": "data/test/file.txt.1",
+            "type": "file",
+            "version_id": LATEST_VERSION_ID,
+            "is_current_version": True,
+        },
+    ]
+
+    result = await filter_blobs(blobs, "data/test/file.txt", version_id=None)
+    assert result == [blobs[1]]
+
+    result = await filter_blobs(
+        blobs, "data/test/file.txt", version_id=DEFAULT_VERSION_ID
+    )
+    assert result == [blobs[0]]
+
+    result = await filter_blobs(blobs, "data/test/file.txt", versions=True)
+    assert result == [blobs[0], blobs[1]]

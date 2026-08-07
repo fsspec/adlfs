@@ -38,13 +38,27 @@ async def filter_blobs(
 
     version_id: Spefic blob version ID to be returned
     """
-    # remove delimiter and spaces, then add delimiter at the end
-    target_path = target_path.strip(" " + delimiter) + delimiter
+    # remove delimiter and spaces
+    target_path = target_path.strip(" " + delimiter)
+
+    # If target_path is itself a file, return just that file. This handles
+    # ls("container/path/to/file") where other blobs share the same prefix.
+    exact_file = [
+        b
+        for b in blobs
+        if b["name"].strip(" " + delimiter) == target_path
+        and b.get("type") == "file"
+        and (versions or match_blob_version(b, version_id))
+    ]
+    if exact_file:
+        return exact_file
+
+    prefix = target_path + delimiter
     finalblobs = [
         b
         for b in blobs
         if (
-            b["name"].strip(" " + delimiter).startswith(target_path)
+            b["name"].strip(" " + delimiter).startswith(prefix)
             and (versions or match_blob_version(b, version_id))
         )
     ]
