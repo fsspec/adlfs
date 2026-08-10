@@ -46,7 +46,7 @@ async def filter_blobs(
     exact_file = [
         b
         for b in blobs
-        if b["name"].strip(" " + delimiter) == target_path
+        if b["name"] == target_path
         and b.get("type") == "file"
         and (versions or match_blob_version(b, version_id))
     ]
