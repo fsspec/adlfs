@@ -960,13 +960,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 data["name"] = data["name"].rstrip("/")
             output.append(data)
         if target_path:
-            if (
-                len(output) == 1
-                and output[0]["type"] == "file"
-                and not self.version_aware
-            ):
-                # This handles the case where path is a file passed to ls
-                return output
             output = await filter_blobs(
                 output,
                 target_path,
