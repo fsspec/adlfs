@@ -84,5 +84,27 @@ The `AzureBlobFileSystem` accepts [all of the Async BlobServiceClient arguments]
 
 By default, write operations create BlockBlobs in Azure, which, once written can not be appended. It is possible to create an AppendBlob using `mode="ab"` when creating and operating on blobs. Currently, AppendBlobs are not available if hierarchical namespaces are enabled.
 
+### Connecting to different endpoints
+By default, adlfs connects to the Azure public cloud (`blob.core.windows.net`). To set a different endpoint, you can pass in the `account_host` parameter alongside `account_name`:
+```python
+# Generic custom endpoint
+fs = AzureBlobFileSystem(
+    account_name="myaccount",
+    account_host="myaccount.<your-endpoint>",
+)
+
+# Azure China cloud
+fs = AzureBlobFileSystem(
+    account_name="myaccount",
+    account_host="myaccount.blob.core.chinacloudapi.cn",
+)
+
+# Microsoft OneLake
+fs = AzureBlobFileSystem(
+    account_name="onelake",
+    account_host="onelake.dfs.fabric.microsoft.com",
+)
+```
+
 ### Older versions
 ADLS Gen1 filesystem has officially been [retired](https://learn.microsoft.com/en-us/lifecycle/products/azure-data-lake-storage-gen1). Hence the adl:// method, which was designed to connect to ADLS Gen1 is obsolete.
