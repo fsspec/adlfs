@@ -3,6 +3,7 @@
 Unreleased
 ----------
 - Fixed `put_file()`, `put()` and `pipe_file()` failing with `TypeError: upload_blob() got multiple values for keyword argument 'metadata'` when called with `metadata=`. Caller metadata is now used as is, consistent with `open()`; the default `is_directory` marker is only set when no metadata is given. [#561](https://github.com/fsspec/adlfs/issues/561)
+- Fixed `cat_file()` and `cat_ranges()` raising `ValueError: Required Content-Range response header is missing or malformed` for negative offsets and empty ranges. Negative `start`/`end` values are now resolved against the blob size like a Python slice, which is how zarr v3 reads shard indexes.
 
 2026.8.0
 --------
