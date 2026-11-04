@@ -1489,6 +1489,49 @@ def test_content_settings_put_file(storage, tmp_path):
     fs.rmdir("test-cs-put")
 
 
+def test_pipe_file_with_metadata(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-pipe")
+    fs.pipe_file("test-meta-pipe/piped.txt", b"0123456789", metadata={"k": "v"})
+    info = fs.info("test-meta-pipe/piped.txt")
+    assert info["metadata"] == {"k": "v", "is_directory": "false"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-meta-pipe/piped.txt") == b"0123456789"
+    fs.rmdir("test-meta-pipe")
+
+
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_with_metadata(storage, put_method, tmp_path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-put")
+    local = tmp_path / "f.txt"
+    local.write_bytes(b"0123456789")
+    getattr(fs, put_method)(str(local), "test-meta-put/put.txt", metadata={"k": "v"})
+    info = fs.info("test-meta-put/put.txt")
+    assert info["metadata"] == {"k": "v", "is_directory": "false"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-meta-put/put.txt") == b"0123456789"
+    fs.rmdir("test-meta-put")
+
+
+def test_metadata_does_not_override_directory_marker(storage):
+    # adlfs relies on is_directory to tell files from folders, so a caller
+    # value must not turn a file into a directory marker.
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-marker")
+    fs.pipe_file("test-meta-marker/f.txt", b"x", metadata={"is_directory": "true"})
+    info = fs.info("test-meta-marker/f.txt")
+    assert info["metadata"] == {"is_directory": "false"}
+    assert info["type"] == "file"
+    fs.rmdir("test-meta-marker")
+
+
 def test_content_settings_accepts_object(storage):
     # A ContentSettings instance is accepted for compatibility (dict is the
     # documented form).
