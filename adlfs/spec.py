@@ -44,6 +44,7 @@ from .utils import (
     __version__,
     close_container_client,
     close_credential,
+    close_datalake_client,
     close_service_client,
     filter_blobs,
     get_blob_metadata,
@@ -85,6 +86,12 @@ _DEFAULT_BLOCK_SIZE = 50 * 2**20
 _SOCKET_TIMEOUT_DEFAULT = object()
 
 _USER_AGENT = f"adlfs/{__version__}"
+
+_AZURE_SUFFIX_PATTERN = re.compile(
+    r"\.(?P<endpoint_type>dfs|blob)\.(?P<suffix>(?:core\.)?[^/:]+)"
+)
+
+_DFS_PROBE_TIMEOUT = 2.0
 
 
 # https://github.com/Azure/azure-sdk-for-python/issues/11419#issuecomment-628143480
@@ -323,6 +330,14 @@ class AzureBlobFileSystem(AsyncFileSystem):
         **kwargs,
     ):
         self.kwargs = kwargs.copy()
+
+        if account_name and (
+            "://" in account_name or _AZURE_SUFFIX_PATTERN.search(account_name)
+        ):
+            url_kwargs = self._get_kwargs_from_urls(account_name)
+            self.kwargs.update(url_kwargs)
+            account_name = url_kwargs.get("account_name", None)
+
         super_kwargs = {
             k: kwargs.pop(k)
             for k in ["use_listings_cache", "listings_expiry_time", "max_paths"]
@@ -402,6 +417,9 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if self.credential is not None:
             weakref.finalize(self, sync, self.loop, close_credential, self)
 
+        if self.hns_enabled:
+            self._init_datalake_client()
+
         if max_concurrency is None:
             batch_size = _get_batch_size()
             if batch_size > 0:
@@ -426,7 +444,6 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if isinstance(path, list):
             return [cls._strip_protocol(p) for p in path]
 
-        STORE_SUFFIX = ".dfs.core.windows.net"
         logger.debug(f"_strip_protocol for {path}")
         if isinstance(cls.protocol, str):
             # The protocol can be either a string or a tuple of strings.
@@ -447,9 +464,8 @@ class AzureBlobFileSystem(AsyncFileSystem):
         # the format {host}/{path}
         # here host is the container_name
         elif ops.get("host", None):
-            if (
-                ops["host"].count(STORE_SUFFIX) == 0
-            ):  # no store-suffix, so this is container-name
+            if not _AZURE_SUFFIX_PATTERN.search(ops["host"]):
+                # Host is not an azure/onelake endpoint, so this is container-name
                 ops["path"] = ops["host"] + ops["path"]
         url_query = ops.get("url_query")
         if url_query is not None:
@@ -465,13 +481,21 @@ class AzureBlobFileSystem(AsyncFileSystem):
         ops = infer_storage_options(urlpath)
         out = {}
         host = ops.get("host", None)
+        if not host:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(urlpath)
+            host = parsed.netloc or parsed.path
         if host:
-            match = re.match(
-                r"(?P<account_name>.+)\.(dfs|blob)\.core\.windows\.net", host
-            )
+            match = _AZURE_SUFFIX_PATTERN.search(host)
             if match:
-                account_name = match.groupdict()["account_name"]
-                out["account_name"] = account_name
+                out["_url_endpoint_type"] = match.group("endpoint_type")
+                out["_url_cloud_suffix"] = match.group("suffix")
+                # Extract account_name: everything before the matched suffix
+                prefix = host[: match.start()]
+                account_name = prefix.rsplit("@", 1)[-1]
+                if account_name:
+                    out["account_name"] = account_name
         url_query = ops.get("url_query")
         if url_query is not None:
             from urllib.parse import parse_qs
@@ -528,9 +552,171 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
         return (async_credential, sync_credential)
 
+    def _connect_to(self, account_url: str):
+        """Create BlobServiceClient for a given endpoint URL."""
+        if self.credential is not None:
+            self.service_client = _create_aio_blob_service_client(
+                account_url=account_url,
+                location_mode=self.location_mode,
+                credential=self.credential,
+            )
+        elif self.account_key is not None:
+            self.service_client = _create_aio_blob_service_client(
+                account_url=account_url,
+                location_mode=self.location_mode,
+                credential=self.account_key,
+            )
+        elif self.sas_token is not None:
+            sas = (
+                self.sas_token
+                if self.sas_token.startswith("?")
+                else f"?{self.sas_token}"
+            )
+            self.service_client = _create_aio_blob_service_client(
+                account_url=account_url + sas,
+                location_mode=self.location_mode,
+            )
+        else:
+            # Fall back to anonymous login, and assume public container
+            self.service_client = _create_aio_blob_service_client(
+                account_url=account_url,
+            )
+
+    @property
+    def hns_enabled(self) -> bool:
+        """Whether the storage account has hierarchical namespace enabled."""
+        return getattr(self, "_hns_enabled", False)
+
+    async def _detect_hns(self) -> bool:
+        """Detect whether the storage account has HNS enabled.
+
+        Uses the SDK's ``get_account_information()`` which queries the
+        already-connected blob endpoint. If permission is denied at the
+        account level (e.g. data-plane-only RBAC roles like Storage Blob
+        Data Contributor), falls back to checking DFS reachability.
+        """
+        try:
+            info = await self.service_client.get_account_information()
+            return bool(info.get("is_hns_enabled", False))
+        except Exception:
+            # Fall back to DFS probe when account-level permissions are restricted
+            if getattr(self, "_dfs_url", None):
+                return await self._check_dfs_reachability(
+                    self._dfs_url, timeout=_DFS_PROBE_TIMEOUT
+                )
+            return False
+
+    async def _check_dfs_reachability(
+        self, dfs_url: str, timeout: float = _DFS_PROBE_TIMEOUT
+    ) -> bool:
+        """Probe whether the DFS endpoint is reachable from the current network.
+
+        Sends a lightweight HEAD request through the Azure SDK transport pipeline
+        with zero retries, so any network firewall drop times out in exactly
+        ``timeout`` seconds with no exponential backoff.
+        """
+        try:
+            from azure.core.exceptions import HttpResponseError
+            from azure.core.rest import HttpRequest
+            from azure.storage.filedatalake.aio import (
+                DataLakeServiceClient as AIODataLakeServiceClient,
+            )
+
+            probe_client = AIODataLakeServiceClient(
+                account_url=dfs_url,
+                connection_timeout=timeout,
+                retry_total=0,
+            )
+            try:
+                req = HttpRequest("HEAD", dfs_url)
+                await probe_client._pipeline.run(req)
+                return True
+            except HttpResponseError:
+                # Any HTTP status response (e.g. 400, 401, 403, 404) proves
+                # the network layer connected to the Azure DFS endpoint successfully.
+                return True
+            except Exception as e:
+                logger.info(
+                    "DFS endpoint '%s' unreachable (firewall or network drop: %s); "
+                    "disabling DFS-native renames and using copy+delete fallback.",
+                    dfs_url,
+                    e,
+                )
+                return False
+            finally:
+                await probe_client.close()
+        except ImportError:
+            return False
+
+    def _init_datalake_client(self):
+        """Initialize the DataLake SDK client for HNS accounts.
+
+        Probes DFS connectivity at initialization with a fixed 2.0s timeout.
+        If the DFS endpoint is unreachable due to firewall rules,
+        ``datalake_service_client`` is set to None, allowing operations to fall
+        back to copy+delete immediately with zero runtime delay.
+
+        Requires ``azure-storage-file-datalake``; when not installed, rename
+        operations gracefully fall back to copy+delete.
+        """
+        if not self.hns_enabled:
+            return
+        dfs_url = getattr(self, "_dfs_url", None)
+        if dfs_url is None:
+            logger.debug("No DFS URL available; skipping DataLake client init")
+            return
+
+        is_reachable = sync(
+            self.loop, self._check_dfs_reachability, dfs_url, _DFS_PROBE_TIMEOUT
+        )
+        if not is_reachable:
+            self.datalake_service_client = None
+            return
+
+        try:
+            from azure.storage.filedatalake.aio import (
+                DataLakeServiceClient as AIODataLakeServiceClient,
+            )
+
+            kwargs = {"account_url": dfs_url}
+            if self.credential is not None:
+                kwargs["credential"] = self.credential
+            elif self.account_key is not None:
+                kwargs["credential"] = self.account_key
+            elif self.sas_token is not None:
+                sas = (
+                    self.sas_token
+                    if self.sas_token.startswith("?")
+                    else f"?{self.sas_token}"
+                )
+                kwargs["account_url"] = dfs_url + sas
+
+            if hasattr(self, "_timeout_kwargs"):
+                kwargs.update(self._timeout_kwargs)
+
+            client = AIODataLakeServiceClient(**kwargs)
+            self.datalake_service_client = client
+            weakref.finalize(
+                self,
+                sync,
+                self.loop,
+                close_datalake_client,
+                client,
+            )
+        except ImportError:
+            logger.debug(
+                "azure-storage-file-datalake not installed; "
+                "DFS-native rename unavailable, will use copy+delete fallback"
+            )
+
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
-        Tries credentials first, then connection string and finally account key
+
+        HNS (hierarchical namespace) is detected via DFS probe only if the URL
+        fits patterns of a DFS endpoint URL. A separate ``_dfs_url`` is stored
+        for the DataLake client.  If the DFS endpoint is unreachable at runtime
+        (e.g. due to network rules), operations fall back gracefully to
+        blob-based alternatives.
 
         Raises
         ------
@@ -544,41 +730,57 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         connection_string=self.connection_string,
                     )
                 )
-            elif self.account_name is not None:
-                if hasattr(self, "account_host"):
-                    self.account_url: str = f"https://{self.account_host}"
-                else:
-                    self.account_url: str = (
-                        f"https://{self.account_name}.blob.core.windows.net"
-                    )
+                self._hns_enabled = False
+                self._dfs_url = None
+                return
 
-                creds = [self.credential, self.account_key]
-                if any(creds):
-                    self.service_client = [
-                        _create_aio_blob_service_client(
-                            account_url=self.account_url,
-                            location_mode=self.location_mode,
-                            credential=cred,
-                        )
-                        for cred in creds
-                        if cred is not None
-                    ][0]
-                elif self.sas_token is not None:
-                    if not self.sas_token.startswith("?"):
-                        self.sas_token = f"?{self.sas_token}"
-                    self.service_client = _create_aio_blob_service_client(
-                        account_url=self.account_url + self.sas_token,
-                        location_mode=self.location_mode,
-                    )
-                else:
-                    # Fall back to anonymous login, and assume public container
-                    self.service_client = _create_aio_blob_service_client(
-                        account_url=self.account_url,
-                    )
-            else:
+            if self.account_name is None:
                 raise ValueError(
-                    "Must provide either a connection_string or account_name with credentials!!"
+                    "Must provide either a connection_string or account_name"
                 )
+
+            # Consume URL-derived kwargs; default cloud suffix to core.windows.net
+            url_ep = self.kwargs.pop("_url_endpoint_type", None)
+            cloud_suffix = self.kwargs.pop("_url_cloud_suffix", "core.windows.net")
+
+            # If account_host was provided, check if it fits a DFS or Blob endpoint pattern
+            if hasattr(self, "account_host") and self.account_host:
+                host_match = _AZURE_SUFFIX_PATTERN.search(self.account_host)
+                if host_match:
+                    url_ep = host_match.group("endpoint_type")
+                    cloud_suffix = host_match.group("suffix")
+
+            if (
+                "." in cloud_suffix
+                and not cloud_suffix.startswith("core.")
+                and not cloud_suffix.startswith("fabric.")
+            ):
+                cloud_suffix = f"core.{cloud_suffix}"
+            self._cloud_suffix = cloud_suffix
+
+            blob_url = f"https://{self.account_name}.blob.{cloud_suffix}"
+
+            # DFS probe is only decided based on the URL. Only probe if the URL fits
+            # patterns of a DFS endpoint URL.
+            if url_ep == "dfs":
+                self._dfs_url = f"https://{self.account_name}.dfs.{cloud_suffix}"
+                if hasattr(self, "account_host"):
+                    self.account_url = f"https://{self.account_host}"
+                else:
+                    self.account_url = blob_url
+
+                self._connect_to(self.account_url)
+                self._hns_enabled = sync(self.loop, self._detect_hns)
+            else:
+                self._dfs_url = None
+                self._hns_enabled = False
+
+                if hasattr(self, "account_host"):
+                    self.account_url = f"https://{self.account_host}"
+                else:
+                    self.account_url = blob_url
+
+                self._connect_to(self.account_url)
 
         except RuntimeError:
             loop = get_loop()
@@ -1492,6 +1694,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
         return await self._dir_exists(container_name, path)
 
     async def _dir_exists(self, container, path):
+        if self.hns_enabled and path:
+            dir_path = path.rstrip("/")
+            try:
+                async with self.service_client.get_blob_client(
+                    container=container, blob=dir_path
+                ) as bc:
+                    props = await bc.get_blob_properties()
+                    meta = props.metadata or {}
+                    if (
+                        meta.get("hdi_isfolder", "").lower() == "true"
+                        or meta.get("is_directory") == "true"
+                    ):
+                        return True
+            except ResourceNotFoundError:
+                pass
+        # Non-HNS (or fallback for implicit directories without markers)
         dir_path = path.rstrip("/") + "/"
         try:
             async with self.service_client.get_container_client(
@@ -1800,6 +2018,22 @@ class AzureBlobFileSystem(AsyncFileSystem):
         container1, blob1, version_id = self.split_path(path1, delimiter="/")
         container2, blob2, _ = self.split_path(path2, delimiter="/")
 
+        # When called via copy(recursive=True), fsspec may include directory
+        # paths in the expanded list. On HNS accounts directories are real
+        # blob objects — attempting to copy them will fail.
+        if self.hns_enabled and not version_id:
+            try:
+                entry = self._ls_from_cache(path1)
+                if entry and entry[0].get("type") == "directory":
+                    return
+            except (FileNotFoundError, KeyError):
+                # Cache miss — check explicitly for HNS directory markers
+                try:
+                    if await self._isdir(path1):
+                        return
+                except Exception:
+                    pass
+
         cc1 = self.service_client.get_container_client(container1)
         blobclient1 = cc1.get_blob_client(blob=blob1)
         if container1 == container2:
@@ -1822,6 +2056,87 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self.invalidate_cache(container2)
 
     cp_file = sync_wrapper(_cp_file)
+
+    async def _mv_file(self, path1, path2, **kwargs):
+        """Move file or directory using DFS-native rename on HNS accounts,
+        or fall back to server-side copy + delete.
+
+        The fallback is not atomic: if the delete fails after a successful
+        copy, the file will exist in both locations.
+        """
+        if path1 == path2:
+            return
+        container1, blob1, _ = self.split_path(path1)
+        container2, blob2, _ = self.split_path(path2)
+
+        # Try DFS-native rename for same-container moves on HNS
+        if (
+            self.hns_enabled
+            and container1 == container2
+            and getattr(self, "datalake_service_client", None) is not None
+            and blob1
+            and blob2
+        ):
+            try:
+                fsc = self.datalake_service_client.get_file_system_client(container1)
+                new_name = f"{container1}/{blob2}"
+                if await self._isdir(path1):
+                    dc = fsc.get_directory_client(blob1)
+                    await dc.rename_directory(new_name=new_name)
+                else:
+                    fc = fsc.get_file_client(blob1)
+                    await fc.rename_file(new_name=new_name)
+                self.invalidate_cache(path1)
+                self.invalidate_cache(self._parent(path1))
+                self.invalidate_cache(path2)
+                self.invalidate_cache(self._parent(path2))
+                return
+            except Exception as e:
+                logger.warning(
+                    "DFS-native rename failed for %s -> %s, "
+                    "falling back to copy+delete: %s",
+                    path1,
+                    path2,
+                    e,
+                )
+                # Circuit breaker: disable client so subsequent calls fall back immediately
+                self.datalake_service_client = None
+
+        # Fallback: server-side copy + delete (not atomic)
+        await self._cp_file(path1, path2)
+        await self._rm_file(path1)
+
+    mv_file = sync_wrapper(_mv_file)
+
+    def mv(self, path1, path2, recursive=False, maxdepth=None, **kwargs):
+        """Move file(s) or directory from one location to another."""
+        if path1 == path2:
+            logger.debug("%s mv: The paths are the same, so no files were moved.", self)
+            return
+
+        container1, blob1, _ = self.split_path(path1)
+        container2, blob2, _ = self.split_path(path2)
+
+        if (
+            self.hns_enabled
+            and container1 == container2
+            and getattr(self, "datalake_service_client", None) is not None
+            and blob1
+            and blob2
+        ):
+            try:
+                sync(self.loop, self._mv_file, path1, path2, **kwargs)
+                return
+            except Exception as e:
+                logger.debug(
+                    "DFS-native mv failed for %s -> %s, "
+                    "falling back to super().mv(): %s",
+                    path1,
+                    path2,
+                    e,
+                )
+
+        super().mv(path1, path2, recursive=recursive, maxdepth=maxdepth, **kwargs)
 
     def upload(self, lpath, rpath, recursive=False, **kwargs):
         """Alias of :ref:`FilesystemSpec.put`."""
@@ -2158,12 +2473,13 @@ class AzureBlobFile(AbstractBufferedFile):
         ValueError if none of the connection details are available
         """
         try:
-            if hasattr(self.fs, "account_host"):
-                self.fs.account_url: str = f"https://{self.fs.account_host}"
-            else:
-                self.fs.account_url: str = (
-                    f"https://{self.fs.account_name}.blob.core.windows.net"
-                )
+            if not hasattr(self.fs, "account_url") or not self.fs.account_url:
+                if hasattr(self.fs, "account_host"):
+                    self.fs.account_url = f"https://{self.fs.account_host}"
+                else:
+                    self.fs.account_url = (
+                        f"https://{self.fs.account_name}.blob.core.windows.net"
+                    )
 
             creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
             if any(creds):
