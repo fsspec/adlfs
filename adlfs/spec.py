@@ -177,6 +177,15 @@ def _as_content_settings(
     return ContentSettings(**content_settings)
 
 
+def _file_metadata(metadata: Optional[dict]) -> dict:
+    """Merge caller ``metadata`` with the file marker for an uploaded blob.
+
+    The ``is_directory`` marker always wins, because adlfs reads it to tell
+    files from directories.
+    """
+    return {**(metadata or {}), "is_directory": "false"}
+
+
 class AzureBlobFileSystem(AsyncFileSystem):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access
@@ -1513,6 +1522,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if kwargs.pop("mode", "") == "create":
             overwrite = False
         content_settings = _as_content_settings(kwargs.pop("content_settings", None))
+        metadata = _file_metadata(kwargs.pop("metadata", None))
         container_name, path, _ = self.split_path(path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=path
@@ -1521,7 +1531,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                 result = await bc.upload_blob(
                     data=value,
                     overwrite=overwrite,
-                    metadata={"is_directory": "false"},
+                    metadata=metadata,
                     content_settings=content_settings,
                     max_concurrency=max_concurrency or self.max_concurrency,
                     **self._timeout_kwargs,
@@ -1754,6 +1764,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
         if kwargs.pop("mode", "") == "create":
             overwrite = False
         content_settings = _as_content_settings(kwargs.pop("content_settings", None))
+        metadata = _file_metadata(kwargs.pop("metadata", None))
         container_name, path, _ = self.split_path(rpath, delimiter=delimiter)
 
         if os.path.isdir(lpath):
@@ -1767,7 +1778,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
                         await bc.upload_blob(
                             f1,
                             overwrite=overwrite,
-                            metadata={"is_directory": "false"},
+                            metadata=metadata,
                             content_settings=content_settings,
                             raw_response_hook=make_callback(
                                 "upload_stream_current", callback

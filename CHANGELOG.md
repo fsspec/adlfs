@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- Fixed `put_file()`, `put()` and `pipe_file()` failing with `TypeError: upload_blob() got multiple values for keyword argument 'metadata'` when called with `metadata=`. Caller metadata is now merged with the `is_directory` marker.
 
 2026.8.0
 --------
