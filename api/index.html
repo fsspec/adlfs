@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="index" title="Index" href="../genindex/"><link rel="search" title="Search" href="../search/"><link rel="prev" title="adlfs" href="../">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+    <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
         <title>API Reference - adlfs documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
@@ -562,33 +562,33 @@ Note that the account_name parameter is still required.</p>
 </div>
 <p class="rubric">Examples</p>
 <p>Authentication with an account_key</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;XXXX&quot;</span><span class="p">,</span> <span class="n">account_key</span><span class="o">=</span><span class="s2">&quot;XXXX&quot;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">"XXXX"</span><span class="p">,</span> <span class="n">account_key</span><span class="o">=</span><span class="s2">"XXXX"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Authentication with an Azure ServicePrincipal</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;XXXX&quot;</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="n">TENANT_ID</span><span class="p">,</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">"XXXX"</span><span class="p">,</span> <span class="n">tenant_id</span><span class="o">=</span><span class="n">TENANT_ID</span><span class="p">,</span>
 <span class="gp">... </span>                           <span class="n">client_id</span><span class="o">=</span><span class="n">CLIENT_ID</span><span class="p">,</span> <span class="n">client_secret</span><span class="o">=</span><span class="n">CLIENT_SECRET</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Authentication with DefaultAzureCredential</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">&quot;XXXX&quot;</span><span class="p">,</span> <span class="n">anon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span> <span class="o">=</span> <span class="n">AzureBlobFileSystem</span><span class="p">(</span><span class="n">account_name</span><span class="o">=</span><span class="s2">"XXXX"</span><span class="p">,</span> <span class="n">anon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">abfs</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s1">''</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Read files as</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;abfs://container_name/folder/*.csv&#39;</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
-<span class="gp">... </span>    <span class="s1">&#39;account_name&#39;</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">&#39;tenant_id&#39;</span><span class="p">:</span> <span class="n">TENANT_ID</span><span class="p">,</span> <span class="s1">&#39;client_id&#39;</span><span class="p">:</span> <span class="n">CLIENT_ID</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;client_secret&#39;</span><span class="p">:</span> <span class="n">CLIENT_SECRET</span><span class="p">})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">'abfs://container_name/folder/*.csv'</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
+<span class="gp">... </span>    <span class="s1">'account_name'</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">'tenant_id'</span><span class="p">:</span> <span class="n">TENANT_ID</span><span class="p">,</span> <span class="s1">'client_id'</span><span class="p">:</span> <span class="n">CLIENT_ID</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">'client_secret'</span><span class="p">:</span> <span class="n">CLIENT_SECRET</span><span class="p">})</span>
 <span class="gp">... </span><span class="p">})</span>
 </pre></div>
 </div>
 <p>Sharded Parquet &amp; csv files can be read as:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;abfs://container_name/folder/*.csv&#39;</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
-<span class="gp">... </span>                  <span class="s1">&#39;account_name&#39;</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">&#39;account_key&#39;</span><span class="p">:</span> <span class="n">ACCOUNT_KEY</span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s1">&#39;abfs://container_name/folder.parquet&#39;</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
-<span class="gp">... </span>                      <span class="s1">&#39;account_name&#39;</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">&#39;account_key&#39;</span><span class="p">:</span> <span class="n">ACCOUNT_KEY</span><span class="p">,})</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">'abfs://container_name/folder/*.csv'</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
+<span class="gp">... </span>                  <span class="s1">'account_name'</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">'account_key'</span><span class="p">:</span> <span class="n">ACCOUNT_KEY</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ddf</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="s1">'abfs://container_name/folder.parquet'</span><span class="p">,</span> <span class="n">storage_options</span><span class="o">=</span><span class="p">{</span>
+<span class="gp">... </span>                      <span class="s1">'account_name'</span><span class="p">:</span> <span class="n">ACCOUNT_NAME</span><span class="p">,</span> <span class="s1">'account_key'</span><span class="p">:</span> <span class="n">ACCOUNT_KEY</span><span class="p">,})</span>
 </pre></div>
 </div>
 <dl class="py method">
@@ -815,12 +815,12 @@ efficient when you don’t need the operation.</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">split_path</span><span class="p">(</span><span class="s2">&quot;abfs://my_container/path/to/file&quot;</span><span class="p">)</span>
-<span class="go">[&#39;my_container&#39;, &#39;path/to/file&#39;]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">split_path</span><span class="p">(</span><span class="s2">"abfs://my_container/path/to/file"</span><span class="p">)</span>
+<span class="go">['my_container', 'path/to/file']</span>
 </pre></div>
 </div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">split_path</span><span class="p">(</span><span class="s2">&quot;abfs://my_container/path/to/versioned_file?versionid=some_version_id&quot;</span><span class="p">)</span>
-<span class="go">[&#39;my_container&#39;, &#39;path/to/versioned_file&#39;, &#39;some_version_id&#39;]</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">split_path</span><span class="p">(</span><span class="s2">"abfs://my_container/path/to/versioned_file?versionid=some_version_id"</span><span class="p">)</span>
+<span class="go">['my_container', 'path/to/versioned_file', 'some_version_id']</span>
 </pre></div>
 </div>
 </dd></dl>
