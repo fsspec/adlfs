@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- Fixed `cat_file()` and `cat_ranges()` raising `ValueError: Required Content-Range response header is missing or malformed` for negative offsets and empty ranges. Negative `start`/`end` values are now resolved against the blob size like a Python slice, which is how zarr v3 reads shard indexes.
 
 2026.8.0
 --------

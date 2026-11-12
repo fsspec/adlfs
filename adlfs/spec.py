@@ -1544,16 +1544,24 @@ class AzureBlobFileSystem(AsyncFileSystem):
         self, path, start=None, end=None, max_concurrency=None, **kwargs
     ):
         stripped_path = self._strip_protocol(path)
-        if end is not None:
-            start = start or 0  # download_blob requires start if length is provided.
-            length = end - start
-        else:
-            length = None
         container_name, blob, version_id = self.split_path(stripped_path)
         async with self.service_client.get_blob_client(
             container=container_name, blob=blob
         ) as bc:
             try:
+                if (start is not None and start < 0) or (end is not None and end < 0):
+                    # Azure has no suffix ranges, so resolve negative offsets
+                    # against the blob size, the same way a Python slice does.
+                    props = await bc.get_blob_properties(version_id=version_id)
+                    start, end, _ = slice(start, end).indices(props.size)
+                if end is not None:
+                    # download_blob requires start if length is provided.
+                    start = start or 0
+                    if start >= end:
+                        return b""
+                    length = end - start
+                else:
+                    length = None
                 stream = await bc.download_blob(
                     offset=start,
                     length=length,

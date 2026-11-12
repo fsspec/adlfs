@@ -1682,6 +1682,51 @@ def test_cat_file(storage):
     fs.rm("catdir/catfile.txt")
 
 
+@pytest.mark.parametrize(
+    "start, end",
+    [
+        (-3, None),
+        (None, -1),
+        (2, -2),
+        (-4, -1),
+        (-20, None),
+        (None, -20),
+        (5, 5),
+        (5, 3),
+    ],
+)
+def test_cat_file_negative_offsets_and_empty_ranges(storage, start, end):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    data = b"0123456789"
+    assert fs.cat_file("data/top_file.txt", start=start, end=end) == data[start:end]
+    assert fs.cat_ranges(["data/top_file.txt"], [start], [end]) == [data[start:end]]
+
+
+async def test_cat_file_negative_offsets_versioned(storage, mocker):
+    from azure.storage.blob.aio import BlobClient
+
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name,
+        connection_string=CONN_STR,
+        version_aware=True,
+        skip_instance_cache=True,
+    )
+    get_blob_properties = mocker.patch.object(BlobClient, "get_blob_properties")
+    get_blob_properties.return_value.size = 10
+    download_blob = mocker.patch.object(BlobClient, "download_blob")
+
+    await fs._cat_file(f"data/root/a/file.txt?versionid={DEFAULT_VERSION_ID}", start=-3)
+    get_blob_properties.assert_called_once_with(version_id=DEFAULT_VERSION_ID)
+    download_blob.assert_called_once_with(
+        offset=7,
+        length=3,
+        version_id=DEFAULT_VERSION_ID,
+        max_concurrency=fs.max_concurrency,
+    )
+
+
 def test_cat_file_missing(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
@@ -1692,6 +1737,9 @@ def test_cat_file_missing(storage):
 
     with pytest.raises(FileNotFoundError):
         fs.cat_file("does/not/exist")
+
+    with pytest.raises(FileNotFoundError):
+        fs.cat_file("catdir/not/exist", start=-3)
 
 
 async def test_cat_file_versioned(storage, mocker):
