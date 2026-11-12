@@ -94,9 +94,21 @@ async def close_credential(file_obj):
     Implements asynchronous closure of credentials for
     AzureBlobFile objects
     """
-    credential = file_obj.credential
+    await _close_credential(file_obj.credential)
+
+
+async def _close_credential(credential):
     if credential is not None and hasattr(credential, "close"):
         if inspect.iscoroutinefunction(credential.close):
             await credential.close()
         else:
             credential.close()
+
+
+async def close_clients(service_client, credential):
+    """
+    Implements asynchronous closure of the service client and
+    credential of an AzureBlobFileSystem
+    """
+    await service_client.close()
+    await _close_credential(credential)

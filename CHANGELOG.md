@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- .
+- Fixed `RuntimeError: Loop is not running` raised at garbage collection or interpreter exit when the event loop an `AzureBlobFileSystem` was bound to had already been closed (e.g. when used with zarr's `FsspecStore`). The finalizer now skips the cleanup if the loop is no longer usable, and no longer keeps the filesystem alive until exit. Added `AzureBlobFileSystem.close()` / `await fs._close()` to release the service client and credential explicitly. (#495)
 
 2026.8.0
 --------

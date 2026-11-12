@@ -37,14 +37,14 @@ from azure.storage.blob import (
 from azure.storage.blob.aio import BlobPrefix
 from azure.storage.blob.aio import BlobServiceClient as AIOBlobServiceClient
 from fsspec.asyn import AsyncFileSystem, _get_batch_size, get_loop, sync, sync_wrapper
+from fsspec.exceptions import FSTimeoutError
 from fsspec.spec import AbstractBufferedFile
 from fsspec.utils import infer_storage_options
 
 from .utils import (
     __version__,
+    close_clients,
     close_container_client,
-    close_credential,
-    close_service_client,
     filter_blobs,
     get_blob_metadata,
     match_blob_version,
@@ -397,16 +397,56 @@ class AzureBlobFileSystem(AsyncFileSystem):
             ) = self._get_default_azure_credential(**kwargs)
 
         self.do_connect()
-        weakref.finalize(self, sync, self.loop, close_service_client, self)
-
-        if self.credential is not None:
-            weakref.finalize(self, sync, self.loop, close_credential, self)
+        # NB: the finalizer must not reference ``self``, or the instance would
+        # never be garbage collected and would only be cleaned up at exit.
+        self._finalizer = weakref.finalize(
+            self, self.close_session, self.loop, self.service_client, self.credential
+        )
 
         if max_concurrency is None:
             batch_size = _get_batch_size()
             if batch_size > 0:
                 max_concurrency = batch_size
         self.max_concurrency = max_concurrency
+
+    @staticmethod
+    def close_session(loop, service_client, credential):
+        """Close the service client and credential at garbage collection time.
+
+        The closure is performed on ``loop``, which is the only place where the
+        async clients can be shut down. If that loop no longer exists, is
+        closed or is not running (e.g., at interpreter shutdown, or because the
+        caller's loop finished before this instance was collected), there is
+        nothing safe left to do and the cleanup is skipped.
+        """
+        if loop is None or loop.is_closed() or not loop.is_running():
+            return
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+        if running_loop is loop:
+            # we are inside the loop's own thread, so we cannot block on it
+            loop.create_task(close_clients(service_client, credential))
+            return
+        try:
+            sync(loop, close_clients, service_client, credential)
+        except (RuntimeError, FSTimeoutError):
+            # the loop went away while we were waiting
+            pass
+
+    async def _close(self):
+        """Close the underlying service client and credential.
+
+        Calling this more than once is a no-op. Once closed, the instance
+        is no longer usable.
+        """
+        if self._finalizer.detach() is None:
+            # already closed; the finalizer has been detached or has run
+            return
+        await close_clients(self.service_client, self.credential)
+
+    close = sync_wrapper(_close)
 
     @classmethod
     def _strip_protocol(cls, path: str):
