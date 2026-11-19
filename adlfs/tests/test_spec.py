@@ -1496,7 +1496,7 @@ def test_pipe_file_with_metadata(storage):
     fs.mkdir("test-meta-pipe")
     fs.pipe_file("test-meta-pipe/piped.txt", b"0123456789", metadata={"k": "v"})
     info = fs.info("test-meta-pipe/piped.txt")
-    assert info["metadata"] == {"k": "v", "is_directory": "false"}
+    assert info["metadata"] == {"k": "v"}
     assert info["type"] == "file"
     assert fs.cat_file("test-meta-pipe/piped.txt") == b"0123456789"
     fs.rmdir("test-meta-pipe")
@@ -1512,24 +1512,22 @@ def test_put_methods_with_metadata(storage, put_method, tmp_path):
     local.write_bytes(b"0123456789")
     getattr(fs, put_method)(str(local), "test-meta-put/put.txt", metadata={"k": "v"})
     info = fs.info("test-meta-put/put.txt")
-    assert info["metadata"] == {"k": "v", "is_directory": "false"}
+    assert info["metadata"] == {"k": "v"}
     assert info["type"] == "file"
     assert fs.cat_file("test-meta-put/put.txt") == b"0123456789"
     fs.rmdir("test-meta-put")
 
 
-def test_metadata_does_not_override_directory_marker(storage):
-    # adlfs relies on is_directory to tell files from folders, so a caller
-    # value must not turn a file into a directory marker.
+def test_pipe_file_without_metadata_marks_file(storage):
     fs = AzureBlobFileSystem(
         account_name=storage.account_name, connection_string=CONN_STR
     )
-    fs.mkdir("test-meta-marker")
-    fs.pipe_file("test-meta-marker/f.txt", b"x", metadata={"is_directory": "true"})
-    info = fs.info("test-meta-marker/f.txt")
+    fs.mkdir("test-meta-default")
+    fs.pipe_file("test-meta-default/f.txt", b"x")
+    info = fs.info("test-meta-default/f.txt")
     assert info["metadata"] == {"is_directory": "false"}
     assert info["type"] == "file"
-    fs.rmdir("test-meta-marker")
+    fs.rmdir("test-meta-default")
 
 
 def test_content_settings_accepts_object(storage):

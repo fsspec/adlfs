@@ -2,7 +2,7 @@
 
 Unreleased
 ----------
-- Fixed `put_file()`, `put()` and `pipe_file()` failing with `TypeError: upload_blob() got multiple values for keyword argument 'metadata'` when called with `metadata=`. Caller metadata is now merged with the `is_directory` marker.
+- Fixed `put_file()`, `put()` and `pipe_file()` failing with `TypeError: upload_blob() got multiple values for keyword argument 'metadata'` when called with `metadata=`. Caller metadata is now used as is, consistent with `open()`; the default `is_directory` marker is only set when no metadata is given. [#561](https://github.com/fsspec/adlfs/issues/561)
 
 2026.8.0
 --------

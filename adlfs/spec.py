@@ -178,12 +178,12 @@ def _as_content_settings(
 
 
 def _file_metadata(metadata: Optional[dict]) -> dict:
-    """Merge caller ``metadata`` with the file marker for an uploaded blob.
+    """Return the blob metadata for an uploaded file.
 
-    The ``is_directory`` marker always wins, because adlfs reads it to tell
-    files from directories.
+    Caller ``metadata`` is used as is, matching ``AzureBlobFile``; without it
+    the default ``is_directory`` marker for files is set.
     """
-    return {**(metadata or {}), "is_directory": "false"}
+    return metadata or {"is_directory": "false"}
 
 
 class AzureBlobFileSystem(AsyncFileSystem):
