@@ -376,12 +376,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.client_id is not None
             and self.connection_string is None
         ):
-            (
-                self.credential,
-                self.sync_credential,
-            ) = self._get_credential_from_service_principal()
-        else:
-            self.sync_credential = None
+            self.credential = self._get_credential_from_service_principal()
 
         # Solving issue in https://github.com/fsspec/adlfs/issues/270
         if (
@@ -391,10 +386,7 @@ class AzureBlobFileSystem(AsyncFileSystem):
             and self.account_key is None
             and self.connection_string is None
         ):
-            (
-                self.credential,
-                self.sync_credential,
-            ) = self._get_default_azure_credential(**kwargs)
+            self.credential = self._get_default_azure_credential(**kwargs)
 
         self.do_connect()
         weakref.finalize(self, sync, self.loop, close_service_client, self)
@@ -483,50 +475,34 @@ class AzureBlobFileSystem(AsyncFileSystem):
 
     def _get_credential_from_service_principal(self):
         """
-        Create a Credential for authentication.  This can include a TokenCredential
-        client_id, client_secret and tenant_id
+        Create a Credential for authentication.
+
+        This can include a TokenCredential client_id, client_secret and tenant_id.
 
         Returns
         -------
-        Tuple of (Async Credential, Sync Credential).
+        Async Credential
         """
-        from azure.identity import ClientSecretCredential
-        from azure.identity.aio import (
-            ClientSecretCredential as AIOClientSecretCredential,
-        )
+        from azure.identity.aio import ClientSecretCredential
 
-        async_credential = AIOClientSecretCredential(
+        return ClientSecretCredential(
             tenant_id=self.tenant_id,
             client_id=self.client_id,
             client_secret=self.client_secret,
         )
-
-        sync_credential = ClientSecretCredential(
-            tenant_id=self.tenant_id,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-        )
-
-        return (async_credential, sync_credential)
 
     def _get_default_azure_credential(self, **kwargs):
         """
-        Create a Credential for authentication using DefaultAzureCredential
+        Create a Credential for authentication using DefaultAzureCredential.
 
         Returns
         -------
-        Tuple of (Async Credential, Sync Credential).
+        Async Credential
         """
 
-        from azure.identity import DefaultAzureCredential
-        from azure.identity.aio import (
-            DefaultAzureCredential as AIODefaultAzureCredential,
-        )
+        from azure.identity.aio import DefaultAzureCredential
 
-        async_credential = AIODefaultAzureCredential(**kwargs)
-        sync_credential = DefaultAzureCredential(**kwargs)
-
-        return (async_credential, sync_credential)
+        return DefaultAzureCredential(**kwargs)
 
     def do_connect(self):
         """Connect to the BlobServiceClient, using user-specified connection details.
@@ -2165,7 +2141,7 @@ class AzureBlobFile(AbstractBufferedFile):
                     f"https://{self.fs.account_name}.blob.core.windows.net"
                 )
 
-            creds = [self.fs.sync_credential, self.fs.account_key, self.fs.credential]
+            creds = [self.fs.credential, self.fs.account_key]
             if any(creds):
                 self.container_client = [
                     _create_aio_blob_service_client(
