@@ -1413,6 +1413,77 @@ def test_metadata_write(storage):
     fs.rmdir("test-metadata-write")
 
 
+def test_metadata_write_without_metadata_marks_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-metadata-write-default")
+    with fs.open("test-metadata-write-default/file.txt", "wb") as f:
+        f.write(b"x")
+    info = fs.info("test-metadata-write-default/file.txt")
+    assert info["metadata"] == {"is_directory": "false"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-metadata-write-default/file.txt") == b"x"
+    fs.rmdir("test-metadata-write-default")
+
+
+def test_pipe_file_with_metadata(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-pipe")
+    fs.pipe_file("test-meta-pipe/piped.txt", b"0123456789", metadata={"k": "v"})
+    info = fs.info("test-meta-pipe/piped.txt")
+    assert info["metadata"] == {"k": "v"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-meta-pipe/piped.txt") == b"0123456789"
+    fs.rmdir("test-meta-pipe")
+
+
+def test_pipe_file_without_metadata_marks_file(storage):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-default")
+    fs.pipe_file("test-meta-default/f.txt", b"x")
+    info = fs.info("test-meta-default/f.txt")
+    assert info["metadata"] == {"is_directory": "false"}
+    assert info["type"] == "file"
+    fs.rmdir("test-meta-default")
+
+
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_with_metadata(storage, put_method, tmp_path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-put")
+    local = tmp_path / "f.txt"
+    local.write_bytes(b"0123456789")
+    getattr(fs, put_method)(str(local), "test-meta-put/put.txt", metadata={"k": "v"})
+    info = fs.info("test-meta-put/put.txt")
+    assert info["metadata"] == {"k": "v"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-meta-put/put.txt") == b"0123456789"
+    fs.rmdir("test-meta-put")
+
+
+@pytest.mark.parametrize("put_method", ["put", "put_file"])
+def test_put_methods_without_metadata_marks_file(storage, put_method, tmp_path):
+    fs = AzureBlobFileSystem(
+        account_name=storage.account_name, connection_string=CONN_STR
+    )
+    fs.mkdir("test-meta-put-default")
+    local = tmp_path / "f.txt"
+    local.write_bytes(b"x")
+    getattr(fs, put_method)(str(local), "test-meta-put-default/put.txt")
+    info = fs.info("test-meta-put-default/put.txt")
+    assert info["metadata"] == {"is_directory": "false"}
+    assert info["type"] == "file"
+    assert fs.cat_file("test-meta-put-default/put.txt") == b"x"
+    fs.rmdir("test-meta-put-default")
+
+
 CONTENT_SETTINGS = {
     "content_type": "application/pdf",
     "content_disposition": 'attachment; filename="f.pdf"',
@@ -1487,47 +1558,6 @@ def test_content_settings_put_file(storage, tmp_path):
     assert info["content_settings"]["content_type"] == "application/pdf"
     assert fs.cat_file("test-cs-put/put.pdf") == b"0123456789"
     fs.rmdir("test-cs-put")
-
-
-def test_pipe_file_with_metadata(storage):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    fs.mkdir("test-meta-pipe")
-    fs.pipe_file("test-meta-pipe/piped.txt", b"0123456789", metadata={"k": "v"})
-    info = fs.info("test-meta-pipe/piped.txt")
-    assert info["metadata"] == {"k": "v"}
-    assert info["type"] == "file"
-    assert fs.cat_file("test-meta-pipe/piped.txt") == b"0123456789"
-    fs.rmdir("test-meta-pipe")
-
-
-@pytest.mark.parametrize("put_method", ["put", "put_file"])
-def test_put_methods_with_metadata(storage, put_method, tmp_path):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    fs.mkdir("test-meta-put")
-    local = tmp_path / "f.txt"
-    local.write_bytes(b"0123456789")
-    getattr(fs, put_method)(str(local), "test-meta-put/put.txt", metadata={"k": "v"})
-    info = fs.info("test-meta-put/put.txt")
-    assert info["metadata"] == {"k": "v"}
-    assert info["type"] == "file"
-    assert fs.cat_file("test-meta-put/put.txt") == b"0123456789"
-    fs.rmdir("test-meta-put")
-
-
-def test_pipe_file_without_metadata_marks_file(storage):
-    fs = AzureBlobFileSystem(
-        account_name=storage.account_name, connection_string=CONN_STR
-    )
-    fs.mkdir("test-meta-default")
-    fs.pipe_file("test-meta-default/f.txt", b"x")
-    info = fs.info("test-meta-default/f.txt")
-    assert info["metadata"] == {"is_directory": "false"}
-    assert info["type"] == "file"
-    fs.rmdir("test-meta-default")
 
 
 def test_content_settings_accepts_object(storage):

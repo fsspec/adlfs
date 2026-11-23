@@ -180,7 +180,7 @@ def _as_content_settings(
 def _file_metadata(metadata: Optional[dict]) -> dict:
     """Return the blob metadata for an uploaded file.
 
-    Caller ``metadata`` is used as is, matching ``AzureBlobFile``; without it
+    Caller ``metadata`` is used as is; without it
     the default ``is_directory`` marker for files is set.
     """
     return metadata or {"is_directory": "false"}
@@ -2107,7 +2107,7 @@ class AzureBlobFile(AbstractBufferedFile):
             )
 
         else:
-            self._metadata = metadata or {"is_directory": "false"}
+            self._metadata = _file_metadata(metadata)
             self._content_settings = _as_content_settings(content_settings)
             self.buffer = io.BytesIO()
             self.offset = None
