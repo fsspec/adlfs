@@ -63,6 +63,8 @@ If no credentials/configuration is provided, `DefaultAzureCredential` will be us
 - `anon`: bool, optional. Set to `True` to use anonymous authentication. If not set, the `AZURE_STORAGE_ANON` environment variable will be checked before defaulting to `False` where credentials are discovered on the system.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
+`AzureBlobFileSystem` creates its own async [`BlobServiceClient`](https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.aio.blobserviceclient) from the arguments listed above. Other `BlobServiceClient` keyword arguments are not passed through to it.
+
 For more argument details see all arguments for [`AzureBlobFileSystem` here](https://fsspec.github.io/adlfs/api/#adlfs.AzureBlobFileSystem)
 
 The following environmental variables can also be set and picked up for authentication:
@@ -78,8 +80,6 @@ The filesystem can be instantiated for different use cases based on a variety of
 1. Auto credential solving using Azure's DefaultAzureCredential() library: `storage_options={'account_name': ACCOUNT_NAME}` will use [`DefaultAzureCredential`](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python) to get valid credentials to the container `ACCOUNT_NAME`. `DefaultAzureCredential` attempts to authenticate via the [mechanisms and order visualized here](https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python#defaultazurecredential).
 2. Anonymous connection to public container: `storage_options={'account_name': ACCOUNT_NAME, 'anon': True}` will assume the `ACCOUNT_NAME` points to a public container, and attempt to use an anonymous login. Note, the default value for `anon` is False.
 3. Azure ServicePrincipal: `tenant_id`, `client_id`, and `client_secret` are all used as credentials for an Azure ServicePrincipal: e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`.
-
-`AzureBlobFileSystem` creates its own `BlobServiceClient` and does not pass other [BlobServiceClient arguments](https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.aio.blobserviceclient) such as `retry_total` through to it. When no other credential is given and `anon` is False, extra keyword arguments are passed to `DefaultAzureCredential` instead.
 
 ### Append Blob
 By default, write operations create BlockBlobs in Azure, which, once written can not be appended. It is possible to create an AppendBlob using `mode="ab"` when creating and operating on blobs. Currently, AppendBlobs are not available if hierarchical namespaces are enabled.
