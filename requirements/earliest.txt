@@ -2,3 +2,4 @@
 fsspec==2023.12.0
 azure-core==1.28.0
 azure-storage-blob==12.17.0
+azure-storage-file-datalake==12.14.0

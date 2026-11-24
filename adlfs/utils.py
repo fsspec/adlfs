@@ -100,3 +100,11 @@ async def close_credential(file_obj):
             await credential.close()
         else:
             credential.close()
+
+
+async def close_datalake_client(client):
+    """
+    Implements asynchronous closure of a DataLakeServiceClient.
+    """
+    if client is not None and hasattr(client, "close"):
+        await client.close()

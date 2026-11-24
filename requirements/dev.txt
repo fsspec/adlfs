@@ -2,6 +2,7 @@
 git+https://github.com/fsspec/filesystem_spec
 azure-core
 azure-storage-blob
+azure-storage-file-datalake
 black
 flake8
 isort

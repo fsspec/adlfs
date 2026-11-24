@@ -2,3 +2,4 @@
 fsspec
 azure-core<2.0.0
 azure-storage-blob
+azure-storage-file-datalake

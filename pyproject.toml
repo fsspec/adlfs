@@ -28,6 +28,7 @@ dependencies = [
     "azure-core>=1.28.0,<2.0.0",
     "azure-identity",
     "azure-storage-blob[aio]>=12.17.0",
+    "azure-storage-file-datalake[aio]>=12.14.0",
     "fsspec>=2023.12.0",
 ]
 
