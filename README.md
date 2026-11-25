@@ -80,8 +80,6 @@ The filesystem can be instantiated for different use cases based on a variety of
 3. Azure ServicePrincipal: `tenant_id`, `client_id`, and `client_secret` are all used as credentials for an Azure ServicePrincipal: e.g. `storage_options={'account_name': ACCOUNT_NAME, 'tenant_id': TENANT_ID, 'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}`.
 
 ### Append Blob
-The `AzureBlobFileSystem` accepts [all of the Async BlobServiceClient arguments](https://docs.microsoft.com/en-us/azure/storage/blobs/storage-quickstart-blobs-python).
-
 By default, write operations create BlockBlobs in Azure, which, once written can not be appended. It is possible to create an AppendBlob using `mode="ab"` when creating and operating on blobs. Currently, AppendBlobs are not available if hierarchical namespaces are enabled.
 
 ### Older versions
