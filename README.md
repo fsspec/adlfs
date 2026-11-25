@@ -63,8 +63,6 @@ If no credentials/configuration is provided, `DefaultAzureCredential` will be us
 - `anon`: bool, optional. Set to `True` to use anonymous authentication. If not set, the `AZURE_STORAGE_ANON` environment variable will be checked before defaulting to `False` where credentials are discovered on the system.
 - `location_mode`: valid values are "primary" or "secondary" and apply to RA-GRS accounts
 
-`AzureBlobFileSystem` creates its own async [`BlobServiceClient`](https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.aio.blobserviceclient) from the arguments listed above. Other `BlobServiceClient` keyword arguments are not passed through to it.
-
 For more argument details see all arguments for [`AzureBlobFileSystem` here](https://fsspec.github.io/adlfs/api/#adlfs.AzureBlobFileSystem)
 
 The following environmental variables can also be set and picked up for authentication:
